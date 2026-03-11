@@ -10,6 +10,8 @@ from app.models.user import User, UserRole, UserStatus
 from app.schemas.admin import (
     AdminCategoryCreateRequest,
     AdminCategoryItem,
+    AdminSiteSettingsResponse,
+    AdminSiteSettingsUpdateRequest,
     AdminCategoryUpdateRequest,
     AdminTorrentListItem,
     AdminTorrentListResponse,
@@ -19,11 +21,40 @@ from app.schemas.admin import (
     AdminUserListResponse,
     AdminUserUpdateRequest,
 )
+from app.internal_admin import set_internal_admin_title
+from app.services.site_settings_service import get_or_create_site_settings
 from app.services.tracker_sync_service import TrackerSyncError, sync_tracker_stats
 from app.services.xbt_tracker_service import XbtTrackerError, upsert_xbt_user
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@router.get("/site-settings", response_model=AdminSiteSettingsResponse)
+def get_admin_site_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> AdminSiteSettingsResponse:
+    return AdminSiteSettingsResponse.model_validate(get_or_create_site_settings(db))
+
+
+@router.patch("/site-settings", response_model=AdminSiteSettingsResponse)
+def update_admin_site_settings(
+    payload: AdminSiteSettingsUpdateRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> AdminSiteSettingsResponse:
+    site_settings = get_or_create_site_settings(db)
+    site_name = payload.site_name.strip()
+    if not site_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Site name cannot be empty")
+
+    site_settings.site_name = site_name
+    db.add(site_settings)
+    db.commit()
+    db.refresh(site_settings)
+    set_internal_admin_title(site_settings.site_name)
+    return AdminSiteSettingsResponse.model_validate(site_settings)
 
 
 def _build_admin_torrent_item(torrent: Torrent) -> AdminTorrentListItem:

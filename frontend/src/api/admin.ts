@@ -1,4 +1,5 @@
 import type { PaginatedResponse } from "@/types";
+import type { SiteSettings } from "@/api/site";
 
 import { apiRequest } from "./http";
 
@@ -22,6 +23,21 @@ export interface AdminTrackerSyncResult {
 
 export function listAdminUsers(): Promise<PaginatedResponse<AdminUserItem>> {
   return apiRequest<PaginatedResponse<AdminUserItem>>("/admin/users");
+}
+
+
+export function getAdminSiteSettings(): Promise<SiteSettings> {
+  return apiRequest<SiteSettings>("/admin/site-settings");
+}
+
+
+export function updateAdminSiteSettings(site_name: string): Promise<SiteSettings> {
+  return apiRequest<SiteSettings>("/admin/site-settings", {
+    method: "PATCH",
+    body: {
+      site_name,
+    },
+  });
 }
 
 

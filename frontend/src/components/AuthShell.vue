@@ -4,6 +4,7 @@ import { RouterLink } from "vue-router";
 
 import LocaleSwitcher from "@/components/LocaleSwitcher.vue";
 import { useI18n } from "@/composables/useI18n";
+import { useSiteDisplayName } from "@/composables/useSiteDisplayName";
 import { resolveAuthThemePreset } from "@/config/authTheme";
 import { useAppearanceStore } from "@/stores/appearance";
 
@@ -25,8 +26,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const appearanceStore = useAppearanceStore();
 const { t } = useI18n();
+const { siteDisplayName } = useSiteDisplayName();
 
-const brandName = computed(() => appearanceStore.state.authBrandName.trim() || t("common.appName"));
+const brandName = computed(() => siteDisplayName.value || t("common.appName"));
 
 const activePreset = computed(() => resolveAuthThemePreset(appearanceStore.state.authThemePreset));
 
@@ -154,9 +156,12 @@ const pageStyle = computed<Record<string, string>>(() => {
 .auth-window-meta {
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--auth-text-muted);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
   .auth-window-body {

@@ -166,25 +166,6 @@ onMounted(() => {
             </label>
 
             <label class="block">
-              <span class="mb-2 block text-sm font-medium text-slate-700">{{ t("profile.appearance.brandLabel") }}</span>
-              <input v-model="appearanceStore.state.authBrandName" class="w-full rounded-xl border border-slate-300 px-4 py-3" />
-            </label>
-
-            <label class="block">
-              <span class="mb-2 block text-sm font-medium text-slate-700">{{ t("profile.appearance.heroTitle") }}</span>
-              <input v-model="appearanceStore.state.authHeadline" class="w-full rounded-xl border border-slate-300 px-4 py-3" />
-            </label>
-
-            <label class="block">
-              <span class="mb-2 block text-sm font-medium text-slate-700">{{ t("profile.appearance.heroSubtitle") }}</span>
-              <textarea
-                v-model="appearanceStore.state.authSupportText"
-                class="w-full rounded-xl border border-slate-300 px-4 py-3"
-                rows="3"
-              />
-            </label>
-
-            <label class="block">
               <span class="mb-2 block text-sm font-medium text-slate-700">{{ t("profile.appearance.authBackgroundImageUrl") }}</span>
               <input v-model="appearanceStore.state.authBackgroundImageUrl" class="w-full rounded-xl border border-slate-300 px-4 py-3" />
             </label>

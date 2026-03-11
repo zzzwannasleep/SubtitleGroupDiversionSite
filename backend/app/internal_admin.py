@@ -13,6 +13,29 @@ from app.core.security import verify_password
 from app.models.category import Category
 from app.models.torrent import Torrent
 from app.models.user import User, UserRole, UserStatus
+from app.services.site_settings_service import get_or_create_site_settings
+
+
+internal_admin: Admin | None = None
+
+
+def build_internal_admin_title(site_name: str | None) -> str:
+    normalized_name = (site_name or "").strip()
+    return f"{normalized_name} Admin" if normalized_name else "Site Admin"
+
+
+def set_internal_admin_title(site_name: str | None) -> None:
+    if internal_admin is not None:
+        internal_admin.title = build_internal_admin_title(site_name)
+
+
+def sync_internal_admin_title() -> None:
+    try:
+        with SessionLocal() as db:
+            site_settings = get_or_create_site_settings(db)
+            set_internal_admin_title(site_settings.site_name)
+    except Exception:
+        set_internal_admin_title(None)
 
 
 class InternalAdminAuth(AuthenticationBackend):
@@ -132,13 +155,15 @@ class TorrentAdminView(ModelView, model=Torrent):
 
 
 def configure_internal_admin(app) -> None:
-    admin = Admin(
+    global internal_admin
+
+    internal_admin = Admin(
         app=app,
         engine=engine,
         authentication_backend=InternalAdminAuth(),
         base_url="/internal-admin",
-        title="PT Platform Admin",
+        title=build_internal_admin_title(None),
     )
-    admin.add_view(UserAdminView)
-    admin.add_view(CategoryAdminView)
-    admin.add_view(TorrentAdminView)
+    internal_admin.add_view(UserAdminView)
+    internal_admin.add_view(CategoryAdminView)
+    internal_admin.add_view(TorrentAdminView)

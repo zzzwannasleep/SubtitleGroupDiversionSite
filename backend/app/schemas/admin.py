@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.models.user import UserRole, UserStatus
+from app.schemas.site import SiteSettingsResponse, SiteSettingsUpdateRequest
 
 
 class AdminUserListItem(BaseModel):
@@ -82,3 +83,11 @@ class AdminTrackerSyncResponse(BaseModel):
     torrent_stats_updated: int
     skipped: bool = False
     message: str
+
+
+class AdminSiteSettingsResponse(SiteSettingsResponse):
+    pass
+
+
+class AdminSiteSettingsUpdateRequest(SiteSettingsUpdateRequest):
+    pass

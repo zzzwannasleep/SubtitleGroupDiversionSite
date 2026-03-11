@@ -17,17 +17,8 @@ interface AppearanceState {
   backgroundImageUrl: string;
   authThemePreset: AuthThemePresetId;
   authAccentColor: string;
-  authBrandName: string;
-  authHeadline: string;
-  authSupportText: string;
   authBackgroundImageUrl: string;
 }
-
-const LEGACY_AUTH_DEFAULTS = {
-  authBrandName: "PT Platform",
-  authHeadline: "Private tracker operations, without the forum overhead.",
-  authSupportText: "Role-aware uploads, tracker-backed traffic stats, and per-user credential delivery for focused PT teams.",
-};
 
 
 function defaultState(): AppearanceState {
@@ -40,38 +31,41 @@ function defaultState(): AppearanceState {
     backgroundImageUrl: "",
     authThemePreset: DEFAULT_AUTH_THEME_PRESET_ID,
     authAccentColor: defaultAuthTheme.variables["--auth-accent"],
-    authBrandName: "",
-    authHeadline: "",
-    authSupportText: "",
     authBackgroundImageUrl: "",
   };
 }
 
 
 function readInitialState(): AppearanceState {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
+  const storedValue = localStorage.getItem(STORAGE_KEY);
+  if (!storedValue) {
     return defaultState();
   }
 
   try {
-    const merged = {
-      ...defaultState(),
-      ...(JSON.parse(raw) as Partial<AppearanceState>),
+    const defaults = defaultState();
+    const parsed = JSON.parse(storedValue) as Partial<Record<string, unknown>>;
+    const merged: AppearanceState = {
+      reducedMotion: typeof parsed.reducedMotion === "boolean" ? parsed.reducedMotion : defaults.reducedMotion,
+      listDensity: parsed.listDensity === "compact" ? "compact" : defaults.listDensity,
+      backgroundMode: parsed.backgroundMode === "image" ? "image" : defaults.backgroundMode,
+      backgroundImageUrl: typeof parsed.backgroundImageUrl === "string" ? parsed.backgroundImageUrl : defaults.backgroundImageUrl,
+      authThemePreset:
+        typeof parsed.authThemePreset === "string"
+          ? resolveAuthThemePreset(parsed.authThemePreset).id
+          : defaults.authThemePreset,
+      authAccentColor:
+        typeof parsed.authAccentColor === "string" && parsed.authAccentColor
+          ? parsed.authAccentColor
+          : defaults.authAccentColor,
+      authBackgroundImageUrl:
+        typeof parsed.authBackgroundImageUrl === "string"
+          ? parsed.authBackgroundImageUrl
+          : defaults.authBackgroundImageUrl,
     };
 
     if (!merged.authAccentColor) {
       merged.authAccentColor = resolveAuthThemePreset(merged.authThemePreset).variables["--auth-accent"];
-    }
-
-    if (merged.authBrandName === LEGACY_AUTH_DEFAULTS.authBrandName) {
-      merged.authBrandName = "";
-    }
-    if (merged.authHeadline === LEGACY_AUTH_DEFAULTS.authHeadline) {
-      merged.authHeadline = "";
-    }
-    if (merged.authSupportText === LEGACY_AUTH_DEFAULTS.authSupportText) {
-      merged.authSupportText = "";
     }
 
     return merged;
@@ -109,9 +103,6 @@ export const useAppearanceStore = defineStore("appearance", () => {
       ...state.value,
       authThemePreset: defaults.authThemePreset,
       authAccentColor: defaults.authAccentColor,
-      authBrandName: defaults.authBrandName,
-      authHeadline: defaults.authHeadline,
-      authSupportText: defaults.authSupportText,
       authBackgroundImageUrl: defaults.authBackgroundImageUrl,
     };
   }

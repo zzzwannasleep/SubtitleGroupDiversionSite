@@ -154,6 +154,18 @@ const zhCN = {
     },
   },
   admin: {
+    branding: {
+      title: "\u7ad9\u70b9\u540d\u79f0",
+      subtitle: "\u8bbe\u7f6e\u6e38\u5ba2\u548c\u767b\u5f55\u7528\u6237\u770b\u5230\u7684\u7ad9\u70b9\u540d\u79f0\u3002",
+      fieldLabel: "\u7ad9\u70b9\u540d\u79f0",
+      placeholder: "\u8f93\u5165\u5bf9\u5916\u5c55\u793a\u7684\u7ad9\u70b9\u540d\u79f0",
+      description: "\u8fd9\u4e2a\u540d\u79f0\u4f1a\u7528\u5728\u767b\u5f55\u9875\u3001\u7ad9\u5185\u9876\u90e8\u548c internal admin \u6807\u9898\u3002",
+      save: "\u4fdd\u5b58\u7ad9\u70b9\u540d\u79f0",
+      saveLoading: "\u4fdd\u5b58\u4e2d...",
+      saveSuccess: "\u7ad9\u70b9\u540d\u79f0\u5df2\u66f4\u65b0",
+      loadError: "\u52a0\u8f7d\u7ad9\u70b9\u8bbe\u7f6e\u5931\u8d25",
+      saveError: "\u4fdd\u5b58\u7ad9\u70b9\u540d\u79f0\u5931\u8d25",
+    },
     internalAdmin: {
       title: "内部管理",
       subtitle: "MVP 阶段由 SQLAdmin 负责分类、种子和用户管理。",

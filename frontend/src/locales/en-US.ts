@@ -144,7 +144,7 @@ const enUS = {
         compact: "Compact",
       },
       authThemeTitle: "Login page theme",
-      authThemeDescription: "Guest auth screen branding and style presets stored locally.",
+      authThemeDescription: "Guest auth screen style presets stored locally.",
       resetAuthTheme: "Reset auth theme",
       themePreset: "Theme preset",
       accentColor: "Accent color",
@@ -155,6 +155,18 @@ const enUS = {
     },
   },
   admin: {
+    branding: {
+      title: "Site Branding",
+      subtitle: "Set the public site name shown to guests and members.",
+      fieldLabel: "Site name",
+      placeholder: "Your tracker name",
+      description: "This name is used on the login page, in the app header, and for the internal admin title.",
+      save: "Save site name",
+      saveLoading: "Saving...",
+      saveSuccess: "Site name updated",
+      loadError: "Failed to load site settings",
+      saveError: "Failed to save site name",
+    },
     internalAdmin: {
       title: "Internal Admin",
       subtitle: "SQLAdmin handles category, torrent, and user operations for MVP.",

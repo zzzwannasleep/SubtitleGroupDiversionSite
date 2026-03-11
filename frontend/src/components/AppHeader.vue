@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import LocaleSwitcher from "@/components/LocaleSwitcher.vue";
 import { useI18n } from "@/composables/useI18n";
+import { useSiteDisplayName } from "@/composables/useSiteDisplayName";
 import { useAuthStore } from "@/stores/auth";
 
 
@@ -11,12 +12,13 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const { t } = useI18n();
+const { siteDisplayName } = useSiteDisplayName();
 
 const currentTitle = computed(() => {
   if (route.meta.titleKey) {
     return t(route.meta.titleKey as string);
   }
-  return (route.meta.title as string | undefined) ?? t("common.appName");
+  return (route.meta.title as string | undefined) ?? siteDisplayName.value;
 });
 
 const mobileNavItems = computed(() => {
@@ -52,7 +54,7 @@ async function logout(): Promise<void> {
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <div class="flex min-h-16 items-center justify-between gap-4 py-3">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t("common.appName") }}</p>
+          <p class="text-xs font-semibold tracking-[0.08em] text-slate-500">{{ siteDisplayName }}</p>
           <h1 class="text-lg font-semibold text-slate-900">{{ currentTitle }}</h1>
         </div>
         <div class="flex items-center gap-3">

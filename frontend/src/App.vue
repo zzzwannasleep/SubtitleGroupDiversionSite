@@ -3,6 +3,7 @@ import { watchEffect } from "vue";
 import { RouterView, useRoute } from "vue-router";
 
 import { usePageTransition } from "@/composables/usePageTransition";
+import { useSiteDisplayName } from "@/composables/useSiteDisplayName";
 import { translate } from "@/locales";
 import { useLocaleStore } from "@/stores/locale";
 
@@ -10,9 +11,10 @@ import { useLocaleStore } from "@/stores/locale";
 const { transitionName } = usePageTransition();
 const route = useRoute();
 const localeStore = useLocaleStore();
+const { siteDisplayName } = useSiteDisplayName();
 
 watchEffect(() => {
-  const appName = translate(localeStore.locale, "common.appName");
+  const appName = siteDisplayName.value || translate(localeStore.locale, "common.appName");
   const pageTitle = route.meta.titleKey
     ? translate(localeStore.locale, route.meta.titleKey as string)
     : (route.meta.title as string | undefined) ?? appName;
