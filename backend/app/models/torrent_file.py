@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,5 +19,5 @@ class TorrentFile(Base):
     torrent: Mapped["Torrent"] = relationship(back_populates="files")
 
 
-from app.models.torrent import Torrent
-
+if TYPE_CHECKING:
+    from app.models.torrent import Torrent

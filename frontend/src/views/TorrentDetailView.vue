@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { getTorrentDetail } from "@/api/torrents";
+import { downloadTorrentFile, getTorrentDetail } from "@/api/torrents";
 import EmptyState from "@/components/EmptyState.vue";
 import PageSection from "@/components/PageSection.vue";
 import TorrentStatBadge from "@/components/TorrentStatBadge.vue";
@@ -12,20 +12,47 @@ import { formatBytes, formatDate } from "@/utils/format";
 
 const route = useRoute();
 const loading = ref(false);
-const errorMessage = ref("");
+const downloading = ref(false);
+const loadErrorMessage = ref("");
+const actionErrorMessage = ref("");
 const torrent = ref<TorrentDetail | null>(null);
 
 async function loadTorrent(): Promise<void> {
   loading.value = true;
-  errorMessage.value = "";
+  loadErrorMessage.value = "";
+  actionErrorMessage.value = "";
   torrent.value = null;
 
   try {
     torrent.value = await getTorrentDetail(Number(route.params.id));
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Failed to load torrent";
+    loadErrorMessage.value = error instanceof Error ? error.message : "Failed to load torrent";
   } finally {
     loading.value = false;
+  }
+}
+
+async function download(): Promise<void> {
+  if (!torrent.value) {
+    return;
+  }
+
+  downloading.value = true;
+  actionErrorMessage.value = "";
+  try {
+    const blob = await downloadTorrentFile(torrent.value.id);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${torrent.value.info_hash}.torrent`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    actionErrorMessage.value = error instanceof Error ? error.message : "Download failed";
+  } finally {
+    downloading.value = false;
   }
 }
 
@@ -39,11 +66,14 @@ watch(() => route.params.id, loadTorrent);
     <div class="h-80 animate-pulse rounded-2xl bg-white shadow-sm" />
   </div>
 
-  <div v-else-if="errorMessage">
-    <EmptyState title="Torrent unavailable" :description="errorMessage" />
+  <div v-else-if="loadErrorMessage">
+    <EmptyState title="Torrent unavailable" :description="loadErrorMessage" />
   </div>
 
   <div v-else-if="torrent" class="space-y-6">
+    <p v-if="actionErrorMessage" class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ actionErrorMessage }}
+    </p>
     <PageSection :title="torrent.name" :subtitle="torrent.subtitle ?? 'Torrent metadata and tracker-backed stats'">
       <div class="flex flex-wrap gap-3">
         <TorrentStatBadge label="Seeders" :value="torrent.stats.seeders" tone="success" />
@@ -83,8 +113,12 @@ watch(() => route.params.id, loadTorrent);
               <dd>{{ formatDate(torrent.created_at) }}</dd>
             </div>
           </dl>
-          <button class="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white">
-            Download (pending backend implementation)
+          <button
+            class="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
+            :disabled="downloading"
+            @click="download"
+          >
+            {{ downloading ? "Preparing..." : "Download torrent" }}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,5 +22,5 @@ class Category(Base):
     torrents: Mapped[list["Torrent"]] = relationship(back_populates="category")
 
 
-from app.models.torrent import Torrent
-
+if TYPE_CHECKING:
+    from app.models.torrent import Torrent

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -10,7 +11,9 @@ from app.models.category import Category
 from app.models.torrent import Torrent
 from app.models.user import User, UserRole
 from app.schemas.torrent import TorrentDetailRead, TorrentListResponse, TorrentUploadResponse
+from app.services.torrent_download_service import TorrentDownloadError, create_download_payload
 from app.services.torrent_service import build_torrent_detail, build_torrent_list_item
+from app.services.torrent_upload_service import TorrentUploadError, create_uploaded_torrent
 
 
 router = APIRouter(prefix="/api/torrents", tags=["torrents"])
@@ -89,19 +92,62 @@ def get_torrent_detail(
 @router.post(
     "/upload",
     response_model=TorrentUploadResponse,
-    dependencies=[Depends(require_roles(UserRole.ADMIN, UserRole.UPLOADER))],
+    status_code=status.HTTP_201_CREATED,
 )
-def upload_torrent() -> TorrentUploadResponse:
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Upload flow is not implemented yet")
+async def upload_torrent(
+    torrent_file: UploadFile = File(...),
+    category_id: int = Form(...),
+    name: str | None = Form(default=None),
+    subtitle: str | None = Form(default=None),
+    description: str | None = Form(default=None),
+    cover_image_url: str | None = Form(default=None),
+    media_info: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.UPLOADER)),
+) -> TorrentUploadResponse:
+    file_bytes = await torrent_file.read()
+
+    try:
+        torrent, parsed = create_uploaded_torrent(
+            db,
+            current_user=current_user,
+            filename=torrent_file.filename,
+            file_bytes=file_bytes,
+            category_id=category_id,
+            name=name,
+            subtitle=subtitle,
+            description=description,
+            cover_image_url=cover_image_url,
+            media_info=media_info,
+        )
+    except TorrentUploadError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return TorrentUploadResponse(id=torrent.id, info_hash=parsed.info_hash, message="uploaded")
 
 
 @router.get("/{torrent_id}/download")
 def download_torrent(
+    request: Request,
     torrent_id: int,
-    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.UPLOADER, UserRole.USER)),
-) -> dict[str, int | str]:
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail=f"Torrent rewrite/download is not implemented yet for torrent {torrent_id}",
-    )
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.UPLOADER, UserRole.USER)),
+) -> Response:
+    requester_ip = request.client.host if request.client else "unknown"
 
+    try:
+        rewritten_bytes, torrent = create_download_payload(
+            db=db,
+            torrent_id=torrent_id,
+            user=current_user,
+            requester_ip=requester_ip,
+        )
+    except TorrentDownloadError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    filename = f"{torrent.info_hash}.torrent"
+    return Response(
+        content=rewritten_bytes,
+        media_type="application/x-bittorrent",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -12,7 +12,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.tracker_user_stats_cache import TrackerUserStatsCache
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStatus
 from app.schemas.auth import RegisterRequest
 
 
@@ -49,6 +49,8 @@ def authenticate_user(db: Session, identifier: str, password: str) -> User | Non
     user = db.query(User).filter((User.username == identifier) | (User.email == identifier)).first()
     if user is None:
         return None
+    if user.status != UserStatus.ACTIVE:
+        return None
     if not verify_password(password, user.password_hash):
         return None
     user.last_login_at = datetime.now(UTC)
@@ -60,4 +62,3 @@ def authenticate_user(db: Session, identifier: str, password: str) -> User | Non
 
 def create_access_token_for_user(user: User) -> str:
     return create_access_token(str(user.id))
-

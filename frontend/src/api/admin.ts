@@ -12,8 +12,21 @@ export interface AdminUserItem {
   created_at: string;
 }
 
+export interface AdminTrackerSyncResult {
+  user_stats_updated: number;
+  torrent_stats_updated: number;
+  skipped: boolean;
+  message: string;
+}
+
 
 export function listAdminUsers(): Promise<PaginatedResponse<AdminUserItem>> {
   return apiRequest<PaginatedResponse<AdminUserItem>>("/admin/users");
 }
 
+
+export function runTrackerSync(): Promise<AdminTrackerSyncResult> {
+  return apiRequest<AdminTrackerSyncResult>("/admin/tracker/sync", {
+    method: "POST",
+  });
+}

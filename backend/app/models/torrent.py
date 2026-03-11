@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -40,9 +41,9 @@ class Torrent(Base):
     stats_cache: Mapped["TrackerTorrentStatsCache | None"] = relationship(back_populates="torrent", uselist=False)
 
 
-from app.models.category import Category
-from app.models.download_log import DownloadLog
-from app.models.torrent_file import TorrentFile
-from app.models.tracker_torrent_stats_cache import TrackerTorrentStatsCache
-from app.models.user import User
-
+if TYPE_CHECKING:
+    from app.models.category import Category
+    from app.models.download_log import DownloadLog
+    from app.models.torrent_file import TorrentFile
+    from app.models.tracker_torrent_stats_cache import TrackerTorrentStatsCache
+    from app.models.user import User

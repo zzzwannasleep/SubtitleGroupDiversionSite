@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum as SqlEnum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -50,7 +51,7 @@ class User(Base):
     stats_cache: Mapped["TrackerUserStatsCache | None"] = relationship(back_populates="user", uselist=False)
 
 
-from app.models.download_log import DownloadLog
-from app.models.torrent import Torrent
-from app.models.tracker_user_stats_cache import TrackerUserStatsCache
-
+if TYPE_CHECKING:
+    from app.models.download_log import DownloadLog
+    from app.models.torrent import Torrent
+    from app.models.tracker_user_stats_cache import TrackerUserStatsCache

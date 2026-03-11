@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     upload_storage_path: str = "/app/data/uploads"
     public_web_base_url: str = "http://localhost"
     tracker_base_url: str = "http://localhost/announce"
+    tracker_credential_mode: str = "query"
+    tracker_credential_query_key: str = "passkey"
+    tracker_sync_mode: str = "pull"
+    tracker_user_stats_endpoint: str | None = None
+    tracker_torrent_stats_endpoint: str | None = None
+    tracker_sync_timeout_seconds: float = 10.0
     allow_public_torrent_list: bool = True
     allow_user_registration: bool = True
     auto_create_tables: bool = True
@@ -34,4 +40,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 
+import { listCategories } from "@/api/categories";
 import { buildRssLinks } from "@/api/rss";
 import { getProfile } from "@/api/users";
 import EmptyState from "@/components/EmptyState.vue";
@@ -12,8 +13,8 @@ const errorMessage = ref("");
 
 onMounted(async () => {
   try {
-    const profile = await getProfile();
-    links.value = buildRssLinks(profile);
+    const [profile, categoryList] = await Promise.all([getProfile(), listCategories()]);
+    links.value = buildRssLinks(profile, categoryList);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Failed to load RSS links";
   }
@@ -39,4 +40,3 @@ async function copy(text: string): Promise<void> {
     </div>
   </PageSection>
 </template>
-

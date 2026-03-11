@@ -37,3 +37,23 @@ export function uploadTorrent(formData: FormData): Promise<{ id?: number; info_h
   });
 }
 
+
+export async function downloadTorrentFile(id: number): Promise<Blob> {
+  const token = localStorage.getItem("pt-platform.token");
+  const response = await fetch(`/api/torrents/${id}/download`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    let message = "Download failed";
+    try {
+      const payload = await response.json();
+      message = payload.detail ?? payload.message ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new Error(message);
+  }
+
+  return response.blob();
+}

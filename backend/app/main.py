@@ -2,10 +2,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api import admin, auth, categories, health, rss, torrents, users
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
+from app.internal_admin import configure_internal_admin
 from app.models import import_all_models
 from app.services.bootstrap_service import seed_default_categories
 
@@ -18,6 +21,8 @@ async def lifespan(_: FastAPI):
     import_all_models()
     if settings.auto_create_tables:
         Base.metadata.create_all(bind=engine)
+
+    if inspect(engine).has_table("categories"):
         with SessionLocal() as db:
             seed_default_categories(db)
     yield
@@ -32,6 +37,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, same_site="lax")
 
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -40,3 +46,4 @@ app.include_router(categories.router)
 app.include_router(torrents.router)
 app.include_router(rss.router)
 app.include_router(admin.router)
+configure_internal_admin(app)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,5 +23,5 @@ class TrackerUserStatsCache(Base):
     user: Mapped["User"] = relationship(back_populates="stats_cache")
 
 
-from app.models.user import User
-
+if TYPE_CHECKING:
+    from app.models.user import User

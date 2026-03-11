@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from "vue";
+import { useRouter } from "vue-router";
 
 import { listCategories } from "@/api/categories";
 import { uploadTorrent } from "@/api/torrents";
@@ -7,6 +8,7 @@ import PageSection from "@/components/PageSection.vue";
 import type { Category } from "@/types";
 
 
+const router = useRouter();
 const categories = ref<Category[]>([]);
 const errorMessage = ref("");
 const successMessage = ref("");
@@ -48,6 +50,16 @@ async function submit(): Promise<void> {
   try {
     const response = await uploadTorrent(payload);
     successMessage.value = response.message;
+    if (response.id) {
+      form.torrentFile = null;
+      form.categoryId = "";
+      form.name = "";
+      form.subtitle = "";
+      form.description = "";
+      form.coverImageUrl = "";
+      form.mediaInfo = "";
+      await router.push(`/torrents/${response.id}`);
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "Upload failed";
   } finally {
@@ -72,6 +84,7 @@ onMounted(() => {
             class="w-full rounded-xl border border-slate-300 px-4 py-3"
             @change="form.torrentFile = ($event.target as HTMLInputElement).files?.[0] ?? null"
           />
+          <p v-if="form.torrentFile" class="mt-2 text-sm text-slate-500">{{ form.torrentFile.name }}</p>
         </label>
 
         <label class="block">
@@ -127,4 +140,3 @@ onMounted(() => {
     </div>
   </div>
 </template>
-

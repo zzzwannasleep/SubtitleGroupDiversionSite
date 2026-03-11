@@ -1,6 +1,7 @@
 alembic==1.14.1
 email-validator==2.2.0
 fastapi==0.115.8
+httpx==0.28.1
 passlib[bcrypt]==1.7.4
 psycopg2-binary==2.9.10
 pydantic-settings==2.7.1
@@ -9,4 +10,5 @@ python-multipart==0.0.20
 redis==5.2.1
 sqlalchemy==2.0.37
 sqladmin==0.20.1
+starlette==0.45.3
 uvicorn[standard]==0.34.0
