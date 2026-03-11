@@ -154,6 +154,40 @@ cp backend/.env.example backend/.env
 nano backend/.env
 ```
 
+`backend/.env` 变量说明：
+
+- `APP_NAME`：后端应用名称。主要是后端应用自身的名字，不是前台给用户看的站点名。前台站点名建议在站点启动后，用 admin 页里的“站点名称”去改。
+- `APP_ENV`：运行环境标记。当前主要用于区分环境说明，常见值是 `development` 或 `production`。
+- `SECRET_KEY`：后端会话和签名相关密钥，必须改成你自己的随机长字符串。
+- `JWT_SECRET_KEY`：登录 JWT 的签名密钥，也必须改成你自己的随机长字符串。
+- `JWT_EXPIRE_MINUTES`：登录令牌过期时间，单位是分钟。
+- `DATABASE_URL`：站点主数据库连接串。当前这份 `docker compose` 默认使用 `postgres` 服务，所以通常保持为 `postgresql+psycopg2://ptuser:ptpass@postgres:5432/ptapp` 即可。
+- `REDIS_URL`：Redis 连接串。当前这份 `docker compose` 默认使用 `redis` 服务，所以通常保持为 `redis://redis:6379/0` 即可。
+- `TORRENT_STORAGE_PATH`：上传后的 `.torrent` 原始文件保存目录。
+- `UPLOAD_STORAGE_PATH`：上传过程中的临时文件目录。
+- `PUBLIC_WEB_BASE_URL`：站点对外访问地址。这里应该写用户访问前台时使用的地址，例如 `https://pt.example.com` 或 `http://你的服务器IP`。
+- `TRACKER_IMPL`：当前 tracker 实现类型。这个项目当前默认按 `xbt` 跑。
+- `TRACKER_BASE_URL`：下载出来的 `.torrent` 文件里会被写入的 announce 基础地址。这里应该写 BT 客户端真正访问的 tracker 地址，例如 `http://pt.example.com:2710/announce`。
+- `TRACKER_CREDENTIAL_MODE`：tracker 凭证写入 announce 的方式。当前默认 `xbt_path`，会生成 `/<tracker_credential>/announce` 这种路径风格。
+- `TRACKER_CREDENTIAL_QUERY_KEY`：当凭证模式走 query string 时使用的参数名。当前默认是 `passkey`。如果你继续使用 `xbt_path`，这一项基本不用管。
+- `TRACKER_SYNC_MODE`：站点从 tracker 拉统计信息的方式。当前默认 `xbt_db`，表示直接从 XBT 的数据库同步。
+- `TRACKER_USER_STATS_ENDPOINT`：如果你未来改成通过 HTTP 接口拉用户统计，可以在这里填地址。当前 XBT 数据库直连方案下可以留空。
+- `TRACKER_TORRENT_STATS_ENDPOINT`：如果你未来改成通过 HTTP 接口拉种子统计，可以在这里填地址。当前 XBT 数据库直连方案下可以留空。
+- `TRACKER_SYNC_TIMEOUT_SECONDS`：tracker 同步请求超时时间，单位是秒。
+- `XBT_TRACKER_DB_DSN`：XBT Tracker 数据库连接串。当前这份 `docker compose` 默认使用 `tracker-db` 服务，所以通常保持为 `mysql+pymysql://tracker:tracker-pass@tracker-db:3306/xbt` 即可。
+- `ALLOW_PUBLIC_TORRENT_LIST`：是否允许未登录用户查看种子列表。
+- `ALLOW_USER_REGISTRATION`：是否允许公开注册。
+- `AUTO_CREATE_TABLES`：是否在后端启动时自动创建缺少的数据表。当前默认部署方案建议保持 `true`。
+- `CORS_ALLOWED_ORIGINS`：允许跨域访问的前端来源地址，多个值用英文逗号分隔。通常填你的前台域名，例如 `https://pt.example.com`。
+
+当前这份 `docker compose` 部署里，下面这些变量通常不用改主机名部分：
+
+- `DATABASE_URL` 里的 `@postgres`
+- `REDIS_URL` 里的 `redis`
+- `XBT_TRACKER_DB_DSN` 里的 `@tracker-db`
+
+因为它们对应的是 compose 内部服务名，不是公网域名。
+
 说明：
 
 - 当前默认部署路径不要求你手工执行数据库迁移命令。
