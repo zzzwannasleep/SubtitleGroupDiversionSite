@@ -13,6 +13,12 @@ from app.models.torrent import Torrent
 from app.models.tracker_torrent_stats_cache import TrackerTorrentStatsCache
 from app.models.tracker_user_stats_cache import TrackerUserStatsCache
 from app.models.user import User
+from app.services.xbt_tracker_service import (
+    XbtTrackerError,
+    fetch_xbt_torrent_stats,
+    fetch_xbt_user_stats,
+    provision_xbt_state,
+)
 
 
 class TrackerSyncError(ValueError):
@@ -82,9 +88,15 @@ def _sync_user_stats(db: Session, items: Iterable[dict[str, object]]) -> int:
         if cache is None:
             cache = TrackerUserStatsCache(user_id=user.id)
 
-        cache.uploaded_bytes = _to_int(item.get("uploaded_bytes", item.get("uploaded", 0)))
-        cache.downloaded_bytes = _to_int(item.get("downloaded_bytes", item.get("downloaded", 0)))
-        cache.ratio = _to_decimal(item.get("ratio"))
+        uploaded_bytes = _to_int(item.get("uploaded_bytes", item.get("uploaded", 0)))
+        downloaded_bytes = _to_int(item.get("downloaded_bytes", item.get("downloaded", 0)))
+        ratio = _to_decimal(item.get("ratio"))
+        if ratio is None and downloaded_bytes > 0:
+            ratio = Decimal(uploaded_bytes) / Decimal(downloaded_bytes)
+
+        cache.uploaded_bytes = uploaded_bytes
+        cache.downloaded_bytes = downloaded_bytes
+        cache.ratio = ratio
         cache.updated_at = datetime.now(UTC)
         cache.source = _source_name()
         db.add(cache)
@@ -122,6 +134,30 @@ def _sync_torrent_stats(db: Session, items: Iterable[dict[str, object]]) -> int:
 
 def sync_tracker_stats(db: Session) -> dict[str, object]:
     settings = get_settings()
+
+    if settings.tracker_sync_mode == "xbt_db":
+        try:
+            provisioned = provision_xbt_state(db)
+            user_updates = _sync_user_stats(db, fetch_xbt_user_stats())
+            torrent_updates = _sync_torrent_stats(db, fetch_xbt_torrent_stats())
+        except XbtTrackerError as exc:
+            raise TrackerSyncError(str(exc)) from exc
+
+        try:
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            raise TrackerSyncError(f"Tracker stats sync could not be committed: {exc}") from exc
+
+        return {
+            "user_stats_updated": user_updates,
+            "torrent_stats_updated": torrent_updates,
+            "skipped": False,
+            "message": (
+                "XBT tracker stats sync completed "
+                f"(provisioned {provisioned['users']} users and {provisioned['torrents']} torrents)"
+            ),
+        }
 
     if settings.tracker_sync_mode != "pull":
         return {

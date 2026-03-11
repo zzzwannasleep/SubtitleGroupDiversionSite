@@ -1,6 +1,6 @@
 # PT Platform
 
-基于 `FastAPI + Vue 3 + Tailwind CSS + PostgreSQL + Redis + external tracker` 的私有种子分发站点骨架，当前 tracker 方案为 `XBT Tracker / Torrust Tracker` 双候选。
+基于 `FastAPI + Vue 3 + Tailwind CSS + PostgreSQL + Redis + external tracker` 的私有种子分发站点骨架，当前默认 tracker 方案为 `XBT Tracker`。
 
 ## 当前状态
 
@@ -8,7 +8,7 @@
 
 - `backend/`：FastAPI 后端基础结构、用户模型、认证、种子列表/详情接口、分类接口、管理接口骨架
 - `frontend/`：Vue 3 + Vite + Tailwind CSS 前端骨架、路由、Pinia、基础页面与 AppShell
-- `docker-compose.yml`：Postgres / Redis / Backend / Frontend / Tracker placeholder / Nginx 组合
+- `docker-compose.yml`：Postgres / Redis / Backend / Frontend / XBT Tracker / XBT tracker-db / Nginx 组合
 - `pt_platform_implementation_spec.md`：英文 spec
 - `pt_platform_implementation_spec.zh-CN.md`：中文 spec
 
@@ -30,7 +30,8 @@
 
 ## 尚未完成
 
-- XBT / Torrust 的最终选型与每用户凭证 PoC 收口
+- XBT 的真实部署、announce 验证与统计回读需要第一次实际 `docker compose` 验证
+- 只有在 XBT 不合适时，才切回 Torrust 备选方案
 - 更完整的上传校验、NFO/MediaInfo 处理与生产级错误处理
 - 更完整的后台前端化管理页与操作审计
 
@@ -43,11 +44,11 @@
 docker compose up --build
 ```
 
-注意：当前 `docker-compose.yml` 中的 `tracker` 还是占位服务，用来明确保留独立 Tracker 容器位。
-在真正验证 announce 之前，需要把它替换成：
+注意：
 
-- `XBT Tracker` 的自定义镜像 + `tracker-db`
-- 或 `Torrust Tracker` 的正式容器配置
+- 当前 compose 已经切到 `XBT Tracker + tracker-db`。
+- 本地 BT 客户端 announce 默认走 `http://localhost:2710/<tracker_credential>/announce`，不再通过 Nginx 反代。
+- 如果你之前已经注册过用户，旧用户的 `tracker_credential` 可能还是 64 字符；XBT 默认 `torrent_pass` 使用 32 字符私有凭证，新环境建议直接重建开发数据。
 
 如果是本地直接运行后端而不是走 Docker，先执行：
 
@@ -65,4 +66,5 @@ alembic -c alembic.ini upgrade head
 ## 说明
 
 - 当前实现更接近“可继续开发的基础骨架”，不是完整可用产品。
-- 由于 `XBT Tracker / Torrust Tracker` 的最终选型、凭证形式与统计同步方式还需要 PoC，当前下载重写能力采用可配置的抽象策略，后续需要按 PoC 结果再收口。
+- 当前实现默认按 XBT 风格的 `/<tracker_credential>/announce` 重写下载出来的 `.torrent`。
+- 站点侧 tracker sync 默认通过 `XBT_TRACKER_DB_DSN` 直连 `xbt_users / xbt_files` 拉取统计，并在手动 sync 时顺带回填缺失的 XBT 用户与种子记录。

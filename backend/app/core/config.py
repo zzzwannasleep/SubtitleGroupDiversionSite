@@ -16,13 +16,14 @@ class Settings(BaseSettings):
     upload_storage_path: str = "/app/data/uploads"
     public_web_base_url: str = "http://localhost"
     tracker_impl: str = "xbt"
-    tracker_base_url: str = "http://localhost/announce"
-    tracker_credential_mode: str = "path"
+    tracker_base_url: str = "http://localhost:2710/announce"
+    tracker_credential_mode: str = "xbt_path"
     tracker_credential_query_key: str = "passkey"
-    tracker_sync_mode: str = "pull"
+    tracker_sync_mode: str = "xbt_db"
     tracker_user_stats_endpoint: str | None = None
     tracker_torrent_stats_endpoint: str | None = None
     tracker_sync_timeout_seconds: float = 10.0
+    xbt_tracker_db_dsn: str | None = None
     allow_public_torrent_list: bool = True
     allow_user_registration: bool = True
     auto_create_tables: bool = True

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,13 +21,23 @@ def build_announce_url(tracker_credential: str) -> str:
     settings = get_settings()
     base_url = settings.tracker_base_url.rstrip("/")
     mode = settings.tracker_credential_mode.lower()
+    encoded_credential = quote(tracker_credential, safe="")
+
+    if mode == "xbt_path":
+        parsed = urlsplit(base_url)
+        path = parsed.path or "/announce"
+        prefix, _, last_segment = path.rpartition("/")
+        if not last_segment:
+            raise TorrentDownloadError("TRACKER_BASE_URL must include an announce-like path when using xbt_path mode")
+        rewritten_path = f"{prefix}/{encoded_credential}/{last_segment}" if prefix else f"/{encoded_credential}/{last_segment}"
+        return urlunsplit((parsed.scheme, parsed.netloc, rewritten_path, parsed.query, parsed.fragment))
 
     if mode == "path":
-        return f"{base_url}/{quote(tracker_credential, safe='')}"
+        return f"{base_url}/{encoded_credential}"
 
     separator = "&" if "?" in base_url else "?"
     query_key = quote(settings.tracker_credential_query_key, safe="")
-    return f"{base_url}{separator}{query_key}={quote(tracker_credential, safe='')}"
+    return f"{base_url}{separator}{query_key}={encoded_credential}"
 
 
 def rewrite_torrent_bytes(original_bytes: bytes, announce_url: str) -> bytes:

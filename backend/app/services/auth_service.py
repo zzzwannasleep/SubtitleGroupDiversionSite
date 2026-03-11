@@ -14,6 +14,16 @@ from app.core.security import (
 from app.models.tracker_user_stats_cache import TrackerUserStatsCache
 from app.models.user import User, UserRole, UserStatus
 from app.schemas.auth import RegisterRequest
+from app.services.xbt_tracker_service import XbtTrackerError, delete_xbt_user, upsert_xbt_user
+
+
+def _cleanup_xbt_user(user_id: int | None) -> None:
+    if user_id is None:
+        return
+    try:
+        delete_xbt_user(user_id)
+    except XbtTrackerError:
+        pass
 
 
 def register_user(db: Session, payload: RegisterRequest) -> User:
@@ -36,13 +46,27 @@ def register_user(db: Session, payload: RegisterRequest) -> User:
         tracker_credential=generate_tracker_credential(),
         rss_key=generate_rss_key(),
     )
-    db.add(user)
-    db.flush()
 
-    db.add(TrackerUserStatsCache(user_id=user.id, uploaded_bytes=0, downloaded_bytes=0))
-    db.commit()
-    db.refresh(user)
-    return user
+    user_id: int | None = None
+    try:
+        db.add(user)
+        db.flush()
+        user_id = user.id
+
+        upsert_xbt_user(user)
+
+        db.add(TrackerUserStatsCache(user_id=user.id, uploaded_bytes=0, downloaded_bytes=0))
+        db.commit()
+        db.refresh(user)
+        return user
+    except XbtTrackerError as exc:
+        db.rollback()
+        _cleanup_xbt_user(user_id)
+        raise ValueError(f"XBT user provisioning failed: {exc}") from exc
+    except Exception:
+        db.rollback()
+        _cleanup_xbt_user(user_id)
+        raise
 
 
 def authenticate_user(db: Session, identifier: str, password: str) -> User | None:

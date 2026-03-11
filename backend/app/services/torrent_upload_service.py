@@ -12,6 +12,7 @@ from app.models.torrent_file import TorrentFile
 from app.models.tracker_torrent_stats_cache import TrackerTorrentStatsCache
 from app.models.user import User
 from app.services.torrent_parse_service import ParsedTorrent, TorrentParseError, parse_torrent_bytes
+from app.services.xbt_tracker_service import XbtTrackerError, delete_xbt_torrent, upsert_xbt_torrent
 
 
 class TorrentUploadError(ValueError):
@@ -19,6 +20,15 @@ class TorrentUploadError(ValueError):
 
 
 MAX_TORRENT_FILE_SIZE = 10 * 1024 * 1024
+
+
+def _cleanup_xbt_torrent(info_hash: str | None) -> None:
+    if not info_hash:
+        return
+    try:
+        delete_xbt_torrent(info_hash)
+    except XbtTrackerError:
+        pass
 
 
 def _validate_cover_image_url(cover_image_url: str | None) -> str | None:
@@ -88,6 +98,7 @@ def create_uploaded_torrent(
     normalized_cover_url = _validate_cover_image_url(cover_image_url)
 
     saved_path = _persist_original_torrent(parsed.info_hash, file_bytes)
+    info_hash = parsed.info_hash
     try:
         torrent = Torrent(
             name=name.strip() if name and name.strip() else parsed.torrent_name,
@@ -103,6 +114,7 @@ def create_uploaded_torrent(
         )
         db.add(torrent)
         db.flush()
+        upsert_xbt_torrent(info_hash)
 
         for parsed_file in parsed.files:
             db.add(
@@ -117,7 +129,13 @@ def create_uploaded_torrent(
         db.commit()
         db.refresh(torrent)
         return torrent, parsed
+    except XbtTrackerError as exc:
+        db.rollback()
+        saved_path.unlink(missing_ok=True)
+        _cleanup_xbt_torrent(info_hash)
+        raise TorrentUploadError(f"XBT torrent provisioning failed: {exc}") from exc
     except Exception:
         db.rollback()
         saved_path.unlink(missing_ok=True)
+        _cleanup_xbt_torrent(info_hash)
         raise

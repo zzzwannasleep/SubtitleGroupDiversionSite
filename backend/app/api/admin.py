@@ -20,6 +20,7 @@ from app.schemas.admin import (
     AdminUserUpdateRequest,
 )
 from app.services.tracker_sync_service import TrackerSyncError, sync_tracker_stats
+from app.services.xbt_tracker_service import XbtTrackerError, upsert_xbt_user
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -98,8 +99,13 @@ def update_user(
         user.status = payload.status
 
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        upsert_xbt_user(user)
+        db.commit()
+        db.refresh(user)
+    except XbtTrackerError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"XBT user sync failed: {exc}") from exc
     return AdminUserListItem.model_validate(user)
 
 

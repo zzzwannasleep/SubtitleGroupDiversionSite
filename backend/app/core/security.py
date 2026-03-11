@@ -38,7 +38,8 @@ def decode_access_token(token: str) -> str | None:
 
 
 def generate_tracker_credential() -> str:
-    return secrets.token_hex(32)
+    # XBT's torrent_pass schema expects a 32-character private credential.
+    return secrets.token_hex(16)
 
 
 def generate_rss_key() -> str:
@@ -49,4 +50,3 @@ def mask_secret(value: str) -> str:
     if len(value) <= 8:
         return "*" * len(value)
     return f"{value[:4]}{'*' * (len(value) - 8)}{value[-4:]}"
-

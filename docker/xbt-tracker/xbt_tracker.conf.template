@@ -1,0 +1,14 @@
+anonymous_announce = ${XBT_ANONYMOUS_ANNOUNCE}
+anonymous_scrape = ${XBT_ANONYMOUS_SCRAPE}
+auto_register = ${XBT_AUTO_REGISTER}
+daemon = 0
+full_scrape = ${XBT_FULL_SCRAPE}
+listen_http_port = ${XBT_LISTEN_HTTP_PORT}
+listen_port = ${XBT_LISTEN_UDP_PORT}
+mysql_database = ${XBT_MYSQL_DATABASE}
+mysql_host = ${XBT_MYSQL_HOST}
+mysql_password = ${XBT_MYSQL_PASSWORD}
+mysql_port = ${XBT_MYSQL_PORT}
+mysql_user = ${XBT_MYSQL_USER}
+read_config_interval = 60
+write_db_interval = 15

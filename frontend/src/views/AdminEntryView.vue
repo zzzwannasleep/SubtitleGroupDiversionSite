@@ -43,7 +43,7 @@ async function syncTracker(): Promise<void> {
       </div>
     </PageSection>
 
-    <PageSection title="Tracker Sync" subtitle="Manual pull sync for tracker stats cache until the XBT/Torrust PoC is finalized.">
+    <PageSection title="Tracker Sync" subtitle="Manual XBT provision and stats sync for tracker-backed cache refresh.">
       <div class="space-y-4">
         <button
           class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
