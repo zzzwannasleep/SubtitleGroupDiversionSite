@@ -7,11 +7,13 @@ import { listTorrents } from "@/api/torrents";
 import EmptyState from "@/components/EmptyState.vue";
 import PageSection from "@/components/PageSection.vue";
 import TorrentTable from "@/components/TorrentTable.vue";
+import { useI18n } from "@/composables/useI18n";
 import type { Category, TorrentListItem } from "@/types";
 
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
 const filters = reactive({
   keyword: typeof route.query.keyword === "string" ? route.query.keyword : "",
@@ -26,7 +28,7 @@ const loading = ref(false);
 const errorMessage = ref("");
 const categories = ref<Category[]>([]);
 
-const listSummary = computed(() => `${total.value} torrents`);
+const listSummary = computed(() => t("torrentList.summary", { count: total.value }));
 
 async function loadCategories(): Promise<void> {
   try {
@@ -51,7 +53,7 @@ async function loadTorrents(): Promise<void> {
     items.value = response.items;
     total.value = response.total;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Failed to load torrents";
+    errorMessage.value = error instanceof Error ? error.message : t("torrentList.loadError");
   } finally {
     loading.value = false;
   }
@@ -86,34 +88,34 @@ void loadCategories();
 
 <template>
   <div class="space-y-6">
-    <PageSection title="Torrent Index" subtitle="Browse, filter, and compare available releases.">
+    <PageSection :title="t('torrentList.title')" :subtitle="t('torrentList.subtitle')">
       <div class="grid gap-4 lg:grid-cols-[2fr,1fr,1fr,auto]">
         <input
           v-model="filters.keyword"
           type="search"
-          placeholder="Search by title or subtitle"
+          :placeholder="t('torrentList.searchPlaceholder')"
           class="rounded-xl border border-slate-300 px-4 py-3"
           @keyup.enter="applyFilters"
         />
         <select v-model="filters.category" class="rounded-xl border border-slate-300 px-4 py-3">
-          <option value="">All categories</option>
+          <option value="">{{ t("torrentList.allCategories") }}</option>
           <option v-for="category in categories" :key="category.id" :value="category.slug">
             {{ category.name }}
           </option>
         </select>
         <select v-model="filters.sort" class="rounded-xl border border-slate-300 px-4 py-3">
-          <option value="created_at_desc">Newest first</option>
-          <option value="created_at_asc">Oldest first</option>
+          <option value="created_at_desc">{{ t("torrentList.newestFirst") }}</option>
+          <option value="created_at_asc">{{ t("torrentList.oldestFirst") }}</option>
         </select>
         <button class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white" @click="applyFilters">
-          Apply
+          {{ t("torrentList.apply") }}
         </button>
       </div>
     </PageSection>
 
     <div class="flex items-center justify-between">
       <div>
-        <p class="text-sm font-medium text-slate-500">Result</p>
+        <p class="text-sm font-medium text-slate-500">{{ t("torrentList.result") }}</p>
         <h2 class="text-2xl font-semibold text-slate-900">{{ listSummary }}</h2>
       </div>
     </div>
@@ -126,11 +128,10 @@ void loadCategories();
 
     <EmptyState
       v-else-if="!items.length"
-      title="No torrents yet"
-      description="The list is empty right now. Once uploads are implemented, new torrents will appear here."
+      :title="t('torrentList.emptyTitle')"
+      :description="t('torrentList.emptyDescription')"
     />
 
     <TorrentTable v-else :items="items" />
   </div>
 </template>
-

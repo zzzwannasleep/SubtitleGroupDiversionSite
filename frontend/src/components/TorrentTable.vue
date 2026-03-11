@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
 
+import { useI18n } from "@/composables/useI18n";
 import type { TorrentListItem } from "@/types";
 import { formatBytes, formatDate } from "@/utils/format";
 
@@ -8,6 +9,8 @@ import { formatBytes, formatDate } from "@/utils/format";
 defineProps<{
   items: TorrentListItem[];
 }>();
+
+const { locale, t } = useI18n();
 </script>
 
 <template>
@@ -16,12 +19,12 @@ defineProps<{
       <table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50 text-left text-slate-500">
           <tr>
-            <th class="px-4 py-3 font-medium">Category</th>
-            <th class="px-4 py-3 font-medium">Title</th>
-            <th class="px-4 py-3 font-medium">Size</th>
-            <th class="px-4 py-3 font-medium">Uploader</th>
-            <th class="px-4 py-3 font-medium">Stats</th>
-            <th class="px-4 py-3 font-medium">Created</th>
+            <th class="px-4 py-3 font-medium">{{ t("torrentTable.category") }}</th>
+            <th class="px-4 py-3 font-medium">{{ t("torrentTable.title") }}</th>
+            <th class="px-4 py-3 font-medium">{{ t("torrentTable.size") }}</th>
+            <th class="px-4 py-3 font-medium">{{ t("torrentTable.uploader") }}</th>
+            <th class="px-4 py-3 font-medium">{{ t("torrentTable.stats") }}</th>
+            <th class="px-4 py-3 font-medium">{{ t("torrentTable.created") }}</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -38,7 +41,7 @@ defineProps<{
             <td class="px-4 py-4 text-slate-600">
               S {{ item.seeders }} / L {{ item.leechers }} / N {{ item.snatches }}
             </td>
-            <td class="px-4 py-4 text-slate-600">{{ formatDate(item.created_at) }}</td>
+            <td class="px-4 py-4 text-slate-600">{{ formatDate(item.created_at, locale) }}</td>
           </tr>
         </tbody>
       </table>
@@ -58,7 +61,7 @@ defineProps<{
             <p v-if="item.subtitle" class="mt-1 text-sm text-slate-500">{{ item.subtitle }}</p>
           </div>
           <span v-if="item.is_free" class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-            Free
+            {{ t("torrentTable.free") }}
           </span>
         </div>
         <div class="mt-4 grid grid-cols-2 gap-2 text-sm text-slate-600">
@@ -71,4 +74,3 @@ defineProps<{
     </div>
   </div>
 </template>
-

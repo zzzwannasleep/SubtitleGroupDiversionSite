@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import { listCategories } from "@/api/categories";
 import { uploadTorrent } from "@/api/torrents";
 import PageSection from "@/components/PageSection.vue";
+import { useI18n } from "@/composables/useI18n";
 import type { Category } from "@/types";
 
 
@@ -13,6 +14,7 @@ const categories = ref<Category[]>([]);
 const errorMessage = ref("");
 const successMessage = ref("");
 const loading = ref(false);
+const { t } = useI18n();
 
 const form = reactive({
   torrentFile: null as File | null,
@@ -33,7 +35,7 @@ async function submit(): Promise<void> {
   successMessage.value = "";
 
   if (!form.torrentFile || !form.categoryId) {
-    errorMessage.value = "Torrent file and category are required.";
+    errorMessage.value = t("upload.requiredError");
     return;
   }
 
@@ -61,7 +63,7 @@ async function submit(): Promise<void> {
       await router.push(`/torrents/${response.id}`);
     }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Upload failed";
+    errorMessage.value = error instanceof Error ? error.message : t("upload.errorFallback");
   } finally {
     loading.value = false;
   }
@@ -74,10 +76,10 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <PageSection title="Upload Torrent" subtitle="Only admins and uploaders can access this page.">
+    <PageSection :title="t('upload.pageTitle')" :subtitle="t('upload.pageSubtitle')">
       <div class="grid gap-4 lg:grid-cols-2">
         <label class="block">
-          <span class="mb-2 block text-sm font-medium text-slate-700">Torrent file</span>
+          <span class="mb-2 block text-sm font-medium text-slate-700">{{ t("upload.torrentFile") }}</span>
           <input
             type="file"
             accept=".torrent"
@@ -88,9 +90,9 @@ onMounted(() => {
         </label>
 
         <label class="block">
-          <span class="mb-2 block text-sm font-medium text-slate-700">Category</span>
+          <span class="mb-2 block text-sm font-medium text-slate-700">{{ t("upload.category") }}</span>
           <select v-model="form.categoryId" class="w-full rounded-xl border border-slate-300 px-4 py-3">
-            <option value="">Select category</option>
+            <option value="">{{ t("upload.selectCategory") }}</option>
             <option v-for="category in categories" :key="category.id" :value="String(category.id)">
               {{ category.name }}
             </option>
@@ -99,29 +101,33 @@ onMounted(() => {
       </div>
     </PageSection>
 
-    <PageSection title="Display Metadata" subtitle="These fields shape how the torrent appears on the site.">
+    <PageSection :title="t('upload.metadataTitle')" :subtitle="t('upload.metadataSubtitle')">
       <div class="grid gap-4 lg:grid-cols-2">
-        <input v-model="form.name" placeholder="Display name" class="rounded-xl border border-slate-300 px-4 py-3" />
-        <input v-model="form.subtitle" placeholder="Subtitle / original title" class="rounded-xl border border-slate-300 px-4 py-3" />
+        <input v-model="form.name" :placeholder="t('upload.placeholders.name')" class="rounded-xl border border-slate-300 px-4 py-3" />
+        <input
+          v-model="form.subtitle"
+          :placeholder="t('upload.placeholders.subtitle')"
+          class="rounded-xl border border-slate-300 px-4 py-3"
+        />
       </div>
       <textarea
         v-model="form.description"
         rows="6"
-        placeholder="Description"
+        :placeholder="t('upload.placeholders.description')"
         class="mt-4 w-full rounded-xl border border-slate-300 px-4 py-3"
       />
       <input
         v-model="form.coverImageUrl"
-        placeholder="Cover image URL"
+        :placeholder="t('upload.placeholders.coverImageUrl')"
         class="mt-4 w-full rounded-xl border border-slate-300 px-4 py-3"
       />
     </PageSection>
 
-    <PageSection title="Advanced Info" subtitle="MediaInfo and NFO-like text blocks stay plain in MVP.">
+    <PageSection :title="t('upload.advancedTitle')" :subtitle="t('upload.advancedSubtitle')">
       <textarea
         v-model="form.mediaInfo"
         rows="8"
-        placeholder="Media info"
+        :placeholder="t('upload.placeholders.mediaInfo')"
         class="w-full rounded-xl border border-slate-300 px-4 py-3"
       />
     </PageSection>
@@ -135,7 +141,7 @@ onMounted(() => {
         :disabled="loading"
         @click="submit"
       >
-        {{ loading ? "Uploading..." : "Submit torrent" }}
+        {{ loading ? t("upload.submitting") : t("upload.submit") }}
       </button>
     </div>
   </div>

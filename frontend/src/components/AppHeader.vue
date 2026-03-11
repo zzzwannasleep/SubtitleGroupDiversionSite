@@ -2,21 +2,29 @@
 import { computed } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
+import LocaleSwitcher from "@/components/LocaleSwitcher.vue";
+import { useI18n } from "@/composables/useI18n";
 import { useAuthStore } from "@/stores/auth";
 
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const { t } = useI18n();
 
-const currentTitle = computed(() => (route.meta.title as string | undefined) ?? "PT Platform");
+const currentTitle = computed(() => {
+  if (route.meta.titleKey) {
+    return t(route.meta.titleKey as string);
+  }
+  return (route.meta.title as string | undefined) ?? t("common.appName");
+});
 
 const mobileNavItems = computed(() => {
   const items = [
-    { to: "/torrents", label: "Torrents" },
-    { to: "/rss", label: "RSS", auth: true },
-    { to: "/upload", label: "Upload", roles: ["admin", "uploader"] },
-    { to: "/admin", label: "Admin", roles: ["admin"] },
+    { to: "/torrents", label: t("navigation.torrents") },
+    { to: "/rss", label: t("navigation.rss"), auth: true },
+    { to: "/upload", label: t("navigation.upload"), roles: ["admin", "uploader"] },
+    { to: "/admin", label: t("navigation.admin"), roles: ["admin"] },
   ];
 
   return items.filter((item) => {
@@ -44,15 +52,16 @@ async function logout(): Promise<void> {
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <div class="flex min-h-16 items-center justify-between gap-4 py-3">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">PT Platform</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t("common.appName") }}</p>
           <h1 class="text-lg font-semibold text-slate-900">{{ currentTitle }}</h1>
         </div>
         <div class="flex items-center gap-3">
+          <LocaleSwitcher />
           <RouterLink
             to="/upload"
             class="hidden rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-600 hover:text-blue-700 sm:inline-flex"
           >
-            Upload
+            {{ t("header.upload") }}
           </RouterLink>
           <RouterLink
             v-if="authStore.user"
@@ -66,14 +75,14 @@ async function logout(): Promise<void> {
             class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
             @click="logout"
           >
-            Logout
+            {{ t("header.logout") }}
           </button>
           <RouterLink
             v-else
             to="/login"
             class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
-            Login
+            {{ t("header.login") }}
           </RouterLink>
         </div>
       </div>

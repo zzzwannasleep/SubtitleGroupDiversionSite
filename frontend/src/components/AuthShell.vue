@@ -2,6 +2,8 @@
 import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
+import LocaleSwitcher from "@/components/LocaleSwitcher.vue";
+import { useI18n } from "@/composables/useI18n";
 import {
   AUTH_THEME_PRESETS,
   type AuthThemePresetId,
@@ -28,25 +30,35 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const appearanceStore = useAppearanceStore();
+const { t } = useI18n();
 
-const platformFacts = [
-  { label: "Target scale", value: "20-50 users" },
-  { label: "Deployment", value: "Docker Compose" },
-  { label: "Tracker mode", value: "XBT first" },
-];
+const platformFacts = computed(() => [
+  {
+    label: t("auth.hero.facts.targetScale.label"),
+    value: t("auth.hero.facts.targetScale.value"),
+  },
+  {
+    label: t("auth.hero.facts.deployment.label"),
+    value: t("auth.hero.facts.deployment.value"),
+  },
+  {
+    label: t("auth.hero.facts.trackerMode.label"),
+    value: t("auth.hero.facts.trackerMode.value"),
+  },
+]);
 
-const safeguards = [
-  "Per-user tracker credential delivery",
-  "Role-based upload and admin controls",
-  "Tracker-backed traffic and swarm snapshots",
-];
+const safeguards = computed(() => [
+  t("auth.hero.safeguards.credential"),
+  t("auth.hero.safeguards.permissions"),
+  t("auth.hero.safeguards.stats"),
+]);
 
 const branding = computed(() => ({
-  brandName: appearanceStore.state.authBrandName.trim() || "PT Platform",
-  headline: appearanceStore.state.authHeadline.trim() || "Private tracker operations, without the forum overhead.",
+  brandName: appearanceStore.state.authBrandName.trim() || t("common.appName"),
+  headline: appearanceStore.state.authHeadline.trim() || t("auth.hero.defaults.headline"),
   supportText:
     appearanceStore.state.authSupportText.trim() ||
-    "Role-aware uploads, tracker-backed traffic stats, and per-user credential delivery for focused PT teams.",
+    t("auth.hero.defaults.supportText"),
 }));
 
 const activePreset = computed(() => resolveAuthThemePreset(appearanceStore.state.authThemePreset));
@@ -90,18 +102,19 @@ function resetStyleStudio(): void {
         </RouterLink>
 
         <div class="flex flex-wrap items-center gap-3">
-          <RouterLink to="/torrents" class="auth-secondary-btn">Browse public torrents</RouterLink>
+          <LocaleSwitcher variant="auth" />
+          <RouterLink to="/torrents" class="auth-secondary-btn">{{ t("auth.hero.browsePublicTorrents") }}</RouterLink>
           <RouterLink v-if="props.alternateTo === '/register'" to="/register" class="auth-secondary-btn">
-            Create account
+            {{ t("auth.hero.createAccount") }}
           </RouterLink>
-          <RouterLink v-else to="/login" class="auth-secondary-btn">Back to sign in</RouterLink>
+          <RouterLink v-else to="/login" class="auth-secondary-btn">{{ t("auth.hero.backToSignIn") }}</RouterLink>
         </div>
       </header>
 
       <div class="grid flex-1 gap-6 lg:grid-cols-[1.1fr,0.9fr] xl:gap-8">
         <section class="auth-panel auth-grid-panel overflow-hidden rounded-[2rem] p-6 sm:p-8 xl:p-10">
           <div class="relative z-10 max-w-2xl">
-            <p class="auth-kicker-badge">Architecture-aligned access</p>
+            <p class="auth-kicker-badge">{{ t("auth.hero.kicker") }}</p>
             <h2 class="mt-6 text-4xl font-semibold tracking-tight text-[color:var(--auth-text)] sm:text-5xl">
               {{ branding.headline }}
             </h2>
@@ -120,7 +133,7 @@ function resetStyleStudio(): void {
 
             <div class="auth-subpanel mt-8 rounded-[2rem] p-6">
               <p class="text-sm font-semibold uppercase tracking-[0.2em] text-[color:var(--auth-text-muted)]">
-                Operational focus
+                {{ t("auth.hero.operationalFocus") }}
               </p>
 
               <div class="mt-4 grid gap-3">
@@ -162,22 +175,24 @@ function resetStyleStudio(): void {
             <div class="flex items-start justify-between gap-4">
               <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--auth-text-muted)]">
-                  Style studio
+                  {{ t("auth.styleStudio.kicker") }}
                 </p>
                 <h2 class="mt-3 text-2xl font-semibold text-[color:var(--auth-text)]">
-                  Customize the login presentation
+                  {{ t("auth.styleStudio.title") }}
                 </h2>
                 <p class="mt-2 text-sm leading-6 text-[color:var(--auth-text-muted)]">
-                  Preferences are stored locally in this browser and can be reset at any time.
+                  {{ t("auth.styleStudio.description") }}
                 </p>
               </div>
 
-              <button type="button" class="auth-secondary-btn shrink-0" @click="resetStyleStudio">Reset</button>
+              <button type="button" class="auth-secondary-btn shrink-0" @click="resetStyleStudio">
+                {{ t("auth.styleStudio.reset") }}
+              </button>
             </div>
 
             <div class="mt-6 grid gap-5">
               <div>
-                <label class="auth-field-label">Theme preset</label>
+                <label class="auth-field-label">{{ t("auth.styleStudio.preset") }}</label>
 
                 <div class="mt-3 grid gap-3 sm:grid-cols-3">
                   <button
@@ -193,58 +208,64 @@ function resetStyleStudio(): void {
                         class="h-4 w-4 rounded-full border border-white/20"
                         :style="{ backgroundColor: themePreset.variables['--auth-accent'] }"
                       />
-                      <span class="text-sm font-semibold text-[color:var(--auth-text)]">{{ themePreset.label }}</span>
+                      <span class="text-sm font-semibold text-[color:var(--auth-text)]">{{ t(themePreset.labelKey) }}</span>
                     </div>
-                    <p class="mt-3 text-xs leading-5 text-[color:var(--auth-text-muted)]">{{ themePreset.description }}</p>
+                    <p class="mt-3 text-xs leading-5 text-[color:var(--auth-text-muted)]">
+                      {{ t(themePreset.descriptionKey) }}
+                    </p>
                   </button>
                 </div>
               </div>
 
               <div class="grid gap-4 sm:grid-cols-[auto,1fr] sm:items-end">
                 <label class="block">
-                  <span class="auth-field-label">Accent color</span>
+                  <span class="auth-field-label">{{ t("auth.styleStudio.accentColor") }}</span>
                   <input v-model="appearanceStore.state.authAccentColor" type="color" class="auth-color-input mt-3" />
                 </label>
                 <button type="button" class="auth-secondary-btn w-full sm:w-auto" @click="usePresetAccent">
-                  Use preset accent
+                  {{ t("auth.styleStudio.usePresetAccent") }}
                 </button>
               </div>
 
               <label class="block">
-                <span class="auth-field-label">Brand label</span>
-                <input v-model="appearanceStore.state.authBrandName" class="auth-input mt-3" placeholder="PT Platform" />
-              </label>
-
-              <label class="block">
-                <span class="auth-field-label">Hero title</span>
+                <span class="auth-field-label">{{ t("auth.styleStudio.brandLabel") }}</span>
                 <input
-                  v-model="appearanceStore.state.authHeadline"
+                  v-model="appearanceStore.state.authBrandName"
                   class="auth-input mt-3"
-                  placeholder="Private tracker operations, without the forum overhead."
+                  :placeholder="t('auth.styleStudio.placeholders.brandLabel')"
                 />
               </label>
 
               <label class="block">
-                <span class="auth-field-label">Hero subtitle</span>
+                <span class="auth-field-label">{{ t("auth.styleStudio.heroTitle") }}</span>
+                <input
+                  v-model="appearanceStore.state.authHeadline"
+                  class="auth-input mt-3"
+                  :placeholder="t('auth.styleStudio.placeholders.heroTitle')"
+                />
+              </label>
+
+              <label class="block">
+                <span class="auth-field-label">{{ t("auth.styleStudio.heroSubtitle") }}</span>
                 <textarea
                   v-model="appearanceStore.state.authSupportText"
                   class="auth-textarea mt-3"
                   rows="3"
-                  placeholder="Role-aware uploads, tracker-backed traffic stats, and per-user credential delivery."
+                  :placeholder="t('auth.styleStudio.placeholders.heroSubtitle')"
                 />
               </label>
 
               <div class="grid gap-4 sm:grid-cols-[1fr,auto] sm:items-end">
                 <label class="block">
-                  <span class="auth-field-label">Background image URL</span>
+                  <span class="auth-field-label">{{ t("auth.styleStudio.backgroundImageUrl") }}</span>
                   <input
                     v-model="appearanceStore.state.authBackgroundImageUrl"
                     class="auth-input mt-3"
-                    placeholder="https://example.com/tracker-room.jpg"
+                    :placeholder="t('auth.styleStudio.placeholders.backgroundImageUrl')"
                   />
                 </label>
                 <button type="button" class="auth-secondary-btn w-full sm:w-auto" @click="clearBackgroundImage">
-                  Clear image
+                  {{ t("auth.styleStudio.clearImage") }}
                 </button>
               </div>
             </div>

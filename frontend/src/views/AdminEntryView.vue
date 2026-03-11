@@ -3,12 +3,14 @@ import { ref } from "vue";
 
 import { runTrackerSync, type AdminTrackerSyncResult } from "@/api/admin";
 import PageSection from "@/components/PageSection.vue";
+import { useI18n } from "@/composables/useI18n";
 
 
 const syncing = ref(false);
 const syncResult = ref<AdminTrackerSyncResult | null>(null);
 const errorMessage = ref("");
 const internalAdminHref = import.meta.env.DEV ? "http://localhost:8000/internal-admin" : "/internal-admin";
+const { t } = useI18n();
 
 async function syncTracker(): Promise<void> {
   syncing.value = true;
@@ -17,7 +19,7 @@ async function syncTracker(): Promise<void> {
   try {
     syncResult.value = await runTrackerSync();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : "Failed to sync tracker stats";
+    errorMessage.value = error instanceof Error ? error.message : t("admin.trackerSync.errorFallback");
   } finally {
     syncing.value = false;
   }
@@ -26,31 +28,27 @@ async function syncTracker(): Promise<void> {
 
 <template>
   <div class="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
-    <PageSection title="Internal Admin" subtitle="SQLAdmin handles category, torrent, and user operations for MVP.">
+    <PageSection :title="t('admin.internalAdmin.title')" :subtitle="t('admin.internalAdmin.subtitle')">
       <div class="space-y-4">
-        <p class="text-sm leading-7 text-slate-600">
-          The internal admin panel runs on the backend and uses the same admin username or email plus password.
-        </p>
+        <p class="text-sm leading-7 text-slate-600">{{ t("admin.internalAdmin.body") }}</p>
         <a
           :href="internalAdminHref"
           class="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
         >
-          Open internal admin
+          {{ t("admin.internalAdmin.open") }}
         </a>
-        <p class="text-xs leading-6 text-slate-500">
-          Use this panel for quick CRUD work. Uploading new torrents should still go through the dedicated upload page.
-        </p>
+        <p class="text-xs leading-6 text-slate-500">{{ t("admin.internalAdmin.footnote") }}</p>
       </div>
     </PageSection>
 
-    <PageSection title="Tracker Sync" subtitle="Manual XBT provision and stats sync for tracker-backed cache refresh.">
+    <PageSection :title="t('admin.trackerSync.title')" :subtitle="t('admin.trackerSync.subtitle')">
       <div class="space-y-4">
         <button
           class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="syncing"
           @click="syncTracker"
         >
-          {{ syncing ? "Syncing..." : "Run tracker sync" }}
+          {{ syncing ? t("admin.trackerSync.buttonLoading") : t("admin.trackerSync.button") }}
         </button>
 
         <p v-if="errorMessage" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -61,16 +59,16 @@ async function syncTracker(): Promise<void> {
           <p class="text-sm font-semibold text-slate-900">{{ syncResult.message }}</p>
           <div class="mt-3 grid gap-3 sm:grid-cols-3">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">User stats</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t("admin.trackerSync.userStats") }}</p>
               <p class="mt-1 text-lg font-semibold text-slate-900">{{ syncResult.user_stats_updated }}</p>
             </div>
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Torrent stats</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t("admin.trackerSync.torrentStats") }}</p>
               <p class="mt-1 text-lg font-semibold text-slate-900">{{ syncResult.torrent_stats_updated }}</p>
             </div>
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Skipped</p>
-              <p class="mt-1 text-lg font-semibold text-slate-900">{{ syncResult.skipped ? "Yes" : "No" }}</p>
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ t("admin.trackerSync.skipped") }}</p>
+              <p class="mt-1 text-lg font-semibold text-slate-900">{{ syncResult.skipped ? t("common.yes") : t("common.no") }}</p>
             </div>
           </div>
         </div>

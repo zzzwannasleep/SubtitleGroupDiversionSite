@@ -1,14 +1,23 @@
 import type { Category, UserProfile } from "@/types";
 
 
-export function buildRssLinks(profile: UserProfile, categories: Category[] = []): { name: string; url: string }[] {
+interface RssLinkOptions {
+  allTorrentsLabel?: string;
+  categoryFeedName?: (categoryName: string) => string;
+}
+
+export function buildRssLinks(
+  profile: UserProfile,
+  categories: Category[] = [],
+  options: RssLinkOptions = {},
+): { name: string; url: string }[] {
   return [
     {
-      name: "All Torrents",
+      name: options.allTorrentsLabel ?? "All Torrents",
       url: `/rss/torrents?key=${profile.rss_key}`,
     },
     ...categories.map((category) => ({
-      name: `${category.name} Feed`,
+      name: options.categoryFeedName?.(category.name) ?? `${category.name} Feed`,
       url: `/rss/category/${category.slug}?key=${profile.rss_key}`,
     })),
   ];
