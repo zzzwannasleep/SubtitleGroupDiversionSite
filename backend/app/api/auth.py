@@ -38,8 +38,8 @@ def me(current_user: User = Depends(get_current_user)) -> AuthenticatedUserRead:
         email=current_user.email,
         role=current_user.role,
         status=current_user.status,
+        avatar_url=current_user.avatar_url,
         tracker_credential=mask_secret(current_user.tracker_credential),
         rss_key=mask_secret(current_user.rss_key),
         created_at=current_user.created_at,
     )
-

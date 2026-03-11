@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum as SqlEnum, String
+from sqlalchemy import DateTime, Enum as SqlEnum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -28,6 +28,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text(), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(SqlEnum(UserRole, native_enum=False), default=UserRole.USER, nullable=False)
     status: Mapped[UserStatus] = mapped_column(

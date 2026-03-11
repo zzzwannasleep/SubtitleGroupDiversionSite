@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -14,6 +14,8 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 class UserProfileUpdateRequest(BaseModel):
     email: EmailStr
+    avatar_url: str | None = Field(default=None, max_length=1024)
+    bio: str | None = Field(default=None, max_length=2000)
 
 
 @router.get("/profile", response_model=UserProfileRead)
@@ -23,6 +25,8 @@ def get_profile(current_user: User = Depends(get_current_user)) -> UserProfileRe
         id=current_user.id,
         username=current_user.username,
         email=current_user.email,
+        avatar_url=current_user.avatar_url,
+        bio=current_user.bio,
         role=current_user.role,
         status=current_user.status,
         rss_key=current_user.rss_key,
@@ -45,8 +49,9 @@ def update_profile(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already in use")
 
     current_user.email = payload.email
+    current_user.avatar_url = payload.avatar_url.strip() if payload.avatar_url and payload.avatar_url.strip() else None
+    current_user.bio = payload.bio.strip() if payload.bio and payload.bio.strip() else None
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
     return get_profile(current_user)
-

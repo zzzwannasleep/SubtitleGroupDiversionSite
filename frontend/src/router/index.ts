@@ -22,6 +22,7 @@ declare module "vue-router" {
     guestOnly?: boolean;
     roles?: Array<"admin" | "uploader" | "user">;
     transition?: string;
+    previewProfile?: boolean;
   }
 }
 
@@ -68,6 +69,11 @@ const routes = [
         path: "profile",
         component: ProfileView,
         meta: { titleKey: "routes.profile", requiresAuth: true },
+      },
+      {
+        path: "profile-preview",
+        component: ProfileView,
+        meta: { titleKey: "routes.profilePreview", previewProfile: true, transition: "page-fade" },
       },
       {
         path: "rss",

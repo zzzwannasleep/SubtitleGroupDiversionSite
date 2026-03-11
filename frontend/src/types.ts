@@ -7,6 +7,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   status: UserStatus;
+  avatar_url: string | null;
   tracker_credential: string;
   rss_key: string;
   created_at: string;
@@ -16,6 +17,8 @@ export interface UserProfile {
   id: number;
   username: string;
   email: string;
+  avatar_url: string | null;
+  bio: string | null;
   role: UserRole;
   status: UserStatus;
   rss_key: string;
@@ -85,4 +88,3 @@ export interface PaginatedResponse<T> {
   page: number;
   page_size: number;
 }
-
