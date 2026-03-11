@@ -1,4 +1,4 @@
-# PT Platform
+# SubtitleGroupDiversionSite
 
 基于 `FastAPI + Vue 3 + Tailwind CSS + PostgreSQL + Redis + external tracker` 的私有种子分发站点骨架，当前默认 tracker 方案为 `XBT Tracker`。
 
