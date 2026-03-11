@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 
 import { getProfile, updateProfile } from "@/api/users";
 import PageSection from "@/components/PageSection.vue";
+import { AUTH_THEME_PRESETS } from "@/config/authTheme";
 import { useAppearanceStore } from "@/stores/appearance";
 import type { UserProfile } from "@/types";
 import { formatBytes } from "@/utils/format";
@@ -120,8 +121,62 @@ onMounted(() => {
             <option value="compact">Compact</option>
           </select>
         </label>
+
+        <div class="rounded-2xl border border-slate-200 p-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p class="text-sm font-semibold text-slate-900">Login page theme</p>
+              <p class="mt-1 text-sm text-slate-500">Guest auth screen branding and style presets stored locally.</p>
+            </div>
+            <button
+              class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+              @click="appearanceStore.resetAuthPageStyle"
+            >
+              Reset auth theme
+            </button>
+          </div>
+
+          <div class="mt-4 space-y-4">
+            <label class="block">
+              <span class="mb-2 block text-sm font-medium text-slate-700">Theme preset</span>
+              <select v-model="appearanceStore.state.authThemePreset" class="w-full rounded-xl border border-slate-300 px-4 py-3">
+                <option v-for="preset in AUTH_THEME_PRESETS" :key="preset.id" :value="preset.id">
+                  {{ preset.label }}
+                </option>
+              </select>
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-sm font-medium text-slate-700">Accent color</span>
+              <input v-model="appearanceStore.state.authAccentColor" type="color" class="h-12 w-20 rounded-xl border border-slate-300 bg-white p-2" />
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-sm font-medium text-slate-700">Brand label</span>
+              <input v-model="appearanceStore.state.authBrandName" class="w-full rounded-xl border border-slate-300 px-4 py-3" />
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-sm font-medium text-slate-700">Hero title</span>
+              <input v-model="appearanceStore.state.authHeadline" class="w-full rounded-xl border border-slate-300 px-4 py-3" />
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-sm font-medium text-slate-700">Hero subtitle</span>
+              <textarea
+                v-model="appearanceStore.state.authSupportText"
+                class="w-full rounded-xl border border-slate-300 px-4 py-3"
+                rows="3"
+              />
+            </label>
+
+            <label class="block">
+              <span class="mb-2 block text-sm font-medium text-slate-700">Background image URL</span>
+              <input v-model="appearanceStore.state.authBackgroundImageUrl" class="w-full rounded-xl border border-slate-300 px-4 py-3" />
+            </label>
+          </div>
+        </div>
       </div>
     </PageSection>
   </div>
 </template>
-

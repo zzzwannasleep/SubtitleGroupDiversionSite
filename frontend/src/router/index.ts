@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/auth";
 declare module "vue-router" {
   interface RouteMeta {
     title?: string;
+    titleKey?: string;
     requiresAuth?: boolean;
     guestOnly?: boolean;
     roles?: Array<"admin" | "uploader" | "user">;
@@ -29,12 +30,12 @@ const routes = [
   {
     path: "/login",
     component: LoginView,
-    meta: { title: "Login", guestOnly: true, transition: "page-fade" },
+    meta: { titleKey: "routes.login", guestOnly: true, transition: "page-fade" },
   },
   {
     path: "/register",
     component: RegisterView,
-    meta: { title: "Register", guestOnly: true, transition: "page-fade" },
+    meta: { titleKey: "routes.register", guestOnly: true, transition: "page-fade" },
   },
   {
     path: "/",
@@ -42,44 +43,48 @@ const routes = [
     children: [
       {
         path: "",
-        redirect: "/torrents",
+        redirect: () => {
+          const authStore = useAuthStore(pinia);
+          authStore.restoreSession();
+          return authStore.isAuthenticated ? "/torrents" : "/login";
+        },
       },
       {
         path: "torrents",
         component: TorrentListView,
-        meta: { title: "Torrents", transition: "page-fade" },
+        meta: { titleKey: "routes.torrents", transition: "page-fade" },
       },
       {
         path: "torrents/:id",
         component: TorrentDetailView,
-        meta: { title: "Torrent Detail", transition: "page-slide" },
+        meta: { titleKey: "routes.torrentDetail", transition: "page-slide" },
       },
       {
         path: "upload",
         component: UploadTorrentView,
-        meta: { title: "Upload", requiresAuth: true, roles: ["admin", "uploader"] },
+        meta: { titleKey: "routes.upload", requiresAuth: true, roles: ["admin", "uploader"] },
       },
       {
         path: "profile",
         component: ProfileView,
-        meta: { title: "Profile", requiresAuth: true },
+        meta: { titleKey: "routes.profile", requiresAuth: true },
       },
       {
         path: "rss",
         component: RssView,
-        meta: { title: "RSS", requiresAuth: true },
+        meta: { titleKey: "routes.rss", requiresAuth: true },
       },
       {
         path: "admin",
         component: AdminEntryView,
-        meta: { title: "Admin", requiresAuth: true, roles: ["admin"] },
+        meta: { titleKey: "routes.admin", requiresAuth: true, roles: ["admin"] },
       },
     ],
   },
   {
     path: "/:pathMatch(.*)*",
     component: NotFoundView,
-    meta: { title: "Not Found" },
+    meta: { titleKey: "routes.notFound" },
   },
 ];
 
@@ -122,8 +127,3 @@ router.beforeEach(async (to) => {
 
   return true;
 });
-
-router.afterEach((to) => {
-  document.title = `${to.meta.title ?? "PT Platform"} | PT Platform`;
-});
-

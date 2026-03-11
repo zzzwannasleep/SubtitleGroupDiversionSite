@@ -9,6 +9,6 @@ export function formatBytes(bytes: number): string {
 }
 
 
-export function formatDate(input: string): string {
-  return new Date(input).toLocaleString();
+export function formatDate(input: string, locale?: string): string {
+  return new Date(input).toLocaleString(locale);
 }
