@@ -56,7 +56,7 @@
 - RSS XML 输出与 RSS 下载端点
 - SQLAdmin 内部后台接入，管理员可通过 `/internal-admin` 登录
 - 管理员接口补充分类管理、种子可见性/Free 状态调整、手动 tracker sync
-- Alembic 配置与首个初始迁移，后端容器启动时自动执行 `upgrade head`
+- 保留 Alembic 配置；当前默认部署路径以 `AUTO_CREATE_TABLES=true` 自动建表为主
 - 用户 Profile 基础接口
 - 前端登录 / 注册 / 列表 / 详情 / 上传 / Profile / RSS 页面骨架
 - 基础响应式布局、路由守卫、页面切换动画、外观偏好本地存储
@@ -68,33 +68,132 @@
 - 更完整的上传校验、NFO/MediaInfo 处理与生产级错误处理
 - 更完整的后台前端化管理页与操作审计
 
-## 快速开始
+## Docker 部署
 
-1. 检查 `backend/.env`
-2. 构建并启动服务：
+当前仓库最省事的方式是直接使用 `docker compose`。这也是当前最适合“快速跑通全流程”的方案。
+
+### 部署前准备
+
+确保机器上已经安装：
+
+- Docker
+- Docker Compose
+
+默认会用到这些端口：
+
+- `80/tcp`：站点入口
+- `2710/tcp`：XBT Tracker HTTP announce
+- `6881/udp`：XBT Tracker UDP
+
+### 1. 准备配置
+
+检查 `backend/.env`。如果你是新环境，也可以先参考 `backend/.env.example`。
+
+至少建议修改这些值：
+
+- `SECRET_KEY`
+- `JWT_SECRET_KEY`
+- `APP_NAME`
+- `PUBLIC_WEB_BASE_URL`
+- `TRACKER_BASE_URL`
+- `CORS_ALLOWED_ORIGINS`
+
+常见示例：
+
+- 本机预览：
+  - `PUBLIC_WEB_BASE_URL=http://localhost`
+  - `TRACKER_BASE_URL=http://localhost:2710/announce`
+- 用域名部署：
+  - `PUBLIC_WEB_BASE_URL=https://pt.example.com`
+  - `TRACKER_BASE_URL=http://pt.example.com:2710/announce`
+  - `CORS_ALLOWED_ORIGINS=https://pt.example.com`
+
+说明：
+
+- 当前默认部署路径不要求你手工执行数据库迁移命令。
+- 只要 `AUTO_CREATE_TABLES=true`，后端启动时会自动补齐缺少的表。
+- 新增的 `site_settings` 这类表也会走这条路径自动创建。
+
+### 2. 启动服务
+
+在项目根目录执行：
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
-注意：
+### 3. 访问站点
 
-- 当前 compose 已经切到 `XBT Tracker + tracker-db`。
-- 本地 BT 客户端 announce 默认走 `http://localhost:2710/<tracker_credential>/announce`，不再通过 Nginx 反代。
-- 如果你之前已经注册过用户，旧用户的 `tracker_credential` 可能还是 64 字符；XBT 默认 `torrent_pass` 使用 32 字符私有凭证，新环境建议直接重建开发数据。
-
-如果是本地直接运行后端而不是走 Docker，先执行：
-
-```bash
-cd backend
-alembic -c alembic.ini upgrade head
-```
-
-3. 打开：
+启动后可以访问：
 
 - 前台：`http://localhost`
-- 后端健康检查：`http://localhost/api/health`
+- 健康检查：`http://localhost/api/health`
 - 内部后台：`http://localhost/internal-admin`
+
+如果你部署在服务器，把 `localhost` 换成你的公网 IP 或域名即可。
+
+### 4. 初始化账号
+
+- 打开 `/register`
+- 注册第一个账号
+- 第一个注册用户会自动成为 `admin`
+
+注册后，建议按这个顺序检查：
+
+1. `/admin`
+2. `/profile`
+3. `/rss`
+4. `/upload`
+5. `/torrents`
+6. `/internal-admin`
+
+### 5. 持久化数据目录
+
+当前 compose 会把这些目录挂载到宿主机：
+
+- `./data/postgres`
+- `./data/tracker-db`
+- `./data/torrents`
+- `./data/uploads`
+
+如果你要迁移机器或备份，至少要保留这些目录。
+
+### 6. 常用命令
+
+查看日志：
+
+```bash
+docker compose logs -f backend frontend nginx tracker
+```
+
+重建并重启：
+
+```bash
+docker compose up -d --build
+```
+
+停止服务：
+
+```bash
+docker compose down
+```
+
+清空开发数据后重新开始：
+
+注意：下面这一步会删除现有数据库和已上传文件。
+
+```bash
+docker compose down
+rm -rf data/postgres data/tracker-db data/torrents data/uploads
+docker compose up -d --build
+```
+
+### 7. 部署注意事项
+
+- 当前 compose 已经包含 `Postgres + Redis + XBT Tracker + tracker-db + backend + frontend + nginx`。
+- BT 客户端实际使用的 announce 地址来自 `TRACKER_BASE_URL`，不是 Nginx 的 `/api` 入口。
+- 如果你之前使用过旧数据，旧用户的 `tracker_credential` 可能与当前 XBT 方案不兼容，最稳妥的做法是直接从空数据重新开始。
+- 如果你只是想快速验证站点流程，优先用一套全新数据启动。
 
 ## 说明
 
