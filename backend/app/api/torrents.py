@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user_optional
 from app.dependencies.roles import require_roles
-from app.models.category import Category
 from app.models.torrent import Torrent
 from app.models.user import User, UserRole
 from app.schemas.torrent import TorrentDetailRead, TorrentListResponse, TorrentUploadResponse
+from app.services.torrent_query_service import apply_torrent_filters, apply_torrent_sort
 from app.services.torrent_download_service import TorrentDownloadError, create_download_payload
 from app.services.torrent_service import build_torrent_detail, build_torrent_list_item
 from app.services.torrent_upload_service import TorrentUploadError, create_uploaded_torrent
@@ -42,17 +42,8 @@ def list_torrents(
         .options(joinedload(Torrent.category), joinedload(Torrent.owner), joinedload(Torrent.stats_cache))
         .where(Torrent.is_visible.is_(True))
     )
-
-    if category:
-        statement = statement.join(Torrent.category).where(Category.slug == category)
-    if keyword:
-        pattern = f"%{keyword.strip()}%"
-        statement = statement.where(or_(Torrent.name.ilike(pattern), Torrent.subtitle.ilike(pattern)))
-
-    if sort == "created_at_asc":
-        statement = statement.order_by(Torrent.created_at.asc())
-    else:
-        statement = statement.order_by(Torrent.created_at.desc())
+    statement = apply_torrent_filters(statement, category_slug=category, keyword=keyword)
+    statement = apply_torrent_sort(statement, sort=sort)
 
     count_statement = select(func.count()).select_from(statement.order_by(None).subquery())
     total = db.scalar(count_statement) or 0

@@ -29,6 +29,14 @@ const errorMessage = ref("");
 const categories = ref<Category[]>([]);
 
 const listSummary = computed(() => t("torrentList.summary", { count: total.value }));
+const rssRoute = computed(() => ({
+  path: "/rss",
+  query: {
+    keyword: filters.keyword || undefined,
+    category: filters.category || undefined,
+    sort: filters.sort !== "created_at_desc" ? filters.sort : undefined,
+  },
+}));
 
 async function loadCategories(): Promise<void> {
   try {
@@ -118,6 +126,13 @@ void loadCategories();
         <p class="text-sm font-medium text-slate-500">{{ t("torrentList.result") }}</p>
         <h2 class="text-2xl font-semibold text-slate-900">{{ listSummary }}</h2>
       </div>
+
+      <RouterLink
+        :to="rssRoute"
+        class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
+      >
+        {{ t("torrentList.openRss") }}
+      </RouterLink>
     </div>
 
     <p v-if="errorMessage" class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{{ errorMessage }}</p>
