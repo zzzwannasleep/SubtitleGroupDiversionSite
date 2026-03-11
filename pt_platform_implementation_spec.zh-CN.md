@@ -1,10 +1,10 @@
 PROJECT: 私有种子分发平台
 DOCUMENT: 架构 / 实施规格说明（中文版）
-VERSION: v0.6 实施补充草案（ZH-CN）
+VERSION: v0.7 Tracker 方案修订稿（ZH-CN）
 SOURCE: 对应 `pt_platform_implementation_spec.md`
 TARGET USERS: 20-50
 DEPLOYMENT: Docker Compose
-TRACKER: 外部 Tracker 服务（首选：Trunker）
+TRACKER: 外部 Tracker 服务（首选：XBT Tracker；备选：Torrust Tracker）
 WEBSITE: FastAPI + Vue 3
 DATABASE: PostgreSQL
 CACHE: Redis + Tracker 统计快照缓存表
@@ -13,7 +13,7 @@ CACHE: Redis + Tracker 统计快照缓存表
 
 - 本文是英文 spec 的中文对照版。
 - API 路径、数据表字段名、环境变量名、目录名尽量保持英文原样，避免后续实现时对不上。
-- 本文里的“站点”指 Web 站点与后端 API；“Tracker”指 Trunker。
+- 本文里的“站点”指 Web 站点与后端 API；“Tracker”指独立 Tracker 服务，默认指 XBT Tracker。
 
 ================================================
 1. 项目目标
@@ -62,7 +62,7 @@ CACHE: Redis + Tracker 统计快照缓存表
 3. 用户、角色、分类、种子元数据、页面权限以站点为真源。
 4. `announce / scrape / peer 状态 / 流量统计` 以 Tracker 为真源。
 5. 每个用户必须拥有唯一的 tracker credential。
-6. 在 Trunker PoC 验证之前，不要把 tracker credential 的传输格式写死。
+6. 默认按 XBT 风格私有凭证模型设计，但在 XBT PoC 验证之前，不要把具体 announce URL 形式写死。
 7. 用户下载种子时，再动态重写 `announce URL` 或 tracker credential。
 8. 第一阶段后端保持单体架构。
 9. 优先复用成熟稳定的开源基础设施和内部管理工具。
@@ -114,7 +114,8 @@ CACHE: Redis + Tracker 统计快照缓存表
 
 Tracker：
 
-- Trunker
+- XBT Tracker（首选：更贴合 PT 私有 passkey / torrent_pass 模型）
+- Torrust Tracker（备选：更现代、容器化更友好，但私有用户统计模型需额外 PoC）
 
 ================================================
 4. 高层架构
@@ -138,7 +139,7 @@ Tracker：
                  v
       [ tracker 统计快照缓存表 ]
 
-[ BT 客户端 ] ---------------------> [ Trunker ]
+[ BT 客户端 ] ---------------------> [ Tracker Service: XBT / Torrust ]
 
 职责划分：
 
@@ -240,23 +241,23 @@ Tracker 负责：
 每个网站用户都必须有一个唯一的 tracker credential。
 
 从站点角度看，它是一个不透明凭证。
-后续它可能表现为：
+第一阶段优先按 XBT 风格理解它：
 
-- `announce path` 中的 passkey
-- query string 中的 passkey
-- Tracker 可识别的 token
-- 网站用户到 Tracker 凭证的映射键
+- 网站侧 `tracker_credential` 直接对应 Tracker 侧的私有用户凭证
+- 优先采用类似 `torrent_pass` 的 per-user credential 模型
+- 首选 announce 形式为 XBT 风格的 `/<tracker_credential>/announce`
 
 第一阶段规则：
 
 - 在 `users` 表中为每个用户存储一个唯一的 `tracker_credential`
 - 用户下载种子时，把该凭证注入到重写后的 `.torrent` 文件中
-- 在 Trunker PoC 确认之前，不把具体格式写死
+- 在 XBT PoC 确认之前，不把最终 URL/path 细节写死
 
 PoC 之后的决策规则：
 
-- 如果 Trunker 原生支持每用户 passkey 风格凭证，就直接采用
-- 如果不支持，就增加一层小型映射层，把网站用户映射到 Tracker 可识别凭证
+- 如果 XBT PoC 成功，就冻结为 XBT 原生私有凭证模型
+- 如果 XBT 在部署、同步或集成上不合适，再启动 Torrust 备选 PoC
+- 只有在 XBT 不适合时，才考虑把 `tracker_credential` 继续保持抽象并映射到 Torrust 可识别格式
 
 关于 NexusPHP：
 
@@ -269,8 +270,8 @@ PoC 之后的决策规则：
 
 真源定义：
 
-- 用户上传 / 下载流量真源来自 Trunker
-- 种子 swarm 统计真源来自 Trunker
+- 用户上传 / 下载流量真源来自所选 Tracker
+- 种子 swarm 统计真源来自所选 Tracker
 
 站点缓存策略：
 
@@ -280,12 +281,12 @@ PoC 之后的决策规则：
 
 首选同步策略：
 
-- 如果 Trunker PoC 证明存在合适的 push / event 集成方式，优先使用
+- 如果采用 XBT，MVP 默认通过 Tracker 数据库或小型适配层定时拉取统计
 
 兜底同步策略：
 
-- 通过 Trunker 可用的统计 / 管理接口定时拉取
-- MVP 默认每 `30-60 秒` 刷新一次
+- 如果后续切换到 Torrust，且其管理 API / event 路径足够支撑站点同步，则允许改为对应接口同步
+- 无论使用哪种 Tracker，MVP 默认每 `30-60 秒` 刷新一次
 
 展示规则：
 
@@ -382,7 +383,7 @@ status 枚举：
 - downloaded_bytes: bigint, not null, default 0
 - ratio: numeric(18,6), null
 - updated_at: timestamptz, not null
-- source: varchar(32), not null, default 'trunker'
+- source: varchar(32), not null, default 'tracker'
 
 含义：
 
@@ -398,7 +399,7 @@ status 枚举：
 - snatches: int, not null, default 0
 - finished: int, not null, default 0
 - updated_at: timestamptz, not null
-- source: varchar(32), not null, default 'trunker'
+- source: varchar(32), not null, default 'tracker'
 
 含义：
 
@@ -576,7 +577,7 @@ response:
 - 需要已登录用户
 - 写入 `download_logs`
 - 读取原始 torrent bytes
-- 按 Trunker 可识别格式注入该用户的 tracker credential
+- 按所选 Tracker 可识别格式注入该用户的 tracker credential
 - 返回重写后的 `.torrent` 文件
 
 12.4 RSS APIs
@@ -717,33 +718,45 @@ RSS key 处理：
 
 首选 Tracker：
 
-- Trunker
+- XBT Tracker
+
+备选 Tracker：
+
+- Torrust Tracker
+
+部署规则：
+
+- Tracker 必须作为独立容器 / 独立服务部署，不与 `backend` 合并为同一个镜像
+- 如果采用 XBT，额外提供独立的 `tracker-db`（MySQL / MariaDB）
+- 如果采用 Torrust，可按其实现选择 SQLite 卷或独立 MySQL
 
 Tracker 集成约定：
 
 1. 原始上传的 `.torrent` 文件保持原样存储。
 2. 每次下载请求时，在内存中重写 torrent bytes。
-3. 按 Trunker 可兼容的方式注入用户专属 tracker credential。
+3. 按所选 Tracker 可兼容的方式注入用户专属 tracker credential。
 4. 将重写后的种子文件作为附件返回。
 5. 把 Tracker 统计视为真源。
 6. 将 Tracker 统计刷新到站点缓存。
 
 PoC 闸门：
 
-- 在最终实现前，必须确认 Trunker 如何识别一个网站用户：
-  - 原生 passkey 风格凭证
-  - token / query 风格凭证
-  - Tracker 侧 app / user 映射
-  - 自定义桥接服务
+- 在最终实现前，必须先完成 XBT PoC，确认：
+  - XBT 容器部署是否稳定
+  - XBT 风格私有凭证是否能直接满足 PT 站需求
+  - 站点如何从 XBT 侧拉取用户级 / 种子级统计
+- 只有在 XBT 不适合时，才继续验证 Torrust：
+  - Torrust 是否能满足 PT 私有用户凭证模型
+  - Torrust 的统计同步方式是否足够支撑站点缓存
 
 实施规则：
 
-- 在 PoC 证明之前，不要把实现写死成 `announce/<passkey>`
+- 默认按 XBT 风格设计，但在 XBT PoC 证明之前，不把最终实现写死成某个具体 URL 形式
 
 统计同步规则：
 
-- 如果 Trunker 支持合适的 push / event 路径，就优先采用
-- 如果不支持，MVP 默认采用周期性 pull 同步
+- 如果采用 XBT，MVP 默认采用周期性 pull 同步
+- 如果后续切换 Torrust，且其管理 API / event 路径足够成熟，可改为对应同步方式
 
 ================================================
 15. 种子解析规则
@@ -1129,7 +1142,9 @@ Profile / Settings 页模块顺序建议：
 - `redis`: Redis 7
 - `backend`: FastAPI app
 - `frontend`: Vue app
-- `tracker`: Trunker
+- `tracker`: XBT Tracker（首选）或 Torrust Tracker（备选）
+- `tracker-db`: XBT 使用独立 MySQL / MariaDB；Torrust 可选 SQLite 卷或 MySQL
+- Tracker 独立运行，不并入 `backend` 镜像
 - `nginx`: reverse proxy
 
 ================================================
@@ -1148,9 +1163,11 @@ Backend:
 - TORRENT_STORAGE_PATH=/app/data/torrents
 - UPLOAD_STORAGE_PATH=/app/data/uploads
 - PUBLIC_WEB_BASE_URL=https://app.example.com
+- TRACKER_IMPL=xbt
 - TRACKER_BASE_URL=https://tracker.example.com
 - TRACKER_SYNC_MODE=pull
 - TRACKER_SYNC_INTERVAL_SECONDS=30
+- XBT_TRACKER_DB_DSN=mysql://tracker:tracker-pass@tracker-db:3306/xbt
 - ALLOW_PUBLIC_TORRENT_LIST=true
 - ALLOW_USER_REGISTRATION=true
 
@@ -1164,7 +1181,7 @@ Frontend:
 
 说明：
 
-- 如果 Trunker PoC 证明可行，后续可把 `TRACKER_SYNC_MODE` 从 `pull` 改为 push / event 模式
+- 如果后续改用 Torrust，且其 API / event 路径验证可行，可把 `TRACKER_SYNC_MODE` 从 `pull` 改为对应模式
 
 ================================================
 20. MVP 开发顺序
@@ -1203,8 +1220,8 @@ Step 5
 
 Step 6
 
-- 部署 Trunker
-- 完成 tracker credential PoC
+- 部署 XBT Tracker
+- 完成 XBT tracker credential PoC
 - 验证 BT 客户端可以成功 announce
 
 Step 7
@@ -1230,8 +1247,8 @@ Step 8
 4. 上传后的种子能出现在列表页。
 5. 用户可以打开种子详情页。
 6. 用户可以下载重写后的种子文件。
-7. 重写后的种子中，包含该用户专属的 tracker credential，并且格式与 Trunker PoC 确认结果一致。
-8. BT 客户端可以成功向 Trunker announce。
+7. 重写后的种子中，包含该用户专属的 tracker credential，并且格式与所选 Tracker 的 PoC 确认结果一致。
+8. BT 客户端可以成功向所选 Tracker announce；MVP 默认验证目标为 XBT。
 9. 站点可以从缓存中展示 Tracker 提供的上传 / 下载统计与种子 swarm 统计。
 10. RSS 端点能返回合法 XML。
 11. RSS feed 能被下载器正常消费。
@@ -1242,10 +1259,10 @@ Step 8
 
 以下问题在冻结最终 Tracker 方案前必须确认：
 
-1. Trunker 对“每用户 announce 鉴权”的具体凭证格式是什么？
-2. Trunker 是否提供适合把用户级 / 种子级统计同步到站点的直接机制？
-3. 如果 Trunker 有 push / event 集成，它是否足够支撑站点缓存刷新？
-4. 如果不能 push，那么应该使用哪个 pull 接口，以及刷新频率定为多少合适？
+1. XBT 在目标部署方式下的 announce URL、私有凭证格式与统计读取路径具体怎么落地？
+2. 站点应通过 XBT 数据库直读、只读视图，还是额外的小型适配层来同步用户级 / 种子级统计？
+3. 如果 XBT 在运维或集成上不合适，Torrust 是否能满足 PT 式每用户凭证与统计归属要求？
+4. 如果切换到 Torrust，应该采用哪个管理 API / event / pull 路径，以及刷新频率定为多少合适？
 5. 第一阶段是否需要把封禁同步到 Tracker，还是仅站点侧拒绝下载就足够？
 
 在这些问题确认之前，spec 有意保持以下内容抽象化：

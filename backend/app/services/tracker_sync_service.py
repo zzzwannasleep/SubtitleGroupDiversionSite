@@ -19,6 +19,11 @@ class TrackerSyncError(ValueError):
     """Raised when tracker sync cannot be completed."""
 
 
+def _source_name() -> str:
+    tracker_impl = get_settings().tracker_impl.strip().lower()
+    return tracker_impl or "tracker"
+
+
 def _normalize_payload(payload: object) -> list[dict[str, object]]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
@@ -81,7 +86,7 @@ def _sync_user_stats(db: Session, items: Iterable[dict[str, object]]) -> int:
         cache.downloaded_bytes = _to_int(item.get("downloaded_bytes", item.get("downloaded", 0)))
         cache.ratio = _to_decimal(item.get("ratio"))
         cache.updated_at = datetime.now(UTC)
-        cache.source = "trunker"
+        cache.source = _source_name()
         db.add(cache)
         updated += 1
 
@@ -108,7 +113,7 @@ def _sync_torrent_stats(db: Session, items: Iterable[dict[str, object]]) -> int:
         cache.snatches = _to_int(item.get("snatches"))
         cache.finished = _to_int(item.get("finished"))
         cache.updated_at = datetime.now(UTC)
-        cache.source = "trunker"
+        cache.source = _source_name()
         db.add(cache)
         updated += 1
 

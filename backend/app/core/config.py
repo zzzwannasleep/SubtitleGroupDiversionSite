@@ -15,8 +15,9 @@ class Settings(BaseSettings):
     torrent_storage_path: str = "/app/data/torrents"
     upload_storage_path: str = "/app/data/uploads"
     public_web_base_url: str = "http://localhost"
+    tracker_impl: str = "xbt"
     tracker_base_url: str = "http://localhost/announce"
-    tracker_credential_mode: str = "query"
+    tracker_credential_mode: str = "path"
     tracker_credential_query_key: str = "passkey"
     tracker_sync_mode: str = "pull"
     tracker_user_stats_endpoint: str | None = None

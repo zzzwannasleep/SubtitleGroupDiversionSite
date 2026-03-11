@@ -18,7 +18,7 @@ class TrackerTorrentStatsCache(Base):
     snatches: Mapped[int] = mapped_column(default=0, nullable=False)
     finished: Mapped[int] = mapped_column(default=0, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    source: Mapped[str] = mapped_column(String(32), default="trunker", nullable=False)
+    source: Mapped[str] = mapped_column(String(32), default="tracker", nullable=False)
 
     torrent: Mapped["Torrent"] = relationship(back_populates="stats_cache")
 

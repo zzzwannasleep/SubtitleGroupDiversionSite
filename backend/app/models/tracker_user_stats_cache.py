@@ -18,7 +18,7 @@ class TrackerUserStatsCache(Base):
     downloaded_bytes: Mapped[int] = mapped_column(default=0, nullable=False)
     ratio: Mapped[Decimal | None] = mapped_column(Numeric(18, 6), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
-    source: Mapped[str] = mapped_column(String(32), default="trunker", nullable=False)
+    source: Mapped[str] = mapped_column(String(32), default="tracker", nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="stats_cache")
 

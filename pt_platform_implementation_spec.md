@@ -1,9 +1,9 @@
 PROJECT: Private Torrent Distribution Platform
 DOCUMENT: Architecture / Implementation Spec
-VERSION: v0.5 Frontend Pages Draft
+VERSION: v0.7 Tracker Strategy Revision
 TARGET USERS: 20-50
 DEPLOYMENT: Docker Compose
-TRACKER: External tracker service (primary choice: Trunker)
+TRACKER: External tracker service (primary choice: XBT Tracker; fallback: Torrust Tracker)
 WEBSITE: FastAPI + Vue 3
 DATABASE: PostgreSQL
 CACHE: Redis + tracker snapshot cache tables
@@ -55,7 +55,7 @@ Not in current urgent scope:
 3. The website is the source of truth for users, roles, categories, torrent metadata, and page permissions.
 4. The tracker is the source of truth for announce/scrape/peer state and traffic statistics.
 5. Every user must have a unique tracker credential.
-6. Do not hardcode the tracker credential transport format until Trunker PoC confirms it.
+6. Default to an XBT-style private credential model, but do not hardcode the final announce URL shape until XBT PoC confirms it.
 7. Rewrite the torrent announce URL or tracker credential at download time.
 8. Keep the backend monolithic in phase 1.
 9. Prefer stable open-source components for infrastructure and internal admin tools.
@@ -107,7 +107,8 @@ Reverse Proxy:
 
 Tracker:
 
-- Trunker
+- XBT Tracker (primary choice because it matches PT private passkey or torrent_pass semantics more closely)
+- Torrust Tracker (fallback choice because it is more modern and container-friendly, but still needs PT-specific PoC)
 
 ================================================
 4. HIGH LEVEL ARCHITECTURE
@@ -131,7 +132,7 @@ Tracker:
                  v
       [ tracker snapshot cache tables ]
 
-[ BT Client ] -----------------------> [ Trunker ]
+[ BT Client ] -----------------------> [ Tracker Service: XBT / Torrust ]
 
 Responsibilities:
 
@@ -233,24 +234,24 @@ Safety rule:
 
 Each website user must own one unique tracker credential.
 
-This credential is an opaque value from the website point of view.
-It may later be represented as:
+This credential is opaque from the website point of view.
+In phase 1, the preferred interpretation is an XBT-style private user credential:
 
-- a passkey in announce path
-- a passkey in query string
-- a tracker-recognized token
-- a website-to-tracker mapping key
+- website-side `tracker_credential` maps directly to the tracker-side private user credential
+- the preferred model is similar to `torrent_pass`
+- the preferred announce format is an XBT-style `/<tracker_credential>/announce`
 
 Phase 1 rule:
 
 - store one unique `tracker_credential` per user
 - use it when rewriting torrent files for that user
-- do not hardcode the exact Trunker credential shape in the spec until PoC confirms it
+- do not hardcode the final URL/path form until XBT PoC confirms it
 
 Decision rule after PoC:
 
-- if Trunker natively supports per-user passkey-style credentials, use that directly
-- otherwise add a small mapping layer between website users and tracker-recognizable credentials
+- if XBT PoC succeeds, freeze the tracker model around native XBT private credentials
+- if XBT proves unsuitable for deployment or sync integration, start the Torrust fallback PoC
+- only if XBT is unsuitable should the spec keep `tracker_credential` abstract and map it to a Torrust-compatible form
 
 NexusPHP note:
 
@@ -263,8 +264,8 @@ NexusPHP note:
 
 Source of truth:
 
-- tracker user traffic stats come from Trunker
-- tracker torrent swarm stats come from Trunker
+- tracker user traffic stats come from the selected tracker
+- tracker torrent swarm stats come from the selected tracker
 
 Website cache strategy:
 
@@ -274,11 +275,12 @@ Website cache strategy:
 
 Preferred sync strategy:
 
-- use Trunker push or event integration if confirmed by PoC
+- if XBT is selected, use periodic pull from the XBT tracker database or a small read-only adapter service
 
 Fallback sync strategy:
 
-- periodic pull from Trunker-supported stats/admin endpoints every 30 to 60 seconds
+- if Torrust is selected later and its management API or event path is sufficient, switch to that sync route
+- regardless of implementation, MVP refreshes every 30 to 60 seconds
 
 Display rule:
 
@@ -375,7 +377,7 @@ fields:
 - downloaded_bytes: bigint, not null, default 0
 - ratio: numeric(18,6), null
 - updated_at: timestamptz, not null
-- source: varchar(32), not null, default 'trunker'
+- source: varchar(32), not null, default 'tracker'
 
 Meaning:
 
@@ -391,7 +393,7 @@ fields:
 - snatches: int, not null, default 0
 - finished: int, not null, default 0
 - updated_at: timestamptz, not null
-- source: varchar(32), not null, default 'trunker'
+- source: varchar(32), not null, default 'tracker'
 
 Meaning:
 
@@ -399,7 +401,7 @@ Meaning:
 
 Phase 1 non-goal:
 
-- do not maintain a website-owned `peers` table unless Trunker integration later proves it is necessary
+- do not maintain a website-owned `peers` table unless the selected tracker integration later proves it is necessary
 
 ================================================
 10. BACKEND PROJECT STRUCTURE
@@ -561,7 +563,7 @@ Download behavior:
 - require authenticated user
 - record `download_logs`
 - load original torrent bytes
-- inject user-specific tracker credential in the Trunker-compatible format
+- inject user-specific tracker credential in the selected tracker-compatible format
 - return rewritten torrent file
 
 12.4 RSS APIs
@@ -633,33 +635,45 @@ Security rules:
 
 Primary tracker:
 
-- Trunker
+- XBT Tracker
+
+Fallback tracker:
+
+- Torrust Tracker
+
+Deployment rules:
+
+- the tracker must run as its own container or service, not inside the same image as `backend`
+- if XBT is selected, provide a separate `tracker-db` based on MySQL or MariaDB
+- if Torrust is selected, use either its SQLite volume mode or a dedicated MySQL service
 
 Tracker integration contract:
 
 1. Store original uploaded torrent files unchanged.
 2. On each download request, rewrite torrent bytes in memory.
-3. Inject a user-specific tracker credential in a Trunker-compatible way.
+3. Inject a user-specific tracker credential in a tracker-compatible way.
 4. Return the rewritten torrent file as attachment.
 5. Treat tracker stats as source of truth.
 6. Refresh tracker stats into website cache.
 
 PoC gate:
 
-- Before implementation is finalized, confirm exactly how Trunker recognizes a unique website user:
-  - native passkey-style credential
-  - token or query-based credential
-  - tracker-side app/user mapping
-  - custom bridge service
+- Before implementation is finalized, complete the XBT PoC and confirm:
+  - XBT container deployment is stable in the stack
+  - the XBT-style private credential model satisfies PT requirements directly
+  - the website can read back user-level and torrent-level stats from XBT
+- Only if XBT is unsuitable should the Torrust fallback PoC be executed:
+  - can Torrust satisfy PT private-user credential semantics
+  - can Torrust expose a sync path suitable for website cache refresh
 
 Implementation rule:
 
-- the spec must not assume `announce/<passkey>` until the PoC proves that format
+- the spec defaults to an XBT-style private credential model, but it must not freeze one concrete URL form until XBT PoC succeeds
 
 Stats sync rule:
 
-- if Trunker supports a suitable push/event path for website sync, use it
-- otherwise implement periodic pull sync as the default MVP path
+- if XBT is selected, periodic pull is the default MVP sync path
+- if Torrust is selected later and its management API or event path is sufficient, use that route instead
 
 ================================================
 15. TORRENT PARSING RULES
@@ -896,7 +910,9 @@ Example services:
 - `redis`: Redis 7
 - `backend`: FastAPI app
 - `frontend`: Vue app
-- `tracker`: Trunker
+- `tracker`: XBT Tracker (primary) or Torrust Tracker (fallback)
+- `tracker-db`: MySQL or MariaDB for XBT; optional MySQL or SQLite volume for Torrust
+- tracker runs as a separate service, not inside the `backend` image
 - `nginx`: reverse proxy
 
 ================================================
@@ -915,9 +931,11 @@ Backend:
 - TORRENT_STORAGE_PATH=/app/data/torrents
 - UPLOAD_STORAGE_PATH=/app/data/uploads
 - PUBLIC_WEB_BASE_URL=https://app.example.com
+- TRACKER_IMPL=xbt
 - TRACKER_BASE_URL=https://tracker.example.com
 - TRACKER_SYNC_MODE=pull
 - TRACKER_SYNC_INTERVAL_SECONDS=30
+- XBT_TRACKER_DB_DSN=mysql://tracker:tracker-pass@tracker-db:3306/xbt
 - ALLOW_PUBLIC_TORRENT_LIST=true
 - ALLOW_USER_REGISTRATION=true
 
@@ -931,7 +949,7 @@ Frontend:
 
 Note:
 
-- replace `TRACKER_SYNC_MODE` with push/event mode later if Trunker PoC confirms it
+- replace `TRACKER_SYNC_MODE` with a Torrust-specific API or event mode later only if the fallback PoC proves it is suitable
 
 ================================================
 20. MVP DEVELOPMENT ORDER
@@ -970,8 +988,8 @@ Step 5
 
 Step 6
 
-- deploy Trunker
-- complete tracker credential PoC
+- deploy XBT Tracker
+- complete XBT tracker credential PoC
 - confirm BT client announce success
 
 Step 7
@@ -997,8 +1015,8 @@ The system is minimally usable when all of the following work:
 4. The uploaded torrent appears on the torrent list page.
 5. A user can open the torrent detail page.
 6. A user can download a rewritten torrent.
-7. The rewritten torrent contains a unique tracker credential for that user in the confirmed Trunker-compatible format.
-8. A BT client can announce to Trunker successfully.
+7. The rewritten torrent contains a unique tracker credential for that user in the confirmed tracker-compatible format.
+8. A BT client can announce to the selected tracker successfully; MVP defaults to XBT as the validation target.
 9. The website can display tracker-backed uploaded/downloaded and torrent swarm stats from cache.
 10. RSS endpoint returns valid XML.
 11. RSS feed can be consumed by a downloader.
@@ -1009,10 +1027,10 @@ The system is minimally usable when all of the following work:
 
 These items must be validated before freezing the final tracker implementation:
 
-1. What exact per-user credential format does Trunker support for announce authentication?
-2. Does Trunker expose a direct mechanism suitable for syncing per-user and per-torrent stats into the website?
-3. If Trunker has push/event integration, is it sufficient for website cache refresh?
-4. If not, which pull endpoint and refresh interval are appropriate?
+1. What exact announce URL form, private credential format, and stats readback path will be used for XBT in the deployed stack?
+2. Should the website sync XBT stats by direct database reads, read-only views, or a small adapter service?
+3. If XBT proves unsuitable operationally, can Torrust satisfy PT-style per-user credential and stats ownership requirements?
+4. If Torrust is used as fallback, which management API, event, or pull path is appropriate, and what refresh interval should be used?
 5. Does phase 1 need tracker-side ban synchronization, or is website-side download denial enough?
 
 Until these are verified, the spec intentionally keeps the tracker credential transport and sync transport abstract.

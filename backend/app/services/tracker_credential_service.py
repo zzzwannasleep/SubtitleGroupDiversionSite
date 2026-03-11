@@ -1,2 +1,1 @@
-"""Tracker credential mapping helpers will be implemented after the Trunker PoC."""
-
+"""Tracker credential mapping helpers will be implemented after the XBT/Torrust PoC."""
