@@ -68,24 +68,62 @@
 - 更完整的上传校验、NFO/MediaInfo 处理与生产级错误处理
 - 更完整的后台前端化管理页与操作审计
 
-## Docker 部署
+## 服务器 Docker 部署
 
-当前仓库最省事的方式是直接使用 `docker compose`。这也是当前最适合“快速跑通全流程”的方案。
+当前仓库最适合的部署方式是直接在 Linux 服务器上使用 `docker compose`。
 
 ### 部署前准备
 
-确保机器上已经安装：
+确保服务器已经安装：
 
 - Docker
-- Docker Compose
+- Docker Compose Plugin
 
-默认会用到这些端口：
+确保服务器或安全组已经放行这些端口：
 
 - `80/tcp`：站点入口
 - `2710/tcp`：XBT Tracker HTTP announce
 - `6881/udp`：XBT Tracker UDP
 
-### 1. 准备配置
+### 1. 登录服务器
+
+```bash
+ssh root@你的服务器IP
+```
+
+如果你不是 `root`，把上面的用户名换成你自己的服务器用户。
+
+### 2. 把项目放到服务器
+
+最常见的方式是直接在服务器上拉代码：
+
+```bash
+git clone <repo-url> SubtitleGroupDiversionSite
+cd SubtitleGroupDiversionSite
+```
+
+如果你不是用 Git，而是手动上传压缩包，也可以：
+
+```bash
+unzip SubtitleGroupDiversionSite.zip
+cd SubtitleGroupDiversionSite
+```
+
+这里的“项目根目录”就是这个目录，也就是你执行 `ls` 时能看到这些文件和目录的地方：
+
+- `docker-compose.yml`
+- `backend/`
+- `frontend/`
+- `README.md`
+
+你可以用这两个命令确认：
+
+```bash
+pwd
+ls
+```
+
+### 3. 准备配置
 
 检查 `backend/.env`。如果你是新环境，也可以先参考 `backend/.env.example`。
 
@@ -100,13 +138,21 @@
 
 常见示例：
 
-- 本机预览：
-  - `PUBLIC_WEB_BASE_URL=http://localhost`
-  - `TRACKER_BASE_URL=http://localhost:2710/announce`
 - 用域名部署：
   - `PUBLIC_WEB_BASE_URL=https://pt.example.com`
   - `TRACKER_BASE_URL=http://pt.example.com:2710/announce`
   - `CORS_ALLOWED_ORIGINS=https://pt.example.com`
+- 用公网 IP 先测试：
+  - `PUBLIC_WEB_BASE_URL=http://你的服务器IP`
+  - `TRACKER_BASE_URL=http://你的服务器IP:2710/announce`
+  - `CORS_ALLOWED_ORIGINS=http://你的服务器IP`
+
+如果 `backend/.env` 还不存在，可以先复制一份：
+
+```bash
+cp backend/.env.example backend/.env
+nano backend/.env
+```
 
 说明：
 
@@ -114,7 +160,7 @@
 - 只要 `AUTO_CREATE_TABLES=true`，后端启动时会自动补齐缺少的表。
 - 新增的 `site_settings` 这类表也会走这条路径自动创建。
 
-### 2. 启动服务
+### 4. 启动服务
 
 在项目根目录执行：
 
@@ -122,7 +168,31 @@
 docker compose up -d --build
 ```
 
-### 3. 访问站点
+第一次启动会下载镜像、安装依赖、构建前后端，可能需要几分钟。
+
+如果你想看启动过程日志，可以执行：
+
+```bash
+docker compose logs -f
+```
+
+### 5. 确认容器已经起来
+
+```bash
+docker compose ps
+```
+
+你应该能看到这些服务：
+
+- `postgres`
+- `redis`
+- `tracker-db`
+- `tracker`
+- `backend`
+- `frontend`
+- `nginx`
+
+### 6. 访问站点
 
 启动后可以访问：
 
@@ -130,9 +200,12 @@ docker compose up -d --build
 - 健康检查：`http://localhost/api/health`
 - 内部后台：`http://localhost/internal-admin`
 
-如果你部署在服务器，把 `localhost` 换成你的公网 IP 或域名即可。
+如果你部署在服务器，把 `localhost` 换成你的公网 IP 或域名即可，例如：
 
-### 4. 初始化账号
+- `http://你的服务器IP`
+- `http://pt.example.com`
+
+### 7. 初始化账号
 
 - 打开 `/register`
 - 注册第一个账号
@@ -147,7 +220,27 @@ docker compose up -d --build
 5. `/torrents`
 6. `/internal-admin`
 
-### 5. 持久化数据目录
+### 8. 文件会保存到哪里
+
+Docker 容器里的数据库和上传文件不会只存在容器内部，它们已经映射到你本机当前项目目录下的 `data/` 里了。
+
+也就是说，你在本机能直接看到这些目录：
+
+- `./data/postgres`
+- `./data/tracker-db`
+- `./data/torrents`
+- `./data/uploads`
+
+用途分别是：
+
+- `data/postgres`：站点主数据库
+- `data/tracker-db`：XBT Tracker 的数据库
+- `data/torrents`：上传后的 `.torrent` 原始文件
+- `data/uploads`：上传临时目录
+
+如果你问的“文件怎么下载到本机”是指“Docker 里的数据怎么落到宿主机”，答案就是：已经通过这些挂载目录落到本机了。
+
+### 9. 持久化数据目录
 
 当前 compose 会把这些目录挂载到宿主机：
 
@@ -158,7 +251,7 @@ docker compose up -d --build
 
 如果你要迁移机器或备份，至少要保留这些目录。
 
-### 6. 常用命令
+### 10. 常用命令
 
 查看日志：
 
@@ -188,7 +281,7 @@ rm -rf data/postgres data/tracker-db data/torrents data/uploads
 docker compose up -d --build
 ```
 
-### 7. 部署注意事项
+### 11. 部署注意事项
 
 - 当前 compose 已经包含 `Postgres + Redis + XBT Tracker + tracker-db + backend + frontend + nginx`。
 - BT 客户端实际使用的 announce 地址来自 `TRACKER_BASE_URL`，不是 Nginx 的 `/api` 入口。
