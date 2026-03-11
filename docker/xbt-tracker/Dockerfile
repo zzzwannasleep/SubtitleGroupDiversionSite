@@ -12,6 +12,7 @@ RUN apt-get update \
         libboost-all-dev \
         libmariadb-dev \
         libmariadb-dev-compat \
+        libsystemd-dev \
         netcat-openbsd \
         pkg-config \
         zlib1g-dev \
