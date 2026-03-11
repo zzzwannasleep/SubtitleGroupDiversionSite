@@ -37,41 +37,18 @@ const enUS = {
   },
   auth: {
     hero: {
-      browsePublicTorrents: "Browse public torrents",
       createAccount: "Create account",
       backToSignIn: "Back to sign in",
-      kicker: "Architecture-aligned access",
-      facts: {
-        targetScale: {
-          label: "Target scale",
-          value: "20-50 users",
-        },
-        deployment: {
-          label: "Deployment",
-          value: "Docker Compose",
-        },
-        trackerMode: {
-          label: "Tracker mode",
-          value: "XBT first",
-        },
-      },
-      operationalFocus: "Operational focus",
-      safeguards: {
-        credential: "Per-user tracker credential delivery",
-        permissions: "Role-based upload and admin controls",
-        stats: "Tracker-backed traffic and swarm snapshots",
-      },
+      kicker: "Member entrance",
       defaults: {
-        headline: "Private tracker operations, without the forum overhead.",
-        supportText:
-          "Role-aware uploads, tracker-backed traffic stats, and per-user credential delivery for focused PT teams.",
+        headline: "Private torrent member portal.",
+        supportText: "Sign in or create an account to continue.",
       },
     },
     login: {
       eyebrow: "Secure sign in",
-      title: "Connect to the tracker portal",
-      description:
-        "Use your account identity to access torrent browsing, RSS feeds, and tracker-backed personal stats.",
+      title: "Sign in to the site",
+      description: "Use your account to continue.",
       altPrompt: "Need an account?",
       altLabel: "Create one",
       usernameOrEmail: "Username or email",
@@ -82,9 +59,8 @@ const enUS = {
     },
     register: {
       eyebrow: "Provision account",
-      title: "Create a platform identity",
-      description:
-        "Provision a local PT account with unique tracker credentials, RSS access, and role-based permissions.",
+      title: "Create an account",
+      description: "Register a member account to continue.",
       altPrompt: "Already registered?",
       altLabel: "Sign in",
       note: "The first registered user becomes the initial admin.",

@@ -4,62 +4,29 @@ import { RouterLink } from "vue-router";
 
 import LocaleSwitcher from "@/components/LocaleSwitcher.vue";
 import { useI18n } from "@/composables/useI18n";
-import {
-  AUTH_THEME_PRESETS,
-  type AuthThemePresetId,
-  resolveAuthThemePreset,
-} from "@/config/authTheme";
+import { resolveAuthThemePreset } from "@/config/authTheme";
 import { useAppearanceStore } from "@/stores/appearance";
 
 
 interface Props {
-  formEyebrow: string;
+  formEyebrow?: string;
   formTitle: string;
-  formDescription: string;
+  formDescription?: string;
   alternatePrompt: string;
   alternateLabel: string;
   alternateTo: string;
   note?: string;
-  showStyleStudio?: boolean;
 }
 
 
 const props = withDefaults(defineProps<Props>(), {
   note: "",
-  showStyleStudio: true,
 });
 
 const appearanceStore = useAppearanceStore();
 const { t } = useI18n();
 
-const platformFacts = computed(() => [
-  {
-    label: t("auth.hero.facts.targetScale.label"),
-    value: t("auth.hero.facts.targetScale.value"),
-  },
-  {
-    label: t("auth.hero.facts.deployment.label"),
-    value: t("auth.hero.facts.deployment.value"),
-  },
-  {
-    label: t("auth.hero.facts.trackerMode.label"),
-    value: t("auth.hero.facts.trackerMode.value"),
-  },
-]);
-
-const safeguards = computed(() => [
-  t("auth.hero.safeguards.credential"),
-  t("auth.hero.safeguards.permissions"),
-  t("auth.hero.safeguards.stats"),
-]);
-
-const branding = computed(() => ({
-  brandName: appearanceStore.state.authBrandName.trim() || t("common.appName"),
-  headline: appearanceStore.state.authHeadline.trim() || t("auth.hero.defaults.headline"),
-  supportText:
-    appearanceStore.state.authSupportText.trim() ||
-    t("auth.hero.defaults.supportText"),
-}));
+const brandName = computed(() => appearanceStore.state.authBrandName.trim() || t("common.appName"));
 
 const activePreset = computed(() => resolveAuthThemePreset(appearanceStore.state.authThemePreset));
 
@@ -72,202 +39,52 @@ const pageStyle = computed<Record<string, string>>(() => {
     "--auth-remote-image": backgroundImageUrl ? `url('${backgroundImageUrl}')` : "none",
   };
 });
-
-function applyPreset(presetId: AuthThemePresetId): void {
-  const preset = resolveAuthThemePreset(presetId);
-  appearanceStore.state.authThemePreset = presetId;
-  appearanceStore.state.authAccentColor = preset.variables["--auth-accent"];
-}
-
-function usePresetAccent(): void {
-  appearanceStore.state.authAccentColor = activePreset.value.variables["--auth-accent"];
-}
-
-function clearBackgroundImage(): void {
-  appearanceStore.state.authBackgroundImageUrl = "";
-}
-
-function resetStyleStudio(): void {
-  appearanceStore.resetAuthPageStyle();
-}
 </script>
 
 <template>
   <div class="auth-shell" :style="pageStyle">
-    <div class="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
-      <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <RouterLink to="/login" class="auth-brand-link">
-          <span class="h-2.5 w-2.5 rounded-full bg-[color:var(--auth-accent)]"></span>
-          {{ branding.brandName }}
-        </RouterLink>
+    <div class="mx-auto min-h-screen max-w-5xl px-4 py-5 sm:px-6 lg:px-8">
+      <div class="flex justify-end">
+        <LocaleSwitcher variant="auth" />
+      </div>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <LocaleSwitcher variant="auth" />
-          <RouterLink to="/torrents" class="auth-secondary-btn">{{ t("auth.hero.browsePublicTorrents") }}</RouterLink>
-          <RouterLink v-if="props.alternateTo === '/register'" to="/register" class="auth-secondary-btn">
-            {{ t("auth.hero.createAccount") }}
-          </RouterLink>
-          <RouterLink v-else to="/login" class="auth-secondary-btn">{{ t("auth.hero.backToSignIn") }}</RouterLink>
-        </div>
-      </header>
-
-      <div class="grid flex-1 gap-6 lg:grid-cols-[1.1fr,0.9fr] xl:gap-8">
-        <section class="auth-panel auth-grid-panel overflow-hidden rounded-[2rem] p-6 sm:p-8 xl:p-10">
-          <div class="relative z-10 max-w-2xl">
-            <p class="auth-kicker-badge">{{ t("auth.hero.kicker") }}</p>
-            <h2 class="mt-6 text-4xl font-semibold tracking-tight text-[color:var(--auth-text)] sm:text-5xl">
-              {{ branding.headline }}
-            </h2>
-            <p class="mt-4 max-w-xl text-base leading-7 text-[color:var(--auth-text-muted)] sm:text-lg">
-              {{ branding.supportText }}
-            </p>
-
-            <div class="mt-8 grid gap-4 sm:grid-cols-3">
-              <div v-for="fact in platformFacts" :key="fact.label" class="auth-subpanel rounded-3xl p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--auth-text-muted)]">
-                  {{ fact.label }}
-                </p>
-                <p class="mt-3 text-xl font-semibold text-[color:var(--auth-text)]">{{ fact.value }}</p>
-              </div>
+      <div class="flex min-h-[calc(100vh-3.5rem)] items-center justify-center py-10">
+        <section class="auth-window w-full max-w-md">
+          <div class="auth-window-bar">
+            <div class="auth-window-dots" aria-hidden="true">
+              <span class="auth-window-dot auth-window-dot--warm"></span>
+              <span class="auth-window-dot auth-window-dot--soft"></span>
+              <span class="auth-window-dot auth-window-dot--cool"></span>
             </div>
+            <p class="auth-window-meta">{{ brandName }}</p>
+          </div>
 
-            <div class="auth-subpanel mt-8 rounded-[2rem] p-6">
-              <p class="text-sm font-semibold uppercase tracking-[0.2em] text-[color:var(--auth-text-muted)]">
-                {{ t("auth.hero.operationalFocus") }}
+          <div class="auth-window-body">
+            <div>
+              <p
+                v-if="props.formEyebrow"
+                class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--auth-text-muted)]"
+              >
+                {{ props.formEyebrow }}
+              </p>
+              <h1 class="text-3xl font-semibold tracking-tight text-[color:var(--auth-text)]" :class="props.formEyebrow ? 'mt-3' : ''">
+                {{ props.formTitle }}
+              </h1>
+              <p v-if="props.formDescription" class="mt-2 text-sm leading-6 text-[color:var(--auth-text-muted)]">
+                {{ props.formDescription }}
               </p>
 
-              <div class="mt-4 grid gap-3">
-                <div v-for="item in safeguards" :key="item" class="auth-subpanel flex items-start gap-3 rounded-2xl px-4 py-3">
-                  <span class="mt-1 h-2.5 w-2.5 rounded-full bg-[color:var(--auth-accent)]"></span>
-                  <span class="text-sm leading-6 text-[color:var(--auth-text)]">{{ item }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="space-y-6">
-          <div class="auth-panel rounded-[2rem] p-6 sm:p-8">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--auth-text-muted)]">
-              {{ props.formEyebrow }}
-            </p>
-            <h1 class="mt-4 text-3xl font-semibold tracking-tight text-[color:var(--auth-text)] sm:text-4xl">
-              {{ props.formTitle }}
-            </h1>
-            <p class="mt-3 max-w-xl text-sm leading-6 text-[color:var(--auth-text-muted)] sm:text-base">
-              {{ props.formDescription }}
-            </p>
-
-            <div class="mt-8">
-              <slot />
-            </div>
-
-            <p class="mt-6 text-sm text-[color:var(--auth-text-muted)]">
-              {{ props.alternatePrompt }}
-              <RouterLink :to="props.alternateTo" class="auth-link font-semibold">{{ props.alternateLabel }}</RouterLink>
-            </p>
-            <p v-if="props.note" class="mt-3 text-xs uppercase tracking-[0.16em] text-[color:var(--auth-text-muted)]">
-              {{ props.note }}
-            </p>
-          </div>
-
-          <div v-if="props.showStyleStudio" class="auth-panel rounded-[2rem] p-6 sm:p-8">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--auth-text-muted)]">
-                  {{ t("auth.styleStudio.kicker") }}
-                </p>
-                <h2 class="mt-3 text-2xl font-semibold text-[color:var(--auth-text)]">
-                  {{ t("auth.styleStudio.title") }}
-                </h2>
-                <p class="mt-2 text-sm leading-6 text-[color:var(--auth-text-muted)]">
-                  {{ t("auth.styleStudio.description") }}
-                </p>
+              <div class="mt-7">
+                <slot />
               </div>
 
-              <button type="button" class="auth-secondary-btn shrink-0" @click="resetStyleStudio">
-                {{ t("auth.styleStudio.reset") }}
-              </button>
-            </div>
-
-            <div class="mt-6 grid gap-5">
-              <div>
-                <label class="auth-field-label">{{ t("auth.styleStudio.preset") }}</label>
-
-                <div class="mt-3 grid gap-3 sm:grid-cols-3">
-                  <button
-                    v-for="themePreset in AUTH_THEME_PRESETS"
-                    :key="themePreset.id"
-                    type="button"
-                    class="auth-preset-btn"
-                    :class="{ 'auth-preset-btn--active': themePreset.id === activePreset.id }"
-                    @click="applyPreset(themePreset.id)"
-                  >
-                    <div class="flex items-center gap-3">
-                      <span
-                        class="h-4 w-4 rounded-full border border-white/20"
-                        :style="{ backgroundColor: themePreset.variables['--auth-accent'] }"
-                      />
-                      <span class="text-sm font-semibold text-[color:var(--auth-text)]">{{ t(themePreset.labelKey) }}</span>
-                    </div>
-                    <p class="mt-3 text-xs leading-5 text-[color:var(--auth-text-muted)]">
-                      {{ t(themePreset.descriptionKey) }}
-                    </p>
-                  </button>
-                </div>
-              </div>
-
-              <div class="grid gap-4 sm:grid-cols-[auto,1fr] sm:items-end">
-                <label class="block">
-                  <span class="auth-field-label">{{ t("auth.styleStudio.accentColor") }}</span>
-                  <input v-model="appearanceStore.state.authAccentColor" type="color" class="auth-color-input mt-3" />
-                </label>
-                <button type="button" class="auth-secondary-btn w-full sm:w-auto" @click="usePresetAccent">
-                  {{ t("auth.styleStudio.usePresetAccent") }}
-                </button>
-              </div>
-
-              <label class="block">
-                <span class="auth-field-label">{{ t("auth.styleStudio.brandLabel") }}</span>
-                <input
-                  v-model="appearanceStore.state.authBrandName"
-                  class="auth-input mt-3"
-                  :placeholder="t('auth.styleStudio.placeholders.brandLabel')"
-                />
-              </label>
-
-              <label class="block">
-                <span class="auth-field-label">{{ t("auth.styleStudio.heroTitle") }}</span>
-                <input
-                  v-model="appearanceStore.state.authHeadline"
-                  class="auth-input mt-3"
-                  :placeholder="t('auth.styleStudio.placeholders.heroTitle')"
-                />
-              </label>
-
-              <label class="block">
-                <span class="auth-field-label">{{ t("auth.styleStudio.heroSubtitle") }}</span>
-                <textarea
-                  v-model="appearanceStore.state.authSupportText"
-                  class="auth-textarea mt-3"
-                  rows="3"
-                  :placeholder="t('auth.styleStudio.placeholders.heroSubtitle')"
-                />
-              </label>
-
-              <div class="grid gap-4 sm:grid-cols-[1fr,auto] sm:items-end">
-                <label class="block">
-                  <span class="auth-field-label">{{ t("auth.styleStudio.backgroundImageUrl") }}</span>
-                  <input
-                    v-model="appearanceStore.state.authBackgroundImageUrl"
-                    class="auth-input mt-3"
-                    :placeholder="t('auth.styleStudio.placeholders.backgroundImageUrl')"
-                  />
-                </label>
-                <button type="button" class="auth-secondary-btn w-full sm:w-auto" @click="clearBackgroundImage">
-                  {{ t("auth.styleStudio.clearImage") }}
-                </button>
-              </div>
+              <p class="mt-6 text-sm text-[color:var(--auth-text-muted)]">
+                {{ props.alternatePrompt }}
+                <RouterLink :to="props.alternateTo" class="auth-link font-semibold">{{ props.alternateLabel }}</RouterLink>
+              </p>
+              <p v-if="props.note" class="mt-3 text-xs uppercase tracking-[0.16em] text-[color:var(--auth-text-muted)]">
+                {{ props.note }}
+              </p>
             </div>
           </div>
         </section>
@@ -284,67 +101,67 @@ function resetStyleStudio(): void {
   background-image:
     linear-gradient(var(--auth-image-overlay-top), var(--auth-image-overlay-bottom)),
     var(--auth-remote-image),
-    radial-gradient(circle at top left, var(--auth-spotlight-a), transparent 34%),
-    radial-gradient(circle at bottom right, var(--auth-spotlight-b), transparent 30%),
-    linear-gradient(135deg, var(--auth-bg), var(--auth-bg-soft));
+    radial-gradient(circle at top, var(--auth-spotlight-a), transparent 42%),
+    linear-gradient(180deg, var(--auth-bg), var(--auth-bg-soft));
   background-position: center;
-  background-size: cover, cover, auto, auto, auto;
+  background-size: cover, cover, auto, auto;
 }
 
-.auth-panel {
+.auth-window {
+  overflow: hidden;
   border: 1px solid var(--auth-border);
-  background: var(--auth-surface);
-  backdrop-filter: blur(22px);
+  border-radius: 1.5rem;
+  background: color-mix(in srgb, var(--auth-surface-elevated) 90%, transparent);
+  backdrop-filter: blur(24px);
   box-shadow: var(--auth-shadow);
 }
 
-.auth-subpanel {
-  border: 1px solid var(--auth-border);
-  background: var(--auth-surface-elevated);
+.auth-window-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--auth-border);
+  background: color-mix(in srgb, var(--auth-surface) 84%, transparent);
 }
 
-.auth-grid-panel {
-  position: relative;
-}
-
-.auth-grid-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--auth-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--auth-grid) 1px, transparent 1px);
-  background-size: 72px 72px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.85), transparent 92%);
-  pointer-events: none;
-}
-
-.auth-brand-link {
+.auth-window-dots {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  border: 1px solid var(--auth-border);
-  border-radius: 999px;
-  background: var(--auth-surface-elevated);
-  color: var(--auth-text);
-  padding: 0.7rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  backdrop-filter: blur(20px);
+  gap: 0.45rem;
 }
 
-.auth-kicker-badge {
-  display: inline-flex;
-  border: 1px solid var(--auth-border);
+.auth-window-dot {
+  width: 0.7rem;
+  height: 0.7rem;
   border-radius: 999px;
-  background: var(--auth-accent-soft);
-  padding: 0.65rem 1rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--auth-text);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+.auth-window-dot--warm {
+  background: #fb7185;
+}
+
+.auth-window-dot--soft {
+  background: #fbbf24;
+}
+
+.auth-window-dot--cool {
+  background: var(--auth-accent);
+}
+
+.auth-window-meta {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--auth-text-muted);
+}
+
+  .auth-window-body {
+    padding: 1.4rem;
+  }
 
 .auth-field-label {
   display: block;
@@ -384,19 +201,8 @@ function resetStyleStudio(): void {
   min-height: 7rem;
 }
 
-.auth-color-input {
-  width: 4.5rem;
-  height: 3.25rem;
-  padding: 0.35rem;
-  border-radius: 1rem;
-  border: 1px solid var(--auth-border);
-  background: var(--auth-input-bg);
-}
-
 .auth-primary-btn,
-.auth-secondary-btn,
-.auth-link,
-.auth-preset-btn {
+.auth-link {
   transition:
     transform 140ms ease,
     filter 140ms ease,
@@ -419,9 +225,7 @@ function resetStyleStudio(): void {
   cursor: pointer;
 }
 
-.auth-primary-btn:hover,
-.auth-secondary-btn:hover,
-.auth-preset-btn:hover {
+.auth-primary-btn:hover {
   transform: translateY(-1px);
   filter: brightness(0.98);
 }
@@ -432,38 +236,12 @@ function resetStyleStudio(): void {
   transform: none;
 }
 
-.auth-secondary-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid var(--auth-border);
-  background: var(--auth-surface-elevated);
-  color: var(--auth-text);
-  padding: 0.7rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
 .auth-link {
   color: var(--auth-accent);
 }
 
 .auth-link:hover {
   filter: brightness(1.08);
-}
-
-.auth-preset-btn {
-  border: 1px solid var(--auth-border);
-  border-radius: 1.25rem;
-  background: var(--auth-surface-elevated);
-  padding: 1rem;
-  text-align: left;
-}
-
-.auth-preset-btn--active {
-  border-color: var(--auth-accent);
-  background: var(--auth-accent-soft);
 }
 
 .auth-error-banner {
@@ -473,5 +251,11 @@ function resetStyleStudio(): void {
   padding: 0.95rem 1rem;
   font-size: 0.875rem;
   color: #fecaca;
+}
+
+@media (min-width: 640px) {
+  .auth-window-body {
+    padding: 1.75rem;
+  }
 }
 </style>

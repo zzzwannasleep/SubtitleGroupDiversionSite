@@ -42,13 +42,12 @@ async function submit(): Promise<void> {
 
 <template>
   <AuthShell
-    :form-eyebrow="t('auth.register.eyebrow')"
+    form-eyebrow=""
     :form-title="t('auth.register.title')"
-    :form-description="t('auth.register.description')"
+    form-description=""
     :alternate-prompt="t('auth.register.altPrompt')"
     :alternate-label="t('auth.register.altLabel')"
     alternate-to="/login"
-    :note="t('auth.register.note')"
   >
     <form class="space-y-4" @submit.prevent="submit">
       <label class="block">

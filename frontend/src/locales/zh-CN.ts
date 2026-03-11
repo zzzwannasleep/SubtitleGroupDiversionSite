@@ -37,39 +37,18 @@ const zhCN = {
   },
   auth: {
     hero: {
-      browsePublicTorrents: "浏览公开种子",
       createAccount: "创建账号",
       backToSignIn: "返回登录",
-      kicker: "贴合架构的访问入口",
-      facts: {
-        targetScale: {
-          label: "目标规模",
-          value: "20-50 位用户",
-        },
-        deployment: {
-          label: "部署方式",
-          value: "Docker Compose",
-        },
-        trackerMode: {
-          label: "Tracker 模式",
-          value: "XBT 优先",
-        },
-      },
-      operationalFocus: "平台重点",
-      safeguards: {
-        credential: "为每个用户分配独立 tracker 凭据",
-        permissions: "基于角色控制上传与管理权限",
-        stats: "使用 tracker 作为流量和 swarm 统计真源",
-      },
+      kicker: "会员入口",
       defaults: {
-        headline: "面向私有种子站的运维入口，不再依赖论坛式外壳。",
-        supportText: "围绕角色权限、tracker 统计和按用户下发凭据构建，适合轻量私有 PT 平台。",
+        headline: "私有种子站成员入口。",
+        supportText: "登录或注册后继续。",
       },
     },
     login: {
       eyebrow: "安全登录",
-      title: "连接你的 tracker 门户",
-      description: "使用账号身份进入种子浏览、RSS 订阅和基于 tracker 的个人统计页面。",
+      title: "登录站点",
+      description: "使用你的账号继续。",
       altPrompt: "还没有账号？",
       altLabel: "立即创建",
       usernameOrEmail: "用户名或邮箱",
@@ -80,8 +59,8 @@ const zhCN = {
     },
     register: {
       eyebrow: "创建账号",
-      title: "生成平台身份",
-      description: "创建一个带有专属 tracker 凭据、RSS 权限和角色控制的 PT 平台账号。",
+      title: "创建账号",
+      description: "注册一个成员账号后继续。",
       altPrompt: "已经注册？",
       altLabel: "去登录",
       note: "系统中的第一个注册用户会自动成为初始管理员。",
