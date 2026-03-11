@@ -2,6 +2,39 @@
 
 基于 `FastAPI + Vue 3 + Tailwind CSS + PostgreSQL + Redis + external tracker` 的私有种子分发站点骨架，当前默认 tracker 方案为 `XBT Tracker`。
 
+## 前端翻译说明
+
+如果你要翻译现有前端文本，直接修改下面这些语言包文件：
+
+- `frontend/src/locales/en-US.ts`
+- `frontend/src/locales/zh-CN.ts`
+
+这些文件是当前前端页面文案的主要来源，包含：
+
+- 页面标题
+- 导航文字
+- 登录 / 注册 / Profile / RSS / 上传 / 管理页等界面文案
+- 按钮、表单标签、占位符、空状态提示
+
+规则：
+
+- 修改已有翻译：直接改对应语言包里的 key。
+- 新增一种语言：
+  1. 把新语言文件放到 `frontend/src/locales/` 下，文件名建议直接用 locale code，例如 `ja-JP.ts`、`fr-FR.ts`。
+  2. 在 `frontend/src/locales/index.ts` 里新增 `import`。
+  3. 把新的 locale code 加到 `LocaleCode` 类型。
+  4. 把新语言加到 `SUPPORTED_LOCALES`，这样语言切换器里才能看到。
+  5. 把新语言加到 `LOCALE_MESSAGES`，这样 `t("...")` 才能真正读取到这份语言包。
+- 前端组件里不要再直接硬编码文案，统一通过 `t("...")` 读取。
+- 路由标题也是多语言驱动的，对应关系在 `frontend/src/router/index.ts` 的 `titleKey`。
+
+补充说明：
+
+- 当前语言选择保存在 `frontend/src/stores/locale.ts`。
+- 默认语言可以通过 `VITE_DEFAULT_LOCALE` 配置。
+- 后端直接返回的错误信息，以及数据库里的分类名、种子名这类内容，不会被这些前端语言包自动翻译。
+- 也就是说，想“多放一份语言”，不是覆盖原文件，而是新增一个 `frontend/src/locales/<你的语言代码>.ts` 文件，再去 `frontend/src/locales/index.ts` 注册。
+
 ## 当前状态
 
 当前仓库已经完成第一批基础骨架：
