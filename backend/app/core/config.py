@@ -1,7 +1,9 @@
+from typing import Annotated
+
 from functools import lru_cache
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -27,7 +29,9 @@ class Settings(BaseSettings):
     allow_public_torrent_list: bool = True
     allow_user_registration: bool = True
     auto_create_tables: bool = True
-    cors_allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost", "http://localhost:5173"])
+    cors_allowed_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost", "http://localhost:5173"]
+    )
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
@@ -35,6 +39,12 @@ class Settings(BaseSettings):
     @classmethod
     def parse_origins(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):
+            if value.lstrip().startswith("["):
+                import json
+
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return [str(item).strip() for item in parsed if str(item).strip()]
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
