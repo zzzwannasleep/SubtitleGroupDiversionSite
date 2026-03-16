@@ -95,9 +95,10 @@ def upsert_xbt_torrent(info_hash: str) -> None:
             connection.execute(
                 text(
                     """
-                    INSERT INTO xbt_files (info_hash, completed, leechers, seeders, mtime, ctime)
-                    VALUES (UNHEX(:info_hash), 0, 0, 0, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
+                    INSERT INTO xbt_torrents (info_hash, completed, leechers, seeders, flags, mtime, ctime)
+                    VALUES (UNHEX(:info_hash), 0, 0, 0, 0, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
                     ON DUPLICATE KEY UPDATE
+                        flags = 0,
                         mtime = VALUES(mtime)
                     """
                 ),
@@ -114,7 +115,7 @@ def delete_xbt_torrent(info_hash: str) -> None:
 
     try:
         with _get_xbt_engine().begin() as connection:
-            connection.execute(text("DELETE FROM xbt_files WHERE info_hash = UNHEX(:info_hash)"), {"info_hash": info_hash})
+            connection.execute(text("DELETE FROM xbt_torrents WHERE info_hash = UNHEX(:info_hash)"), {"info_hash": info_hash})
     except Exception as exc:
         raise XbtTrackerError(f"Could not delete XBT torrent {info_hash}: {exc}") from exc
 
@@ -154,7 +155,7 @@ def fetch_xbt_torrent_stats() -> list[dict[str, object]]:
                         leechers,
                         completed AS snatches,
                         completed AS finished
-                    FROM xbt_files
+                    FROM xbt_torrents
                     """
                 )
             ).mappings()

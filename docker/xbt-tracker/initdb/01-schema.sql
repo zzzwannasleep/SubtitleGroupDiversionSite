@@ -4,16 +4,17 @@ CREATE TABLE IF NOT EXISTS xbt_config (
   PRIMARY KEY (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS xbt_files (
-  fid INT UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS xbt_torrents (
+  tid INT UNSIGNED NOT NULL AUTO_INCREMENT,
   info_hash BINARY(20) NOT NULL,
-  completed INT UNSIGNED NOT NULL DEFAULT 0,
-  leechers INT UNSIGNED NOT NULL DEFAULT 0,
   seeders INT UNSIGNED NOT NULL DEFAULT 0,
+  leechers INT UNSIGNED NOT NULL DEFAULT 0,
+  completed INT UNSIGNED NOT NULL DEFAULT 0,
+  flags INT UNSIGNED NOT NULL DEFAULT 0,
   mtime INT UNSIGNED NOT NULL DEFAULT 0,
   ctime INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (info_hash),
-  UNIQUE KEY uq_xbt_files_fid (fid)
+  PRIMARY KEY (tid),
+  UNIQUE KEY uq_xbt_torrents_info_hash (info_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS xbt_users (
@@ -21,15 +22,17 @@ CREATE TABLE IF NOT EXISTS xbt_users (
   can_leech TINYINT UNSIGNED NOT NULL DEFAULT 1,
   wait_time INT UNSIGNED NOT NULL DEFAULT 0,
   peers_limit INT UNSIGNED NOT NULL DEFAULT 0,
+  torrents_limit INT UNSIGNED NOT NULL DEFAULT 0,
   torrent_pass CHAR(32) NOT NULL,
+  torrent_pass_version INT UNSIGNED NOT NULL DEFAULT 0,
   downloaded BIGINT UNSIGNED NOT NULL DEFAULT 0,
   uploaded BIGINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (uid),
   UNIQUE KEY uq_xbt_users_torrent_pass (torrent_pass)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS xbt_files_users (
-  fid INT UNSIGNED NOT NULL,
+CREATE TABLE IF NOT EXISTS xbt_peers (
+  tid INT UNSIGNED NOT NULL,
   uid INT UNSIGNED NOT NULL,
   active TINYINT UNSIGNED NOT NULL DEFAULT 0,
   announced INT UNSIGNED NOT NULL DEFAULT 0,
@@ -42,7 +45,7 @@ CREATE TABLE IF NOT EXISTS xbt_files_users (
   event TINYINT UNSIGNED NOT NULL DEFAULT 0,
   ip INT UNSIGNED NOT NULL DEFAULT 0,
   port SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (fid, uid),
-  KEY ix_xbt_files_users_uid_active (uid, active),
-  KEY ix_xbt_files_users_uid_completed_active (uid, completed, active)
+  PRIMARY KEY (tid, uid),
+  KEY ix_xbt_peers_uid_active (uid, active),
+  KEY ix_xbt_peers_uid_completed_active (uid, completed, active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
