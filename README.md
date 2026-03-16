@@ -210,6 +210,21 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
+如果你看到类似下面的错误：
+
+```text
+dependency failed to start: container subtitlegroupdiversionsite-postgres-1 is unhealthy
+```
+
+通常是第一次初始化时 `postgres` 数据目录残留了旧内容。当前 compose 会把真正的 Postgres 数据直接写到 `data/postgres/pgdata`，但如果你是在旧版本配置上失败过一次，建议先清掉旧目录再重试：
+
+```bash
+docker compose down
+rm -rf data/postgres/pgdata
+docker compose up -d --build
+docker compose logs -f postgres
+```
+
 ### 5. 确认容器已经起来
 
 ```bash

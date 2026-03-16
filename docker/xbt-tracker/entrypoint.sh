@@ -21,4 +21,4 @@ until nc -z "$XBT_MYSQL_HOST" "$XBT_MYSQL_PORT"; do
   sleep 2
 done
 
-exec /src/xbt/Tracker/build/xbt_tracker /etc/xbt/xbt_tracker.conf
+exec /src/xbt/Tracker/build/xbt_tracker --conf-file /etc/xbt/xbt_tracker.conf

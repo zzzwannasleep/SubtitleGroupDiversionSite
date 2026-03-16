@@ -1,8 +1,10 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api import admin, auth, categories, health, rss, site_settings, torrents, users
@@ -14,11 +16,32 @@ from app.services.bootstrap_service import seed_default_categories
 
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+
+async def wait_for_database(max_attempts: int = 30, delay_seconds: float = 2.0) -> None:
+    last_error: Exception | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            if attempt > 1:
+                logger.info("Database became available on startup attempt %s", attempt)
+            return
+        except Exception as exc:
+            last_error = exc
+            logger.warning("Database not ready on startup attempt %s/%s: %s", attempt, max_attempts, exc)
+            if attempt < max_attempts:
+                await asyncio.sleep(delay_seconds)
+
+    raise RuntimeError(f"Database did not become ready after {max_attempts} attempts") from last_error
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     import_all_models()
+    await wait_for_database()
     if settings.auto_create_tables:
         Base.metadata.create_all(bind=engine)
     sync_internal_admin_title()
