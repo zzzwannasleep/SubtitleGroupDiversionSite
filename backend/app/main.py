@@ -6,11 +6,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api import admin, auth, categories, health, rss, site_settings, torrents, users
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
 from app.core.errors import REQUEST_ID_HEADER, configure_error_handlers
+from app.core.security_headers import SecurityHeadersMiddleware
 from app.internal_admin import configure_internal_admin, sync_internal_admin_title
 from app.models import import_all_models
 from app.services.bootstrap_service import seed_default_categories
@@ -18,6 +20,7 @@ from app.services.tracker_sync_service import sync_tracker_stats
 
 
 settings = get_settings()
+settings.validate_runtime_safety()
 logger = logging.getLogger(__name__)
 
 
@@ -119,7 +122,21 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=[REQUEST_ID_HEADER],
 )
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, same_site="lax")
+if settings.trusted_hosts and "*" not in settings.trusted_hosts:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+if settings.security_headers_enabled:
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        content_security_policy=settings.content_security_policy,
+        hsts_enabled=settings.hsts_enabled,
+        hsts_max_age_seconds=settings.hsts_max_age_seconds,
+    )
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    same_site="lax",
+    https_only=settings.session_cookie_secure,
+)
 configure_error_handlers(app)
 
 app.include_router(health.router)

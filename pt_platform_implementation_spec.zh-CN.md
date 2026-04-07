@@ -23,6 +23,7 @@ CACHE: Redis + Tracker 统计快照缓存表
 - 2026-04-07 SQLAdmin / ConfirmDialog 补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
 - 2026-04-07 bigint / audit log 补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
 - 2026-04-07 统一 API 错误 envelope 补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app` 通过，`git diff --check` 通过，轻量 FastAPI TestClient 错误结构检查通过。
+- 2026-04-07 admin / security / RSS key rotation 补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
 - 开发数据策略：本项目尚未发布，目前只在本地测试运行；此阶段不要求兼容历史本地数据库数据。若 schema 改动与本地测试数据冲突，可以清空本地 Docker 数据目录 / volume 后重新建库。Alembic 可以作为工具保留，但“迁移兼容性”不是 MVP 验收要求。
 
 ================================================
@@ -51,7 +52,8 @@ CACHE: Redis + Tracker 统计快照缓存表
 - Admin API 写操作现在会为站点设置、用户、分类、种子和手动 tracker sync 记录基础审计日志；SQLAdmin 中也提供只读 Audit Log 视图。
 - API 错误现在使用共享 JSON 返回结构，包含 `detail`、`error.code`、`error.message`、`error.status_code`、`error.request_id` 与可选 `error.details`；响应会设置 `X-Request-ID`，并暴露给前端 API 客户端读取。
 - 前端登录、注册、种子列表、种子详情、上传、Profile、RSS、Admin 入口页面与路由。
-- AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由级懒加载、路由过渡、基础 skeleton loader、内联错误状态、共享 toast 与 confirm 反馈、本地外观偏好，以及 admin 审计日志面板。
+- AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由级懒加载、路由过渡、基础 skeleton loader、内联错误状态、共享 toast 与 confirm 反馈、本地外观偏好、RSS key 自助轮换、admin 审计日志面板，以及用户、分类、种子运营前端管理面板。
+- 基础安全加固已包含可配置 trusted hosts、后端与 Nginx 安全响应头、生产环境默认密钥启动防呆、Profile 头像 URL scheme 校验，以及更严格的注册归一化。
 
 部分实现或等待运行时验证：
 
@@ -72,7 +74,7 @@ MVP 验收前需要处理的已知偏差：
 - [x] 已完成 - 上传表单与 API 已有单独的 `nfo_text` 输入路径。
 - [x] 已完成 - 登录与注册端点已实现基础内存认证限流。
 - [x] 已完成 - HTTP 错误、请求校验错误和未处理 API 异常现在已有统一错误返回结构与请求关联 ID。
-- [ ] 待处理 - 更完整的安全加固仍未完成；基础 admin 审计日志已存在。
+- [x] MVP 基线已完成 - 安全加固已覆盖默认密钥防呆、安全响应头、trusted host 配置、Profile URL 校验、更严格的注册归一化与基础 admin 审计日志；更深入的生产安全审查仍属于后续强化项。
 
 ================================================
 1. 项目目标
@@ -1325,7 +1327,7 @@ Step 8
 - [x] Step 5：代码层面已实现，仍需做 RSS 下载器消费与端到端运行时测试。
 - [ ] Step 6：部分实现；XBT 容器 / 配置 / schema 与 provision 代码已存在，但 XBT PoC 与 BT 客户端 announce 验证尚未完成。
 - [x] Step 7：周期同步代码已实现；缓存表、页面展示、XBT DB 同步代码、Admin 手动 sync、可配置 30-60 秒周期同步均已存在；真实 XBT 运行时验证仍待完成。
-- [ ] Step 8：部分实现；AppShell、页面过渡、响应式布局、外观偏好、route-level lazy loading、共享 toast 反馈、SQLAdmin role/status 权限加固、共享 confirm 对话框、基础 admin 审计日志与统一 API 错误 envelope 已存在；更完整的可访问性打磨、更广的确认覆盖和更完整的安全加固仍待完成。
+- [x] Step 8：MVP 基线已实现；AppShell、页面过渡、响应式布局、外观偏好、route-level lazy loading、共享 toast 反馈、SQLAdmin role/status 权限加固、共享 confirm 对话框、前端 admin 管理面板、RSS key 轮换、基础 admin 审计日志、安全响应头 / 默认密钥防呆与统一 API 错误 envelope 已存在；更完整的可访问性打磨和生产安全审查仍属于后续强化项。
 
 ================================================
 21. 验收标准
@@ -1347,7 +1349,7 @@ Step 8
 
 截至 2026-04-07 的验收状态：
 
-- [x] 第 1-7 项已有代码实现，但仍需在完整 Docker 栈中做回归验证。
+- [x] 第 1-7 项已有代码实现，并包含前端 admin 角色 / 状态管理；但仍需在完整 Docker 栈中做回归验证。
 - [ ] 第 8 项仍待完成，是当前主要 PoC 闸门。
 - [x] 第 9 项代码路径已实现，包括缓存读取 / 展示与周期刷新；真实 XBT 数据验证仍待完成。
 - [x] 第 10-11 项已有代码路径，但仍需要在运行中的部署里验证 XML 合法性与下载器消费。

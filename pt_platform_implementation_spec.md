@@ -20,6 +20,7 @@ Status note:
 - Follow-up static verification completed on 2026-04-07 after the SQLAdmin/ConfirmDialog pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Follow-up static verification completed on 2026-04-07 after the bigint/audit-log pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Follow-up static verification completed on 2026-04-07 after the unified API error-envelope pass: `npm run build` in `frontend/`, `python -m compileall backend/app`, `git diff --check`, and a lightweight FastAPI TestClient error-shape check passed.
+- Follow-up static verification completed on 2026-04-07 after the admin/security/RSS-key-rotation pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Development data policy: this project is not published yet and is only being run for local testing. Historical local database compatibility is not a requirement at this stage. If a schema change conflicts with local test data, it is acceptable to clear the local Docker data directories/volumes and recreate the database. Alembic may remain as tooling, but migration compatibility is not an MVP acceptance requirement.
 
 ================================================
@@ -48,7 +49,8 @@ Implemented in the repository:
 - Admin API write operations now record baseline audit logs for site settings, users, categories, torrents, and manual tracker sync; SQLAdmin includes a read-only Audit Log view.
 - API errors now use a shared JSON response envelope with `detail`, `error.code`, `error.message`, `error.status_code`, `error.request_id`, and optional `error.details`; `X-Request-ID` is set on responses and exposed to the frontend API client.
 - Frontend routes and pages for login, register, torrent list, torrent detail, upload, profile, RSS, and admin entry.
-- AppShell, header/sidebar navigation, responsive torrent table/card display, route-level lazy loading, route transitions, basic skeleton loaders, inline error states, shared toast and confirm feedback, local appearance preferences, and an admin audit-log panel.
+- AppShell, header/sidebar navigation, responsive torrent table/card display, route-level lazy loading, route transitions, basic skeleton loaders, inline error states, shared toast and confirm feedback, local appearance preferences, RSS key self-rotation, admin audit-log panel, and frontend admin panels for users, categories, and torrent operations.
+- Baseline security hardening now includes configurable trusted hosts, backend and Nginx security headers, production startup refusal for default secrets, profile avatar URL scheme validation, and stricter registration normalization.
 
 Partially implemented or pending runtime verification:
 
@@ -69,7 +71,7 @@ Known implementation deviations to resolve before MVP acceptance:
 - [x] Completed - The upload form and API expose a dedicated `nfo_text` input path.
 - [x] Completed - Basic in-memory auth rate limiting is implemented for login and registration endpoints.
 - [x] Completed - Unified API error response shape and request correlation IDs are implemented for HTTP errors, request validation errors, and unhandled API exceptions.
-- [ ] Pending - Broader security hardening remains pending; a baseline admin audit log now exists.
+- [x] Completed for MVP baseline - Security hardening now covers default-secret guardrails, security headers, trusted host configuration, profile URL validation, stricter registration normalization, and a baseline admin audit log. Deeper production security review remains future hardening.
 
 ================================================
 1. PROJECT GOAL
@@ -1126,7 +1128,7 @@ Current step status as of 2026-04-07:
 - [x] Step 5 is implemented in code and still needs downloader/RSS consumption runtime testing.
 - [ ] Step 6 is partially implemented: XBT container/config/schema and provisioning code exist, but XBT PoC and BT client announce validation are not complete.
 - [x] Step 7 scheduled-sync code is implemented: cache tables, display paths, XBT DB sync code, manual admin sync, and configurable 30-60 second scheduled sync exist; live XBT runtime verification remains pending.
-- [ ] Step 8 is partially implemented: AppShell, transitions, responsive layout, appearance preferences, route-level lazy loading, shared toast feedback, SQLAdmin role/status hardening, a shared confirm dialog, a baseline admin audit log, and a unified API error envelope exist; deeper accessibility polish, broader confirm coverage, and broader security hardening remain.
+- [x] Step 8 MVP baseline is implemented: AppShell, transitions, responsive layout, appearance preferences, route-level lazy loading, shared toast feedback, SQLAdmin role/status hardening, shared confirm dialogs, frontend admin management panels, RSS key rotation, a baseline admin audit log, security header/default-secret hardening, and a unified API error envelope exist. Deeper accessibility polish and production security review remain future hardening.
 
 ================================================
 21. ACCEPTANCE CRITERIA
@@ -1148,7 +1150,7 @@ The system is minimally usable when all of the following work:
 
 Current acceptance status as of 2026-04-07:
 
-- [x] Items 1-7 are implemented in code but still need full Docker-stack regression testing.
+- [x] Items 1-7 are implemented in code, including frontend admin role/status management, but still need full Docker-stack regression testing.
 - [ ] Item 8 is pending and is the main PoC gate.
 - [x] Item 9 code paths are implemented, including cache read/display and scheduled refresh; real XBT data verification remains pending.
 - [x] Items 10-11 have code paths implemented; valid XML and downloader consumption should still be verified against a running deployment.

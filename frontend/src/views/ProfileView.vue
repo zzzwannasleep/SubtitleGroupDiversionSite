@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
-import { getProfile, updateProfile } from "@/api/users";
+import { getProfile, rotateProfileRssKey, updateProfile } from "@/api/users";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import PageSection from "@/components/PageSection.vue";
 import { useI18n } from "@/composables/useI18n";
 import { AUTH_THEME_PRESETS } from "@/config/authTheme";
@@ -34,6 +35,8 @@ interface LevelInfo {
 const profile = ref<UserProfile | null>(null);
 const isLoading = ref(false);
 const isSaving = ref(false);
+const isRotatingRssKey = ref(false);
+const rssRotateConfirmOpen = ref(false);
 const loadErrorMessage = ref("");
 const formErrorMessage = ref("");
 const successMessage = ref("");
@@ -329,6 +332,36 @@ async function saveProfile(): Promise<void> {
   }
 }
 
+function requestRotateRssKey(): void {
+  if (isPreviewMode.value || isRotatingRssKey.value) {
+    return;
+  }
+
+  rssRotateConfirmOpen.value = true;
+}
+
+async function rotateRssKey(): Promise<void> {
+  if (isPreviewMode.value || isRotatingRssKey.value) {
+    return;
+  }
+
+  rssRotateConfirmOpen.value = false;
+  formErrorMessage.value = "";
+  successMessage.value = "";
+  isRotatingRssKey.value = true;
+
+  try {
+    profile.value = await rotateProfileRssKey();
+    syncEditableFields(profile.value);
+    successMessage.value = t("profile.access.rotateSuccess");
+    toastStore.success(t("toasts.rssKeyRotated"));
+  } catch (error) {
+    formErrorMessage.value = error instanceof Error ? error.message : t("profile.access.rotateError");
+  } finally {
+    isRotatingRssKey.value = false;
+  }
+}
+
 onMounted(() => {
   void loadProfile();
 });
@@ -463,6 +496,15 @@ onMounted(() => {
             >
               {{ t("profile.access.openRss") }}
             </RouterLink>
+            <button
+              v-if="!isPreviewMode"
+              class="ml-0 mt-3 inline-flex rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 sm:ml-3"
+              type="button"
+              :disabled="isRotatingRssKey"
+              @click="requestRotateRssKey"
+            >
+              {{ isRotatingRssKey ? t("profile.access.rotateLoading") : t("profile.access.rotateRssKey") }}
+            </button>
           </div>
         </div>
       </PageSection>
@@ -631,5 +673,15 @@ onMounted(() => {
         </div>
       </div>
     </PageSection>
+
+    <ConfirmDialog
+      v-model:open="rssRotateConfirmOpen"
+      :title="t('profile.access.rotateConfirmTitle')"
+      :description="t('profile.access.rotateConfirmDescription')"
+      :confirm-label="t('profile.access.rotateConfirm')"
+      tone="danger"
+      :busy="isRotatingRssKey"
+      @confirm="rotateRssKey"
+    />
   </div>
 </template>

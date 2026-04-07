@@ -65,14 +65,17 @@
 - SQLAdmin 内部后台接入，管理员可通过 `/internal-admin` 登录
 - 管理员接口补充分类管理、种子可见性/Free 状态调整、手动 tracker sync
 - SQLAdmin 用户 role/status 编辑已接入最后一个 active admin 保护与 XBT 用户同步
+- 前端 `/admin` 已补充用户角色 / 状态、分类、种子可见性 / Free / 分类调整面板，并对敏感变更使用确认弹窗
 - [x] 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` 仅保留登录时校验并升级的兼容路径
 - [x] RSS key 鉴权会拒绝非 active 用户
+- [x] Profile 支持 RSS key 自助轮换；轮换后旧 RSS URL 会立即失效
 - [x] 上传表单与 API 已支持独立 `nfo_text` 输入路径，详情页可展示 NFO 文本
 - [x] 已支持通过 `TRACKER_SYNC_INTERVAL_SECONDS` 配置周期性 tracker stats sync
 - [x] Alembic 已包含 `site_settings` 迁移；当前默认部署路径仍以 `AUTO_CREATE_TABLES=true` 自动建表为主
 - 用户 Profile 基础接口
 - 前端登录 / 注册 / 列表 / 详情 / 上传 / Profile / RSS 页面骨架
 - 基础响应式布局、路由守卫、路由级懒加载、页面切换动画、全局 toast / confirm 反馈、外观偏好本地存储
+- 基础安全加固：后端与 Nginx 安全响应头、生产环境默认密钥启动防呆、可配置 trusted hosts、注册输入归一化与 Profile URL 校验
 - Docker Compose 对外 Web 入口已统一为 Nginx 的 `80:80`
 
 ## 尚未完成
@@ -80,7 +83,7 @@
 - XBT 的真实部署、announce 验证与统计回读需要第一次实际 `docker compose` 验证
 - 只有在 XBT 不合适时，才切回 Torrust 备选方案
 - 更完整的上传校验、NFO/MediaInfo 深度解析与生产级错误处理
-- 更完整的后台前端化管理页、操作审计与更广的确认弹窗覆盖
+- 更深入的可访问性打磨、生产安全审查、端到端 RSS 下载器消费验证与真实 BT 客户端 announce 验收
 
 ## 服务器 Docker 部署
 
@@ -200,6 +203,12 @@ nano backend/.env
 - `AUTH_REGISTER_RATE_LIMIT_ATTEMPTS`：单个客户端 IP 在统计窗口内允许的注册尝试次数，默认 `5`。
 - `AUTO_CREATE_TABLES`：是否在后端启动时自动创建缺少的数据表。当前默认部署方案建议保持 `true`。
 - `CORS_ALLOWED_ORIGINS`：允许跨域访问的前端来源地址，多个值用英文逗号分隔。通常填你的前台域名，例如 `https://pt.example.com`。
+- `TRUSTED_HOSTS`：允许访问后端的 Host 列表，多个值用英文逗号分隔。开发环境可以保持 `*`；生产环境建议改成你的域名。
+- `SECURITY_HEADERS_ENABLED`：是否启用后端基础安全响应头，默认建议保持 `true`。
+- `HSTS_ENABLED`：是否启用 HSTS。只有确认全站 HTTPS 后再设为 `true`。
+- `HSTS_MAX_AGE_SECONDS`：HSTS 的 max-age 秒数，默认 `31536000`。
+- `SESSION_COOKIE_SECURE`：是否要求 SQLAdmin session cookie 仅通过 HTTPS 发送。生产 HTTPS 部署建议设为 `true`。
+- `CONTENT_SECURITY_POLICY`：可选 CSP 响应头。默认留空，避免未验证前影响 `/internal-admin` 静态资源。
 
 当前这份 `docker compose` 部署里，下面这些变量通常不用改主机名部分：
 

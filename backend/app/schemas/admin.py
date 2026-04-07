@@ -58,6 +58,7 @@ class AdminCategoryUpdateRequest(BaseModel):
 class AdminTorrentListItem(BaseModel):
     id: int
     name: str
+    category_id: int
     category: str
     owner: str
     info_hash: str

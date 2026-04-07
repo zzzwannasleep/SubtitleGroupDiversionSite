@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     auth_login_rate_limit_attempts: int = 8
     auth_register_rate_limit_attempts: int = 5
     auto_create_tables: bool = True
+    trusted_hosts: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["*"])
+    security_headers_enabled: bool = True
+    hsts_enabled: bool = False
+    hsts_max_age_seconds: int = 31536000
+    session_cookie_secure: bool = False
+    content_security_policy: str | None = None
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost", "http://localhost:5173"]
     )
@@ -43,6 +49,15 @@ class Settings(BaseSettings):
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def parse_origins(cls, value: str | list[str]) -> list[str]:
+        return cls._parse_csv_list(value)
+
+    @field_validator("trusted_hosts", mode="before")
+    @classmethod
+    def parse_trusted_hosts(cls, value: str | list[str]) -> list[str]:
+        return cls._parse_csv_list(value)
+
+    @classmethod
+    def _parse_csv_list(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):
             if value.lstrip().startswith("["):
                 import json
@@ -52,6 +67,20 @@ class Settings(BaseSettings):
                     return [str(item).strip() for item in parsed if str(item).strip()]
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    def validate_runtime_safety(self) -> None:
+        if self.app_env.strip().lower() != "production":
+            return
+
+        unsafe_keys = []
+        if self.secret_key in {"", "change-me"}:
+            unsafe_keys.append("SECRET_KEY")
+        if self.jwt_secret_key in {"", "change-me"}:
+            unsafe_keys.append("JWT_SECRET_KEY")
+
+        if unsafe_keys:
+            joined_keys = ", ".join(unsafe_keys)
+            raise RuntimeError(f"Production startup refused because insecure default secret(s) are set: {joined_keys}")
 
 
 @lru_cache

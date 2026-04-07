@@ -20,3 +20,10 @@ export function updateProfile(payload: UpdateProfilePayload): Promise<UserProfil
     body: payload,
   });
 }
+
+
+export function rotateProfileRssKey(): Promise<UserProfile> {
+  return apiRequest<UserProfile>("/users/profile/rss-key/rotate", {
+    method: "POST",
+  });
+}

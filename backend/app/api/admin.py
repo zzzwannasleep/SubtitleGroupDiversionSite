@@ -90,6 +90,7 @@ def _build_admin_torrent_item(torrent: Torrent) -> AdminTorrentListItem:
     return AdminTorrentListItem(
         id=torrent.id,
         name=torrent.name,
+        category_id=torrent.category_id,
         category=torrent.category.name,
         owner=torrent.owner.username,
         info_hash=torrent.info_hash,

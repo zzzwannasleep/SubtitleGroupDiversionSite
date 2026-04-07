@@ -9,6 +9,9 @@ import {
   type AdminAuditLogItem,
   type AdminTrackerSyncResult,
 } from "@/api/admin";
+import AdminCategoriesPanel from "@/components/admin/AdminCategoriesPanel.vue";
+import AdminTorrentsPanel from "@/components/admin/AdminTorrentsPanel.vue";
+import AdminUsersPanel from "@/components/admin/AdminUsersPanel.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import PageSection from "@/components/PageSection.vue";
 import { useI18n } from "@/composables/useI18n";
@@ -271,6 +274,12 @@ onMounted(() => {
           </div>
         </div>
       </PageSection>
+    </div>
+
+    <div class="space-y-6 xl:col-span-2">
+      <AdminUsersPanel />
+      <AdminCategoriesPanel />
+      <AdminTorrentsPanel />
     </div>
 
     <ConfirmDialog
