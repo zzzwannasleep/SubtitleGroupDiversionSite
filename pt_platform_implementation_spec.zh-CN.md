@@ -46,7 +46,7 @@ CACHE: Redis + Tracker 统计快照缓存表
 - SQLAdmin 用户 role/status 编辑现在会执行最后一个 active admin 保护，并走与 Admin API 一致的 XBT 用户同步路径。
 - XBT 用户 / 种子 provision 与 XBT 数据库直读统计同步代码。
 - 通过 `TRACKER_SYNC_INTERVAL_SECONDS` 配置的周期性 tracker 统计同步循环。
-- 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` hash 仅保留登录时校验并升级的兼容路径。
+- 新密码 hash 使用 `bcrypt_sha256`；旧 `pbkdf2_sha256` / bcrypt hash 不再保留登录兼容路径。
 - Alembic 迁移已包含 `site_settings` 与 `audit_logs`。
 - 主键 ID、外键、种子大小、文件大小和 tracker 流量字节计数已对齐为 bigint，并保留 SQLite 本地测试兼容变体。
 - Admin API 写操作现在会为站点设置、用户、分类、种子和手动 tracker sync 记录基础审计日志；SQLAdmin 中也提供只读 Audit Log 视图。
@@ -66,7 +66,7 @@ CACHE: Redis + Tracker 统计快照缓存表
 
 MVP 验收前需要处理的已知偏差：
 
-- [x] 已完成 - 新密码 hash 现在使用 bcrypt；旧 `pbkdf2_sha256` hash 仅保留登录时校验并升级的兼容路径。
+- [x] 已完成 - 新密码 hash 现在使用 `bcrypt_sha256`；旧 `pbkdf2_sha256` / bcrypt hash 不再保留登录兼容路径。
 - [x] 已完成 - RSS key 查询已经在 feed 与 RSS 下载路径中拒绝非 active 用户。
 - [x] 已完成 - Docker Compose 对外入口已明确为宿主机 `80:80` 上的 Nginx；`frontend` 服务仅保留在 Compose 内部网络。
 - [x] 已完成 - Alembic 已新增 `site_settings` 迁移；由于项目尚未发布、仅本地测试运行，MVP 阶段不要求兼容历史数据库迁移。
@@ -154,7 +154,7 @@ MVP 验收前需要处理的已知偏差：
 - Alembic
 - Pydantic
 - PyJWT 或 python-jose
-- passlib[bcrypt]
+- bcrypt
 - psycopg2 或 asyncpg
 - redis-py
 - feedgen
@@ -757,7 +757,7 @@ Admin 用户更新 payload 示例：
 
 密码处理：
 
-- 只使用 bcrypt hash
+- 只使用 SHA-256 预哈希后的 bcrypt hash
 - 永远不存明文密码
 
 Tracker 凭证处理：
@@ -1321,7 +1321,7 @@ Step 8
 截至 2026-04-07 的步骤状态：
 
 - [x] Step 1：代码层面已实现。
-- [x] Step 2：代码层面已实现；新密码 hash 已对齐到 bcrypt-only，旧 `pbkdf2_sha256` 仅保留登录时校验并升级的兼容路径。
+- [x] Step 2：代码层面已实现；新密码 hash 已对齐到 `bcrypt_sha256`，旧 `pbkdf2_sha256` / bcrypt hash 不再保留登录兼容路径。
 - [x] Step 3：代码层面已实现，包括独立 `nfo_text` 上传路径；生产级校验仍是后续强化项。
 - [x] Step 4：代码层面已实现。
 - [x] Step 5：代码层面已实现，仍需做 RSS 下载器消费与端到端运行时测试。

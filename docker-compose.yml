@@ -93,8 +93,8 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - "2710:2710"
-      - "6881:6881/udp"
+      - "${TRACKER_HTTP_HOST:-0.0.0.0}:${TRACKER_HTTP_PORT:-2710}:2710"
+      - "${TRACKER_UDP_HOST:-0.0.0.0}:${TRACKER_UDP_PORT:-6881}:6881/udp"
     restart: unless-stopped
 
   nginx:

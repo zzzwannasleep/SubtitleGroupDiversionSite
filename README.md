@@ -68,7 +68,7 @@
 - 管理员接口补充分类管理、种子可见性 / Free 状态调整、手动 tracker sync
 - SQLAdmin 用户 role/status 编辑已接入最后一个 active admin 保护与 XBT 用户同步
 - 前端 `/admin` 已补充用户角色 / 状态、分类、种子可见性 / Free / 分类调整面板，并对敏感变更使用确认弹窗
-- [x] 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` 仅保留登录时校验并升级的兼容路径
+- [x] 新密码 hash 使用 `bcrypt_sha256`；不再保留旧 `pbkdf2_sha256` / bcrypt hash 登录兼容路径
 - [x] RSS key 鉴权会拒绝非 active 用户
 - [x] Profile 支持 RSS key 自助轮换；轮换后旧 RSS URL 会立即失效
 - [x] 上传表单与 API 已支持独立 `nfo_text` 输入路径，详情页可展示 NFO 文本
@@ -200,7 +200,7 @@ WEB_PORT=8080
 - 项目自己的 `nginx` 容器只监听 `127.0.0.1:8080`
 - 公网 `80/443` 仍然由你现有的 OpenResty / Nginx 接管
 - OpenResty / Nginx 把站点域名反代到 `http://127.0.0.1:8080`
-- XBT Tracker 的 `2710/tcp` 和 `6881/udp` 仍然按 tracker 端口单独放行，不走 Web 反代
+- XBT Tracker 的 `2710/tcp` 和 `6881/udp` 保持 Docker 直接暴露，并在安全组 / 防火墙放行
 
 项目根目录 `.env`：
 
@@ -229,7 +229,17 @@ server {
 }
 ```
 
-同样的示例文件也放在 `docker/openresty/subtitlegroupdiversionsite.conf.example`。如果 OpenResty 已经配置 HTTPS，`backend/.env` 里的外部地址应该写 HTTPS 域名：
+同样的 HTTP 反代示例文件也放在 `docker/openresty/subtitlegroupdiversionsite.conf.example`。
+
+`6881/udp` 不需要在 OpenResty 里反代，`docker-compose.yml` 已经默认暴露：
+
+```yaml
+"${TRACKER_UDP_HOST:-0.0.0.0}:${TRACKER_UDP_PORT:-6881}:6881/udp"
+```
+
+只需要在服务器防火墙 / 云安全组放行 `6881/udp` 即可。
+
+如果 OpenResty 已经配置 HTTPS，`backend/.env` 里的外部地址应该写 HTTPS 域名：
 
 ```env
 APP_ENV=production

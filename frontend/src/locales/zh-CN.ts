@@ -82,6 +82,9 @@ const zhCN = {
       submitting: "创建中...",
       errorFallback: "注册失败",
       passwordMismatch: "两次输入的密码不一致",
+      passwordTooShort: "密码至少需要 {length} 个字符。",
+      passwordTooLong: "密码不能超过 {length} 个字符。",
+      passwordWhitespace: "密码不能以空格开头或结尾。",
     },
     styleStudio: {
       kicker: "样式工作台",

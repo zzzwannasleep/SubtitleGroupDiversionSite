@@ -43,7 +43,7 @@ Implemented in the repository:
 - SQLAdmin user role/status edits now enforce the last-active-admin rule and run the same XBT user sync path as the Admin API.
 - XBT integration code for user/torrent provisioning and direct XBT DB stat readback.
 - Configurable scheduled tracker stats sync loop via `TRACKER_SYNC_INTERVAL_SECONDS`.
-- New password hashes use bcrypt; legacy `pbkdf2_sha256` hashes remain verifiable for login-time upgrade.
+- New password hashes use `bcrypt_sha256`; legacy `pbkdf2_sha256` / bcrypt hashes are no longer kept compatible for login.
 - Alembic migration coverage includes `site_settings` and `audit_logs`.
 - Bigint alignment is implemented for primary IDs, foreign keys, torrent sizes, file sizes, and tracker traffic byte counters, with a SQLite-compatible local-test variant.
 - Admin API write operations now record baseline audit logs for site settings, users, categories, torrents, and manual tracker sync; SQLAdmin includes a read-only Audit Log view.
@@ -63,7 +63,7 @@ Partially implemented or pending runtime verification:
 
 Known implementation deviations to resolve before MVP acceptance:
 
-- [x] Completed - New password hashes now use bcrypt; legacy `pbkdf2_sha256` hashes remain supported only for login-time upgrade.
+- [x] Completed - New password hashes now use `bcrypt_sha256`; legacy `pbkdf2_sha256` / bcrypt hashes are no longer kept compatible for login.
 - [x] Completed - RSS key lookup rejects non-active users in both feed and RSS download paths.
 - [x] Completed - The Docker Compose public entrypoint is now Nginx on host `80:80`; the `frontend` service stays internal to the Compose network.
 - [x] Completed - Alembic now includes a `site_settings` migration; because the project is unpublished and local-test-only, historical database migration compatibility is not required for MVP.
@@ -151,7 +151,7 @@ Backend:
 - Alembic
 - Pydantic
 - PyJWT or python-jose
-- passlib[bcrypt]
+- bcrypt
 - psycopg2 or asyncpg
 - redis-py
 - feedgen
@@ -707,7 +707,7 @@ Website API auth:
 
 Password handling:
 
-- bcrypt hash only
+- bcrypt with SHA-256 pre-hash only
 - never store plain password
 
 Tracker credential handling:
@@ -1122,7 +1122,7 @@ Step 8
 Current step status as of 2026-04-07:
 
 - [x] Step 1 is implemented in code.
-- [x] Step 2 is implemented in code; bcrypt-only new password hashing is aligned, with legacy `pbkdf2_sha256` kept only for login-time upgrade.
+- [x] Step 2 is implemented in code; new password hashing is aligned to `bcrypt_sha256`, with legacy `pbkdf2_sha256` / bcrypt hashes no longer kept compatible for login.
 - [x] Step 3 is implemented in code, including the dedicated `nfo_text` upload path; additional production validation remains future hardening.
 - [x] Step 4 is implemented in code.
 - [x] Step 5 is implemented in code and still needs downloader/RSS consumption runtime testing.

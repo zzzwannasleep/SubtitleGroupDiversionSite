@@ -12,6 +12,8 @@ const authStore = useAuthStore();
 const router = useRouter();
 const { t } = useI18n();
 const toastStore = useToastStore();
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
 
 const form = reactive({
   username: "",
@@ -23,6 +25,21 @@ const errorMessage = ref("");
 
 async function submit(): Promise<void> {
   errorMessage.value = "";
+
+  if (form.password.length < MIN_PASSWORD_LENGTH) {
+    errorMessage.value = t("auth.register.passwordTooShort", { length: MIN_PASSWORD_LENGTH });
+    return;
+  }
+
+  if (form.password.length > MAX_PASSWORD_LENGTH) {
+    errorMessage.value = t("auth.register.passwordTooLong", { length: MAX_PASSWORD_LENGTH });
+    return;
+  }
+
+  if (form.password.trim() !== form.password) {
+    errorMessage.value = t("auth.register.passwordWhitespace");
+    return;
+  }
 
   if (form.password !== form.confirmPassword) {
     errorMessage.value = t("auth.register.passwordMismatch");
@@ -70,6 +87,7 @@ async function submit(): Promise<void> {
           type="password"
           autocomplete="new-password"
           class="auth-input mt-3"
+          :maxlength="MAX_PASSWORD_LENGTH"
           required
         />
       </label>
@@ -81,6 +99,7 @@ async function submit(): Promise<void> {
           type="password"
           autocomplete="new-password"
           class="auth-input mt-3"
+          :maxlength="MAX_PASSWORD_LENGTH"
           required
         />
       </label>

@@ -82,6 +82,9 @@ const enUS = {
       submitting: "Creating...",
       errorFallback: "Registration failed",
       passwordMismatch: "Passwords do not match",
+      passwordTooShort: "Password must be at least {length} characters.",
+      passwordTooLong: "Password cannot be longer than {length} characters.",
+      passwordWhitespace: "Password cannot start or end with spaces.",
     },
     styleStudio: {
       kicker: "Style studio",

@@ -1,25 +1,35 @@
+import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
 
-pwd_context = CryptContext(schemes=["bcrypt", "pbkdf2_sha256"], deprecated=["pbkdf2_sha256"])
+PASSWORD_HASH_PREFIX = "bcrypt_sha256$v1$"
+
+
+def _password_digest(password: str) -> bytes:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest().encode("ascii")
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # Pre-hash before bcrypt so bcrypt never receives input above its 72-byte cap.
+    hashed_password = bcrypt.hashpw(_password_digest(password), bcrypt.gensalt())
+    return f"{PASSWORD_HASH_PREFIX}{hashed_password.decode('ascii')}"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    if not hashed_password.startswith(PASSWORD_HASH_PREFIX):
+        return False
 
-
-def verify_and_update_password(plain_password: str, hashed_password: str) -> tuple[bool, str | None]:
-    return pwd_context.verify_and_update(plain_password, hashed_password)
+    try:
+        bcrypt_hash = hashed_password.removeprefix(PASSWORD_HASH_PREFIX).encode("ascii")
+        return bcrypt.checkpw(_password_digest(plain_password), bcrypt_hash)
+    except ValueError:
+        return False
 
 
 def create_access_token(subject: str) -> str:
