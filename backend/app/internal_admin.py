@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqladmin import Admin, ModelView
@@ -13,7 +14,14 @@ from app.core.security import verify_password
 from app.models.category import Category
 from app.models.torrent import Torrent
 from app.models.user import User, UserRole, UserStatus
+from app.services.admin_user_service import (
+    LastActiveAdminError,
+    coerce_user_role,
+    coerce_user_status,
+    ensure_not_removing_last_active_admin,
+)
 from app.services.site_settings_service import get_or_create_site_settings
+from app.services.xbt_tracker_service import XbtTrackerError, upsert_xbt_user
 
 
 internal_admin: Admin | None = None
@@ -99,6 +107,29 @@ class UserAdminView(ModelView, model=User):
     column_searchable_list = [User.username, User.email]
     column_sortable_list = [User.id, User.username, User.email, User.role, User.status, User.created_at]
     form_columns = [User.username, User.email, User.role, User.status]
+
+    async def on_model_change(self, data: dict[str, Any], model: User, is_created: bool, request: Request) -> None:
+        if is_created or model.id is None:
+            return
+
+        with SessionLocal() as db:
+            persisted_user = db.get(User, model.id)
+            if persisted_user is None:
+                raise ValueError("User not found")
+
+            try:
+                target_role = coerce_user_role(data.get("role")) or persisted_user.role
+                target_status = coerce_user_status(data.get("status")) or persisted_user.status
+                ensure_not_removing_last_active_admin(db, persisted_user, target_role, target_status)
+            except (LastActiveAdminError, ValueError) as exc:
+                raise ValueError(str(exc)) from exc
+
+            persisted_user.role = target_role
+            persisted_user.status = target_status
+            try:
+                upsert_xbt_user(persisted_user)
+            except XbtTrackerError as exc:
+                raise ValueError(f"XBT user sync failed: {exc}") from exc
 
 
 class CategoryAdminView(ModelView, model=Category):

@@ -1,15 +1,5 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory, type RouteRecordRaw } from "vue-router";
 
-import AppShell from "@/layouts/AppShell.vue";
-import AdminEntryView from "@/views/AdminEntryView.vue";
-import LoginView from "@/views/LoginView.vue";
-import NotFoundView from "@/views/NotFoundView.vue";
-import ProfileView from "@/views/ProfileView.vue";
-import RegisterView from "@/views/RegisterView.vue";
-import RssView from "@/views/RssView.vue";
-import TorrentDetailView from "@/views/TorrentDetailView.vue";
-import TorrentListView from "@/views/TorrentListView.vue";
-import UploadTorrentView from "@/views/UploadTorrentView.vue";
 import { pinia } from "@/stores";
 import { useAuthStore } from "@/stores/auth";
 
@@ -27,7 +17,19 @@ declare module "vue-router" {
 }
 
 
-const routes = [
+const AppShell = () => import("@/layouts/AppShell.vue");
+const AdminEntryView = () => import("@/views/AdminEntryView.vue");
+const LoginView = () => import("@/views/LoginView.vue");
+const NotFoundView = () => import("@/views/NotFoundView.vue");
+const ProfileView = () => import("@/views/ProfileView.vue");
+const RegisterView = () => import("@/views/RegisterView.vue");
+const RssView = () => import("@/views/RssView.vue");
+const TorrentDetailView = () => import("@/views/TorrentDetailView.vue");
+const TorrentListView = () => import("@/views/TorrentListView.vue");
+const UploadTorrentView = () => import("@/views/UploadTorrentView.vue");
+
+
+const routes: RouteRecordRaw[] = [
   {
     path: "/login",
     component: LoginView,

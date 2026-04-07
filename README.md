@@ -55,6 +55,7 @@
 ## 已实现
 
 - 注册 / 登录 / `/api/auth/me`
+- 登录 / 注册端点基础内存限流
 - 首个注册用户自动成为 `admin`
 - 默认分类自动初始化
 - `.torrent` 上传、基础解析、原始文件保存、`torrents / torrent_files` 落库
@@ -63,6 +64,7 @@
 - RSS XML 输出与 RSS 下载端点
 - SQLAdmin 内部后台接入，管理员可通过 `/internal-admin` 登录
 - 管理员接口补充分类管理、种子可见性/Free 状态调整、手动 tracker sync
+- SQLAdmin 用户 role/status 编辑已接入最后一个 active admin 保护与 XBT 用户同步
 - [x] 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` 仅保留登录时校验并升级的兼容路径
 - [x] RSS key 鉴权会拒绝非 active 用户
 - [x] 上传表单与 API 已支持独立 `nfo_text` 输入路径，详情页可展示 NFO 文本
@@ -70,14 +72,15 @@
 - [x] Alembic 已包含 `site_settings` 迁移；当前默认部署路径仍以 `AUTO_CREATE_TABLES=true` 自动建表为主
 - 用户 Profile 基础接口
 - 前端登录 / 注册 / 列表 / 详情 / 上传 / Profile / RSS 页面骨架
-- 基础响应式布局、路由守卫、页面切换动画、外观偏好本地存储
+- 基础响应式布局、路由守卫、路由级懒加载、页面切换动画、全局 toast / confirm 反馈、外观偏好本地存储
+- Docker Compose 对外 Web 入口已统一为 Nginx 的 `80:80`
 
 ## 尚未完成
 
 - XBT 的真实部署、announce 验证与统计回读需要第一次实际 `docker compose` 验证
 - 只有在 XBT 不合适时，才切回 Torrust 备选方案
 - 更完整的上传校验、NFO/MediaInfo 深度解析与生产级错误处理
-- 更完整的后台前端化管理页与操作审计
+- 更完整的后台前端化管理页、操作审计与更广的确认弹窗覆盖
 
 ## 服务器 Docker 部署
 
@@ -191,6 +194,10 @@ nano backend/.env
 - `XBT_TRACKER_DB_DSN`：XBT Tracker 数据库连接串。当前这份 `docker compose` 默认使用 `tracker-db` 服务，所以通常保持为 `mysql+pymysql://tracker:tracker-pass@tracker-db:3306/xbt` 即可。
 - `ALLOW_PUBLIC_TORRENT_LIST`：是否允许未登录用户查看种子列表。
 - `ALLOW_USER_REGISTRATION`：是否允许公开注册。
+- `AUTH_RATE_LIMIT_ENABLED`：是否启用登录 / 注册端点的基础限流，默认建议保持 `true`。
+- `AUTH_RATE_LIMIT_WINDOW_SECONDS`：认证限流统计窗口，单位是秒，默认 `60`。
+- `AUTH_LOGIN_RATE_LIMIT_ATTEMPTS`：单个客户端 IP 在统计窗口内允许的登录尝试次数，默认 `8`。
+- `AUTH_REGISTER_RATE_LIMIT_ATTEMPTS`：单个客户端 IP 在统计窗口内允许的注册尝试次数，默认 `5`。
 - `AUTO_CREATE_TABLES`：是否在后端启动时自动创建缺少的数据表。当前默认部署方案建议保持 `true`。
 - `CORS_ALLOWED_ORIGINS`：允许跨域访问的前端来源地址，多个值用英文逗号分隔。通常填你的前台域名，例如 `https://pt.example.com`。
 
@@ -348,6 +355,7 @@ docker compose up -d --build
 ### 11. 部署注意事项
 
 - 当前 compose 已经包含 `Postgres + Redis + XBT Tracker + tracker-db + backend + frontend + nginx`。
+- 当前 compose 的公共 Web 入口是宿主机 `80` 端口上的 `nginx`，`frontend` 服务不再直接暴露 `8080` 到宿主机。
 - BT 客户端实际使用的 announce 地址来自 `TRACKER_BASE_URL`，不是 Nginx 的 `/api` 入口。
 - 如果你之前使用过旧数据，旧用户的 `tracker_credential` 可能与当前 XBT 方案不兼容，最稳妥的做法是直接从空数据重新开始。
 - 如果你只是想快速验证站点流程，优先用一套全新数据启动。

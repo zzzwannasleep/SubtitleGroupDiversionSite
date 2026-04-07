@@ -9,6 +9,7 @@ import { AUTH_THEME_PRESETS } from "@/config/authTheme";
 import { useAppearanceStore } from "@/stores/appearance";
 import { useAuthStore } from "@/stores/auth";
 import { useLocaleStore } from "@/stores/locale";
+import { useToastStore } from "@/stores/toast";
 import type { UserProfile } from "@/types";
 import { formatBytes, formatDate } from "@/utils/format";
 
@@ -43,6 +44,7 @@ const bio = ref("");
 const appearanceStore = useAppearanceStore();
 const authStore = useAuthStore();
 const localeStore = useLocaleStore();
+const toastStore = useToastStore();
 const route = useRoute();
 const { t } = useI18n();
 
@@ -298,6 +300,7 @@ async function saveProfile(): Promise<void> {
       };
       writePreviewProfile(profile.value);
       successMessage.value = t("profile.preview.saveSuccess");
+      toastStore.success(t("toasts.profileSaved"));
       syncEditableFields(profile.value);
       return;
     }
@@ -318,6 +321,7 @@ async function saveProfile(): Promise<void> {
     }
 
     successMessage.value = t("profile.account.updateSuccess");
+    toastStore.success(t("toasts.profileSaved"));
   } catch (error) {
     formErrorMessage.value = error instanceof Error ? error.message : t("profile.account.updateError");
   } finally {

@@ -19,6 +19,8 @@ CACHE: Redis + Tracker 统计快照缓存表
 - 下文“已实现”表示代码已在仓库中存在，不等于 Docker 栈、XBT announce 或 BT 客户端行为已经完成运行时验收。
 - 2026-04-07 已完成基础静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app` 通过。
 - 2026-04-07 MVP 缺口修补后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
+- 2026-04-07 Compose / 认证限流 / UI 反馈补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
+- 2026-04-07 SQLAdmin / ConfirmDialog 补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
 - 开发数据策略：本项目尚未发布，目前只在本地测试运行；此阶段不要求兼容历史本地数据库数据。若 schema 改动与本地测试数据冲突，可以清空本地 Docker 数据目录 / volume 后重新建库。Alembic 可以作为工具保留，但“迁移兼容性”不是 MVP 验收要求。
 
 ================================================
@@ -29,7 +31,7 @@ CACHE: Redis + Tracker 统计快照缓存表
 
 - FastAPI 后端结构、Vue 3 / Vite / Tailwind 前端结构、Dockerfile 与 Docker Compose 栈。
 - PostgreSQL、Redis、backend、frontend、Nginx、XBT tracker、XBT tracker-db 服务声明。
-- 用户注册、登录、JWT bearer auth、`/api/auth/me` 与 Profile API。
+- 用户注册、登录、基础内存认证限流、JWT bearer auth、`/api/auth/me` 与 Profile API。
 - 角色枚举 `admin`、`uploader`、`user`；首个注册用户自动成为 `admin`。
 - 每用户 `tracker_credential` 与独立 `rss_key` 生成。
 - categories、torrents、torrent_files、download_logs、tracker_user_stats_cache、tracker_torrent_stats_cache 模型。
@@ -38,12 +40,13 @@ CACHE: Redis + Tracker 统计快照缓存表
 - 下载端点：读取原始 torrent，在内存中重写 `announce` 与 `announce-list`，写入 `download_logs`，返回重写后的 `.torrent`。
 - RSS feed 端点与基于 `rss_key` 的 RSS 下载端点，并在 RSS key 鉴权时拒绝非 active 用户。
 - SQLAdmin 内部后台，以及用户、分类、种子、站点设置、手动 tracker sync 的 Admin API。
+- SQLAdmin 用户 role/status 编辑现在会执行最后一个 active admin 保护，并走与 Admin API 一致的 XBT 用户同步路径。
 - XBT 用户 / 种子 provision 与 XBT 数据库直读统计同步代码。
 - 通过 `TRACKER_SYNC_INTERVAL_SECONDS` 配置的周期性 tracker 统计同步循环。
 - 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` hash 仅保留登录时校验并升级的兼容路径。
 - Alembic 迁移已包含 `site_settings`。
 - 前端登录、注册、种子列表、种子详情、上传、Profile、RSS、Admin 入口页面与路由。
-- AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由过渡、基础 skeleton loader、内联错误状态、本地外观偏好。
+- AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由级懒加载、路由过渡、基础 skeleton loader、内联错误状态、共享 toast 与 confirm 反馈、本地外观偏好。
 
 部分实现或等待运行时验证：
 
@@ -51,18 +54,19 @@ CACHE: Redis + Tracker 统计快照缓存表
 - Tracker 统计缓存展示、Admin 手动触发 sync、可配置的 30-60 秒周期同步循环已经存在；真实 XBT 数据回读仍需运行时验收。
 - Redis 已在栈中并有 helper 模块，但暂未真正作为热点统计缓存使用。
 - RSS XML 生成与 RSS 下载重写已实现，但仍需要用真实下载器做端到端消费验证。
-- SQLAdmin 可以编辑用户 role/status；最后一个 admin 保护与 XBT 同步逻辑目前在 Admin API 中实现，尚未在 SQLAdmin model hook 中统一强制执行。
-- 前端路由守卫已实现；route-level lazy loading、共享 toast / confirm 组件、更完整的可访问性打磨仍是后续强化项。
+- SQLAdmin 用户 role/status model hook 已支持最后一个 active admin 保护与 XBT 用户同步；仍需在浏览器中做运行时验收。
+- 前端路由守卫、route-level lazy loading、共享 toast 反馈与共享 confirm 对话框已实现；更完整的可访问性打磨仍是后续强化项。
 
 MVP 验收前需要处理的已知偏差：
 
 - [x] 已完成 - 新密码 hash 现在使用 bcrypt；旧 `pbkdf2_sha256` hash 仅保留登录时校验并升级的兼容路径。
 - [x] 已完成 - RSS key 查询已经在 feed 与 RSS 下载路径中拒绝非 active 用户。
-- [ ] 待处理 - Docker Compose 对外入口需要明确：当前 `frontend` 服务暴露 `8080:80`，但 `nginx` 反向代理服务未暴露到宿主机。
+- [x] 已完成 - Docker Compose 对外入口已明确为宿主机 `80:80` 上的 Nginx；`frontend` 服务仅保留在 Compose 内部网络。
 - [x] 已完成 - Alembic 已新增 `site_settings` 迁移；由于项目尚未发布、仅本地测试运行，MVP 阶段不要求兼容历史数据库迁移。
 - [ ] 真正发布前待处理 - `Integer` / `bigint` 的最终选择需要在真正发布前再统一确认。
 - [x] 已完成 - 上传表单与 API 已有单独的 `nfo_text` 输入路径。
-- [ ] 待处理 - 认证限流、生产级统一错误返回、完整审计与安全加固仍未完成。
+- [x] 已完成 - 登录与注册端点已实现基础内存认证限流。
+- [ ] 待处理 - 生产级统一错误返回、完整审计与安全加固仍未完成。
 
 ================================================
 1. 项目目标
@@ -1224,6 +1228,10 @@ Backend:
 - XBT_TRACKER_DB_DSN=mysql+pymysql://tracker:tracker-pass@tracker-db:3306/xbt
 - ALLOW_PUBLIC_TORRENT_LIST=true
 - ALLOW_USER_REGISTRATION=true
+- AUTH_RATE_LIMIT_ENABLED=true
+- AUTH_RATE_LIMIT_WINDOW_SECONDS=60
+- AUTH_LOGIN_RATE_LIMIT_ATTEMPTS=8
+- AUTH_REGISTER_RATE_LIMIT_ATTEMPTS=5
 - AUTO_CREATE_TABLES=true
 - CORS_ALLOWED_ORIGINS=https://app.example.com
 
@@ -1239,6 +1247,7 @@ Frontend:
 
 - 当前实现默认 `TRACKER_SYNC_MODE=xbt_db`，通过 `XBT_TRACKER_DB_DSN` 直读 XBT 数据库同步统计。
 - [x] 已完成 - `TRACKER_SYNC_INTERVAL_SECONDS` 已作为可配置周期同步间隔实现；当前默认值为 60 秒，目标刷新节奏仍是 30-60 秒。
+- [x] 已完成 - 认证限流可通过 `AUTH_RATE_LIMIT_*` 变量配置，默认对登录与注册使用按 IP 统计的内存限流。
 - 如果后续改用 Torrust，且其 API / event 路径验证可行，可把 `TRACKER_SYNC_MODE` 改为对应 API / event 模式。
 
 ================================================
@@ -1302,7 +1311,7 @@ Step 8
 - [x] Step 5：代码层面已实现，仍需做 RSS 下载器消费与端到端运行时测试。
 - [ ] Step 6：部分实现；XBT 容器 / 配置 / schema 与 provision 代码已存在，但 XBT PoC 与 BT 客户端 announce 验证尚未完成。
 - [x] Step 7：周期同步代码已实现；缓存表、页面展示、XBT DB 同步代码、Admin 手动 sync、可配置 30-60 秒周期同步均已存在；真实 XBT 运行时验证仍待完成。
-- [ ] Step 8：部分实现；AppShell、页面过渡、响应式布局与外观偏好已存在，权限加固、toast / confirm 模式、lazy loading 与可访问性打磨仍待完成。
+- [ ] Step 8：部分实现；AppShell、页面过渡、响应式布局、外观偏好、route-level lazy loading、共享 toast 反馈、SQLAdmin role/status 权限加固与共享 confirm 对话框已存在；更完整的可访问性打磨和更广的确认覆盖仍待完成。
 
 ================================================
 21. 验收标准
@@ -1340,8 +1349,8 @@ Step 8
 3. 如果 XBT 在运维或集成上不合适，Torrust 是否能满足 PT 式每用户凭证与统计归属要求？
 4. 如果切换到 Torrust，应该采用哪个管理 API / event / pull 路径，以及刷新频率定为多少合适？
 5. 第一阶段是否需要把封禁同步到 Tracker，还是仅站点侧拒绝下载就足够？
-6. Docker Compose 对外入口应该是宿主机 80 端口上的 Nginx，还是继续保留当前 `frontend` 服务直出宿主机 8080 的部署方式？
-7. SQLAdmin 是否允许直接编辑用户 role/status，还是这类受保护变更必须统一走 Admin API，以确保最后一个 admin 保护与 XBT 同步规则一定执行？
+6. [x] 已于 2026-04-07 解决：Docker Compose 对外入口采用宿主机 80 端口上的 Nginx；`frontend` 服务不再直出宿主机 8080。
+7. [x] 已于 2026-04-07 解决：SQLAdmin 可以继续直接编辑用户 role/status，但这些编辑现在会通过 model hook 执行最后一个 active admin 保护与 XBT 用户同步路径。
 8. [x] 已于 2026-04-07 解决：RSS key 鉴权已经在 feed 与 RSS 下载端点共用的 RSS key 查询路径中显式拒绝所有非 active 用户。
 
 在这些问题确认之前，spec 有意保持以下内容抽象化：

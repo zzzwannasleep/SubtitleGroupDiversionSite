@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     xbt_tracker_db_dsn: str | None = None
     allow_public_torrent_list: bool = True
     allow_user_registration: bool = True
+    auth_rate_limit_enabled: bool = True
+    auth_rate_limit_window_seconds: int = 60
+    auth_login_rate_limit_attempts: int = 8
+    auth_register_rate_limit_attempts: int = 5
     auto_create_tables: bool = True
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost", "http://localhost:5173"]

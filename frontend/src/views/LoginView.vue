@@ -5,12 +5,14 @@ import { useRoute, useRouter } from "vue-router";
 import AuthShell from "@/components/AuthShell.vue";
 import { useI18n } from "@/composables/useI18n";
 import { useAuthStore } from "@/stores/auth";
+import { useToastStore } from "@/stores/toast";
 
 
 const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
+const toastStore = useToastStore();
 
 const form = reactive({
   username: "",
@@ -22,6 +24,7 @@ async function submit(): Promise<void> {
   errorMessage.value = "";
   try {
     await authStore.loginAndFetchProfile(form);
+    toastStore.success(t("toasts.loginSuccess"));
     const redirect = typeof route.query.redirect === "string" ? route.query.redirect : "/torrents";
     await router.push(redirect);
   } catch (error) {

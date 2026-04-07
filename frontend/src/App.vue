@@ -2,6 +2,7 @@
 import { watchEffect } from "vue";
 import { RouterView, useRoute } from "vue-router";
 
+import ToastHost from "@/components/ToastHost.vue";
 import { usePageTransition } from "@/composables/usePageTransition";
 import { useSiteDisplayName } from "@/composables/useSiteDisplayName";
 import { translate } from "@/locales";
@@ -29,4 +30,5 @@ watchEffect(() => {
       <component :is="Component" />
     </Transition>
   </RouterView>
+  <ToastHost />
 </template>

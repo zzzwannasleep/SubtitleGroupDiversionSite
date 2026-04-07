@@ -54,3 +54,35 @@ textarea {
 .page-none-leave-active {
   transition: none;
 }
+
+.toast-list-enter-active,
+.toast-list-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.toast-list-enter-from,
+.toast-list-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
+}
+
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.dialog-fade-enter-active > section,
+.dialog-fade-leave-active > section {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.dialog-fade-enter-from,
+.dialog-fade-leave-to {
+  opacity: 0;
+}
+
+.dialog-fade-enter-from > section,
+.dialog-fade-leave-to > section {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}

@@ -6,6 +6,7 @@ import { listCategories } from "@/api/categories";
 import { uploadTorrent } from "@/api/torrents";
 import PageSection from "@/components/PageSection.vue";
 import { useI18n } from "@/composables/useI18n";
+import { useToastStore } from "@/stores/toast";
 import type { Category } from "@/types";
 
 
@@ -15,6 +16,7 @@ const errorMessage = ref("");
 const successMessage = ref("");
 const loading = ref(false);
 const { t } = useI18n();
+const toastStore = useToastStore();
 
 const form = reactive({
   torrentFile: null as File | null,
@@ -54,6 +56,7 @@ async function submit(): Promise<void> {
   try {
     const response = await uploadTorrent(payload);
     successMessage.value = response.message;
+    toastStore.success(t("toasts.uploadSuccess"));
     if (response.id) {
       form.torrentFile = null;
       form.categoryId = "";

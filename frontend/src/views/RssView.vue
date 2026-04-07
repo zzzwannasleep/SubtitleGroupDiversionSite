@@ -8,12 +8,14 @@ import { getProfile } from "@/api/users";
 import EmptyState from "@/components/EmptyState.vue";
 import PageSection from "@/components/PageSection.vue";
 import { useI18n } from "@/composables/useI18n";
+import { useToastStore } from "@/stores/toast";
 import type { Category, UserProfile } from "@/types";
 
 
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
+const toastStore = useToastStore();
 
 const profile = ref<UserProfile | null>(null);
 const categories = ref<Category[]>([]);
@@ -158,8 +160,10 @@ async function copy(): Promise<void> {
       copyWithFallback(feedUrl.value);
     }
     copyFeedback.value = t("rss.copied");
+    toastStore.success(t("toasts.rssCopied"));
   } catch {
     copyErrorMessage.value = t("rss.copyFailed");
+    toastStore.error(t("rss.copyFailed"));
   }
 }
 </script>

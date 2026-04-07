@@ -7,6 +7,7 @@ import EmptyState from "@/components/EmptyState.vue";
 import PageSection from "@/components/PageSection.vue";
 import TorrentStatBadge from "@/components/TorrentStatBadge.vue";
 import { useI18n } from "@/composables/useI18n";
+import { useToastStore } from "@/stores/toast";
 import type { TorrentDetail } from "@/types";
 import { formatBytes, formatDate } from "@/utils/format";
 
@@ -18,6 +19,7 @@ const loadErrorMessage = ref("");
 const actionErrorMessage = ref("");
 const torrent = ref<TorrentDetail | null>(null);
 const { locale, t } = useI18n();
+const toastStore = useToastStore();
 
 async function loadTorrent(): Promise<void> {
   loading.value = true;
@@ -51,6 +53,7 @@ async function download(): Promise<void> {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    toastStore.success(t("toasts.downloadStarted"));
   } catch (error) {
     actionErrorMessage.value = error instanceof Error ? error.message : t("torrentDetail.downloadError");
   } finally {

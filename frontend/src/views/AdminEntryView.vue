@@ -2,9 +2,11 @@
 import { onMounted, ref } from "vue";
 
 import { getAdminSiteSettings, runTrackerSync, updateAdminSiteSettings, type AdminTrackerSyncResult } from "@/api/admin";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import PageSection from "@/components/PageSection.vue";
 import { useI18n } from "@/composables/useI18n";
 import { useSiteStore } from "@/stores/site";
+import { useToastStore } from "@/stores/toast";
 
 
 const brandingLoading = ref(false);
@@ -13,11 +15,13 @@ const brandingError = ref("");
 const brandingSuccess = ref("");
 const siteName = ref("");
 const syncing = ref(false);
+const trackerSyncConfirmOpen = ref(false);
 const syncResult = ref<AdminTrackerSyncResult | null>(null);
 const errorMessage = ref("");
 const internalAdminHref = import.meta.env.DEV ? "http://localhost:8000/internal-admin" : "/internal-admin";
 const { t } = useI18n();
 const siteStore = useSiteStore();
+const toastStore = useToastStore();
 
 async function loadSiteBranding(): Promise<void> {
   brandingLoading.value = true;
@@ -44,6 +48,7 @@ async function saveSiteBranding(): Promise<void> {
     siteName.value = response.site_name;
     siteStore.setSiteName(response.site_name);
     brandingSuccess.value = t("admin.branding.saveSuccess");
+    toastStore.success(t("toasts.siteNameSaved"));
   } catch (error) {
     brandingError.value = error instanceof Error ? error.message : t("admin.branding.saveError");
   } finally {
@@ -52,16 +57,26 @@ async function saveSiteBranding(): Promise<void> {
 }
 
 async function syncTracker(): Promise<void> {
+  trackerSyncConfirmOpen.value = false;
   syncing.value = true;
   errorMessage.value = "";
 
   try {
     syncResult.value = await runTrackerSync();
+    toastStore.success(t("toasts.trackerSyncFinished"));
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : t("admin.trackerSync.errorFallback");
   } finally {
     syncing.value = false;
   }
+}
+
+function requestTrackerSync(): void {
+  if (syncing.value) {
+    return;
+  }
+
+  trackerSyncConfirmOpen.value = true;
 }
 
 onMounted(() => {
@@ -104,7 +119,7 @@ onMounted(() => {
           <button
             class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             :disabled="syncing"
-            @click="syncTracker"
+            @click="requestTrackerSync"
           >
             {{ syncing ? t("admin.trackerSync.buttonLoading") : t("admin.trackerSync.button") }}
           </button>
@@ -146,5 +161,14 @@ onMounted(() => {
         <p class="text-xs leading-6 text-slate-500">{{ t("admin.internalAdmin.footnote") }}</p>
       </div>
     </PageSection>
+
+    <ConfirmDialog
+      v-model:open="trackerSyncConfirmOpen"
+      :title="t('admin.trackerSync.confirmTitle')"
+      :description="t('admin.trackerSync.confirmDescription')"
+      :confirm-label="t('admin.trackerSync.confirm')"
+      :busy="syncing"
+      @confirm="syncTracker"
+    />
   </div>
 </template>

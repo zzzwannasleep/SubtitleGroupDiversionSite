@@ -5,11 +5,13 @@ import { useRouter } from "vue-router";
 import AuthShell from "@/components/AuthShell.vue";
 import { useI18n } from "@/composables/useI18n";
 import { useAuthStore } from "@/stores/auth";
+import { useToastStore } from "@/stores/toast";
 
 
 const authStore = useAuthStore();
 const router = useRouter();
 const { t } = useI18n();
+const toastStore = useToastStore();
 
 const form = reactive({
   username: "",
@@ -33,6 +35,7 @@ async function submit(): Promise<void> {
       email: form.email,
       password: form.password,
     });
+    toastStore.success(t("toasts.registerSuccess"));
     await router.push("/torrents");
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : t("auth.register.errorFallback");

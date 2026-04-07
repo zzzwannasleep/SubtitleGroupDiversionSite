@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.dependencies.admin import require_admin
 from app.models.category import Category
 from app.models.torrent import Torrent
-from app.models.user import User, UserRole, UserStatus
+from app.models.user import User
 from app.schemas.admin import (
     AdminCategoryCreateRequest,
     AdminCategoryItem,
@@ -22,6 +22,7 @@ from app.schemas.admin import (
     AdminUserUpdateRequest,
 )
 from app.internal_admin import set_internal_admin_title
+from app.services.admin_user_service import LastActiveAdminError, ensure_not_removing_last_active_admin
 from app.services.site_settings_service import get_or_create_site_settings
 from app.services.tracker_sync_service import TrackerSyncError, sync_tracker_stats
 from app.services.xbt_tracker_service import XbtTrackerError, upsert_xbt_user
@@ -102,26 +103,10 @@ def update_user(
 
     target_role = payload.role if payload.role is not None else user.role
     target_status = payload.status if payload.status is not None else user.status
-    will_remove_active_admin = (
-        user.role == UserRole.ADMIN
-        and user.status == UserStatus.ACTIVE
-        and (target_role != UserRole.ADMIN or target_status != UserStatus.ACTIVE)
-    )
-
-    if will_remove_active_admin:
-        active_admin_count = (
-            db.scalar(
-                select(func.count())
-                .select_from(User)
-                .where(User.role == UserRole.ADMIN, User.status == UserStatus.ACTIVE)
-            )
-            or 0
-        )
-        if active_admin_count <= 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot demote or disable the last active admin",
-            )
+    try:
+        ensure_not_removing_last_active_admin(db, user, target_role, target_status)
+    except LastActiveAdminError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     if payload.role is not None:
         user.role = payload.role
