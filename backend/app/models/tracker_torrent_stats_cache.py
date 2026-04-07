@@ -7,12 +7,17 @@ from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.types import bigint_type
 
 
 class TrackerTorrentStatsCache(Base):
     __tablename__ = "tracker_torrent_stats_cache"
 
-    torrent_id: Mapped[int] = mapped_column(ForeignKey("torrents.id", ondelete="CASCADE"), primary_key=True)
+    torrent_id: Mapped[int] = mapped_column(
+        bigint_type(),
+        ForeignKey("torrents.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
     seeders: Mapped[int] = mapped_column(default=0, nullable=False)
     leechers: Mapped[int] = mapped_column(default=0, nullable=False)
     snatches: Mapped[int] = mapped_column(default=0, nullable=False)

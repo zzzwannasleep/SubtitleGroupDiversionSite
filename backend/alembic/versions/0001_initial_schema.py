@@ -21,10 +21,14 @@ user_role_enum = sa.Enum("admin", "uploader", "user", name="userrole", native_en
 user_status_enum = sa.Enum("active", "banned", "pending", name="userstatus", native_enum=False)
 
 
+def bigint_type() -> sa.TypeEngine[int]:
+    return sa.BigInteger().with_variant(sa.Integer(), "sqlite")
+
+
 def upgrade() -> None:
     op.create_table(
         "users",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("id", bigint_type(), primary_key=True, autoincrement=True),
         sa.Column("username", sa.String(length=32), nullable=False),
         sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
@@ -43,7 +47,7 @@ def upgrade() -> None:
 
     op.create_table(
         "categories",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("id", bigint_type(), primary_key=True, autoincrement=True),
         sa.Column("name", sa.String(length=64), nullable=False),
         sa.Column("slug", sa.String(length=64), nullable=False),
         sa.Column("sort_order", sa.Integer(), nullable=False),
@@ -54,14 +58,14 @@ def upgrade() -> None:
 
     op.create_table(
         "torrents",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("id", bigint_type(), primary_key=True, autoincrement=True),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("subtitle", sa.String(length=255), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("info_hash", sa.String(length=40), nullable=False),
-        sa.Column("size_bytes", sa.Integer(), nullable=False),
-        sa.Column("owner_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("category_id", sa.Integer(), sa.ForeignKey("categories.id"), nullable=False),
+        sa.Column("size_bytes", sa.BigInteger(), nullable=False),
+        sa.Column("owner_id", bigint_type(), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column("category_id", bigint_type(), sa.ForeignKey("categories.id"), nullable=False),
         sa.Column("torrent_path", sa.String(length=1024), nullable=False),
         sa.Column("cover_image_url", sa.String(length=1024), nullable=True),
         sa.Column("nfo_text", sa.Text(), nullable=True),
@@ -77,18 +81,18 @@ def upgrade() -> None:
 
     op.create_table(
         "torrent_files",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("torrent_id", sa.Integer(), sa.ForeignKey("torrents.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", bigint_type(), primary_key=True, autoincrement=True),
+        sa.Column("torrent_id", bigint_type(), sa.ForeignKey("torrents.id", ondelete="CASCADE"), nullable=False),
         sa.Column("file_path", sa.String(length=2048), nullable=False),
-        sa.Column("file_size_bytes", sa.Integer(), nullable=False),
+        sa.Column("file_size_bytes", sa.BigInteger(), nullable=False),
     )
     op.create_index("ix_torrent_files_torrent_id", "torrent_files", ["torrent_id"], unique=False)
 
     op.create_table(
         "download_logs",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("torrent_id", sa.Integer(), sa.ForeignKey("torrents.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", bigint_type(), primary_key=True, autoincrement=True),
+        sa.Column("torrent_id", bigint_type(), sa.ForeignKey("torrents.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("user_id", bigint_type(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("ip", sa.String(length=64), nullable=False),
         sa.Column("downloaded_at", sa.DateTime(timezone=True), nullable=False),
     )
@@ -97,9 +101,9 @@ def upgrade() -> None:
 
     op.create_table(
         "tracker_user_stats_cache",
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-        sa.Column("uploaded_bytes", sa.Integer(), nullable=False),
-        sa.Column("downloaded_bytes", sa.Integer(), nullable=False),
+        sa.Column("user_id", bigint_type(), sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+        sa.Column("uploaded_bytes", sa.BigInteger(), nullable=False),
+        sa.Column("downloaded_bytes", sa.BigInteger(), nullable=False),
         sa.Column("ratio", sa.Numeric(precision=18, scale=6), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("source", sa.String(length=32), nullable=False),
@@ -107,7 +111,7 @@ def upgrade() -> None:
 
     op.create_table(
         "tracker_torrent_stats_cache",
-        sa.Column("torrent_id", sa.Integer(), sa.ForeignKey("torrents.id", ondelete="CASCADE"), primary_key=True),
+        sa.Column("torrent_id", bigint_type(), sa.ForeignKey("torrents.id", ondelete="CASCADE"), primary_key=True),
         sa.Column("seeders", sa.Integer(), nullable=False),
         sa.Column("leechers", sa.Integer(), nullable=False),
         sa.Column("snatches", sa.Integer(), nullable=False),

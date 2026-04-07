@@ -1,4 +1,5 @@
 from app.models import (
+    audit_log,
     category,
     download_log,
     site_settings,
@@ -12,6 +13,7 @@ from app.models import (
 
 def import_all_models() -> None:
     _ = (
+        audit_log,
         category,
         download_log,
         site_settings,

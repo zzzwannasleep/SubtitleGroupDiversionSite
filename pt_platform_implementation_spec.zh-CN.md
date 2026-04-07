@@ -21,6 +21,7 @@ CACHE: Redis + Tracker 统计快照缓存表
 - 2026-04-07 MVP 缺口修补后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
 - 2026-04-07 Compose / 认证限流 / UI 反馈补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
 - 2026-04-07 SQLAdmin / ConfirmDialog 补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
+- 2026-04-07 bigint / audit log 补强后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
 - 开发数据策略：本项目尚未发布，目前只在本地测试运行；此阶段不要求兼容历史本地数据库数据。若 schema 改动与本地测试数据冲突，可以清空本地 Docker 数据目录 / volume 后重新建库。Alembic 可以作为工具保留，但“迁移兼容性”不是 MVP 验收要求。
 
 ================================================
@@ -44,9 +45,11 @@ CACHE: Redis + Tracker 统计快照缓存表
 - XBT 用户 / 种子 provision 与 XBT 数据库直读统计同步代码。
 - 通过 `TRACKER_SYNC_INTERVAL_SECONDS` 配置的周期性 tracker 统计同步循环。
 - 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` hash 仅保留登录时校验并升级的兼容路径。
-- Alembic 迁移已包含 `site_settings`。
+- Alembic 迁移已包含 `site_settings` 与 `audit_logs`。
+- 主键 ID、外键、种子大小、文件大小和 tracker 流量字节计数已对齐为 bigint，并保留 SQLite 本地测试兼容变体。
+- Admin API 写操作现在会为站点设置、用户、分类、种子和手动 tracker sync 记录基础审计日志；SQLAdmin 中也提供只读 Audit Log 视图。
 - 前端登录、注册、种子列表、种子详情、上传、Profile、RSS、Admin 入口页面与路由。
-- AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由级懒加载、路由过渡、基础 skeleton loader、内联错误状态、共享 toast 与 confirm 反馈、本地外观偏好。
+- AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由级懒加载、路由过渡、基础 skeleton loader、内联错误状态、共享 toast 与 confirm 反馈、本地外观偏好，以及 admin 审计日志面板。
 
 部分实现或等待运行时验证：
 
@@ -63,10 +66,10 @@ MVP 验收前需要处理的已知偏差：
 - [x] 已完成 - RSS key 查询已经在 feed 与 RSS 下载路径中拒绝非 active 用户。
 - [x] 已完成 - Docker Compose 对外入口已明确为宿主机 `80:80` 上的 Nginx；`frontend` 服务仅保留在 Compose 内部网络。
 - [x] 已完成 - Alembic 已新增 `site_settings` 迁移；由于项目尚未发布、仅本地测试运行，MVP 阶段不要求兼容历史数据库迁移。
-- [ ] 真正发布前待处理 - `Integer` / `bigint` 的最终选择需要在真正发布前再统一确认。
+- [x] 已完成 - `Integer` / `bigint` 已在模型和新建库 Alembic schema 中对齐：ID 与字节计数字段使用 bigint，并保留 SQLite 本地测试兼容。
 - [x] 已完成 - 上传表单与 API 已有单独的 `nfo_text` 输入路径。
 - [x] 已完成 - 登录与注册端点已实现基础内存认证限流。
-- [ ] 待处理 - 生产级统一错误返回、完整审计与安全加固仍未完成。
+- [ ] 待处理 - 生产级统一错误返回与更完整的安全加固仍未完成；基础 admin 审计日志已存在。
 
 ================================================
 1. 项目目标
@@ -1311,7 +1314,7 @@ Step 8
 - [x] Step 5：代码层面已实现，仍需做 RSS 下载器消费与端到端运行时测试。
 - [ ] Step 6：部分实现；XBT 容器 / 配置 / schema 与 provision 代码已存在，但 XBT PoC 与 BT 客户端 announce 验证尚未完成。
 - [x] Step 7：周期同步代码已实现；缓存表、页面展示、XBT DB 同步代码、Admin 手动 sync、可配置 30-60 秒周期同步均已存在；真实 XBT 运行时验证仍待完成。
-- [ ] Step 8：部分实现；AppShell、页面过渡、响应式布局、外观偏好、route-level lazy loading、共享 toast 反馈、SQLAdmin role/status 权限加固与共享 confirm 对话框已存在；更完整的可访问性打磨和更广的确认覆盖仍待完成。
+- [ ] Step 8：部分实现；AppShell、页面过渡、响应式布局、外观偏好、route-level lazy loading、共享 toast 反馈、SQLAdmin role/status 权限加固、共享 confirm 对话框与基础 admin 审计日志已存在；更完整的可访问性打磨和更广的确认覆盖仍待完成。
 
 ================================================
 21. 验收标准

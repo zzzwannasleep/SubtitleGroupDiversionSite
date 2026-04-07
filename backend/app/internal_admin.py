@@ -11,6 +11,7 @@ from starlette.requests import Request
 from app.core.config import get_settings
 from app.core.database import SessionLocal, engine
 from app.core.security import verify_password
+from app.models.audit_log import AuditLog
 from app.models.category import Category
 from app.models.torrent import Torrent
 from app.models.user import User, UserRole, UserStatus
@@ -185,6 +186,27 @@ class TorrentAdminView(ModelView, model=Torrent):
     ]
 
 
+class AuditLogAdminView(ModelView, model=AuditLog):
+    name = "Audit Log"
+    name_plural = "Audit Logs"
+    icon = "fa-solid fa-clipboard-list"
+    can_create = False
+    can_edit = False
+    can_delete = False
+    can_view_details = True
+    column_list = [
+        AuditLog.id,
+        AuditLog.actor,
+        AuditLog.action,
+        AuditLog.target_type,
+        AuditLog.target_id,
+        AuditLog.ip,
+        AuditLog.created_at,
+    ]
+    column_searchable_list = [AuditLog.action, AuditLog.target_type, AuditLog.ip]
+    column_sortable_list = [AuditLog.id, AuditLog.action, AuditLog.target_type, AuditLog.created_at]
+
+
 def configure_internal_admin(app) -> None:
     global internal_admin
 
@@ -198,3 +220,4 @@ def configure_internal_admin(app) -> None:
     internal_admin.add_view(UserAdminView)
     internal_admin.add_view(CategoryAdminView)
     internal_admin.add_view(TorrentAdminView)
+    internal_admin.add_view(AuditLogAdminView)

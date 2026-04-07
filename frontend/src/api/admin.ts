@@ -21,6 +21,25 @@ export interface AdminTrackerSyncResult {
 }
 
 
+export interface AdminAuditLogActor {
+  id: number;
+  username: string;
+}
+
+
+export interface AdminAuditLogItem {
+  id: number;
+  actor_id: number | null;
+  actor: AdminAuditLogActor | null;
+  action: string;
+  target_type: string;
+  target_id: number | null;
+  details: Record<string, unknown> | null;
+  ip: string | null;
+  created_at: string;
+}
+
+
 export function listAdminUsers(): Promise<PaginatedResponse<AdminUserItem>> {
   return apiRequest<PaginatedResponse<AdminUserItem>>("/admin/users");
 }
@@ -45,4 +64,9 @@ export function runTrackerSync(): Promise<AdminTrackerSyncResult> {
   return apiRequest<AdminTrackerSyncResult>("/admin/tracker/sync", {
     method: "POST",
   });
+}
+
+
+export function listAdminAuditLogs(pageSize = 10): Promise<PaginatedResponse<AdminAuditLogItem>> {
+  return apiRequest<PaginatedResponse<AdminAuditLogItem>>(`/admin/audit-logs?page_size=${pageSize}`);
 }

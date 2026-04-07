@@ -18,6 +18,7 @@ Status note:
 - Follow-up static verification completed on 2026-04-07 after the MVP-gap pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Follow-up static verification completed on 2026-04-07 after the Compose/auth-rate-limit/UI-feedback pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Follow-up static verification completed on 2026-04-07 after the SQLAdmin/ConfirmDialog pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
+- Follow-up static verification completed on 2026-04-07 after the bigint/audit-log pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Development data policy: this project is not published yet and is only being run for local testing. Historical local database compatibility is not a requirement at this stage. If a schema change conflicts with local test data, it is acceptable to clear the local Docker data directories/volumes and recreate the database. Alembic may remain as tooling, but migration compatibility is not an MVP acceptance requirement.
 
 ================================================
@@ -41,9 +42,11 @@ Implemented in the repository:
 - XBT integration code for user/torrent provisioning and direct XBT DB stat readback.
 - Configurable scheduled tracker stats sync loop via `TRACKER_SYNC_INTERVAL_SECONDS`.
 - New password hashes use bcrypt; legacy `pbkdf2_sha256` hashes remain verifiable for login-time upgrade.
-- Alembic migration coverage includes `site_settings`.
+- Alembic migration coverage includes `site_settings` and `audit_logs`.
+- Bigint alignment is implemented for primary IDs, foreign keys, torrent sizes, file sizes, and tracker traffic byte counters, with a SQLite-compatible local-test variant.
+- Admin API write operations now record baseline audit logs for site settings, users, categories, torrents, and manual tracker sync; SQLAdmin includes a read-only Audit Log view.
 - Frontend routes and pages for login, register, torrent list, torrent detail, upload, profile, RSS, and admin entry.
-- AppShell, header/sidebar navigation, responsive torrent table/card display, route-level lazy loading, route transitions, basic skeleton loaders, inline error states, shared toast and confirm feedback, and local appearance preferences.
+- AppShell, header/sidebar navigation, responsive torrent table/card display, route-level lazy loading, route transitions, basic skeleton loaders, inline error states, shared toast and confirm feedback, local appearance preferences, and an admin audit-log panel.
 
 Partially implemented or pending runtime verification:
 
@@ -60,10 +63,10 @@ Known implementation deviations to resolve before MVP acceptance:
 - [x] Completed - RSS key lookup rejects non-active users in both feed and RSS download paths.
 - [x] Completed - The Docker Compose public entrypoint is now Nginx on host `80:80`; the `frontend` service stays internal to the Compose network.
 - [x] Completed - Alembic now includes a `site_settings` migration; because the project is unpublished and local-test-only, historical database migration compatibility is not required for MVP.
-- [ ] Pending before real release - `Integer` / `bigint` choices should be finalized before any real release.
+- [x] Completed - `Integer` / `bigint` choices are aligned to bigint for IDs and byte counters in models and fresh Alembic schema, with SQLite remaining usable for local tests.
 - [x] Completed - The upload form and API expose a dedicated `nfo_text` input path.
 - [x] Completed - Basic in-memory auth rate limiting is implemented for login and registration endpoints.
-- [ ] Pending - Production-grade error shape consistency and full audit/security hardening are still pending.
+- [ ] Pending - Production-grade error shape consistency and broader security hardening are still pending; a baseline admin audit log now exists.
 
 ================================================
 1. PROJECT GOAL
@@ -1083,7 +1086,7 @@ Current step status as of 2026-04-07:
 - [x] Step 5 is implemented in code and still needs downloader/RSS consumption runtime testing.
 - [ ] Step 6 is partially implemented: XBT container/config/schema and provisioning code exist, but XBT PoC and BT client announce validation are not complete.
 - [x] Step 7 scheduled-sync code is implemented: cache tables, display paths, XBT DB sync code, manual admin sync, and configurable 30-60 second scheduled sync exist; live XBT runtime verification remains pending.
-- [ ] Step 8 is partially implemented: AppShell, transitions, responsive layout, appearance preferences, route-level lazy loading, shared toast feedback, SQLAdmin role/status hardening, and a shared confirm dialog exist; deeper accessibility polish and broader confirm coverage remain.
+- [ ] Step 8 is partially implemented: AppShell, transitions, responsive layout, appearance preferences, route-level lazy loading, shared toast feedback, SQLAdmin role/status hardening, a shared confirm dialog, and a baseline admin audit log exist; deeper accessibility polish and broader confirm coverage remain.
 
 ================================================
 21. ACCEPTANCE CRITERIA
