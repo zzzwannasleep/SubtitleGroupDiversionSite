@@ -78,7 +78,7 @@
 - 前端登录 / 注册 / 列表 / 详情 / 上传 / Profile / RSS 页面骨架
 - 基础响应式布局、路由守卫、路由级懒加载、页面切换动画、全局 toast / confirm 反馈、外观偏好本地存储
 - 基础安全加固：后端与 Nginx 安全响应头、生产环境默认密钥启动防呆、可配置 trusted hosts、注册输入归一化与 Profile URL 校验
-- Docker Compose 对外 Web 入口已统一为 Nginx 的 `80:80`
+- Docker Compose 对外 Web 入口已统一为 Nginx，默认映射到宿主机 `80/tcp`
 
 ## 尚未完成
 
@@ -93,7 +93,7 @@
 
 | 服务 | 作用 | 对外端口 |
 | --- | --- | --- |
-| `nginx` | 统一 Web 入口，转发前端、API、RSS、内部后台 | `80/tcp` |
+| `nginx` | 统一 Web 入口，转发前端、API、RSS、内部后台 | 默认 `80/tcp`，可用 `WEB_HOST` / `WEB_PORT` 调整 |
 | `frontend` | Vue 静态站点，由内部 Nginx 托管 | 不直接暴露 |
 | `backend` | FastAPI API 与 SQLAdmin | 不直接暴露 |
 | `postgres` | 站点主数据库 | 不直接暴露 |
@@ -114,6 +114,8 @@
 - `2710/tcp`：XBT Tracker HTTP announce
 - `6881/udp`：XBT Tracker UDP
 
+如果服务器的 `80/tcp` 已经被其他 Nginx、OpenResty、Apache、宝塔面板或现有容器占用，可以让项目只监听本机回环地址上的内部端口，例如 `127.0.0.1:8080`，再由已有的反向代理转发。
+
 ### 方式 A：源码构建部署
 
 这是当前最直接、最容易排查问题的部署方式。
@@ -127,6 +129,26 @@ docker compose up -d --build
 ```
 
 第一次启动会下载基础镜像、安装依赖并构建 `backend`、`frontend`、`tracker` 三个本地镜像，耗时会比普通重启更久。
+
+如果服务器 `80/tcp` 已被占用，先在项目根目录创建 `.env` 覆盖 Web 监听地址：
+
+```bash
+cat > .env <<'EOF'
+WEB_HOST=127.0.0.1
+WEB_PORT=8080
+EOF
+
+docker compose up -d --build
+```
+
+这时站点访问地址要带端口，例如 `http://你的服务器IP:8080`。对应的 `backend/.env` 里也建议同步写成：
+
+```env
+PUBLIC_WEB_BASE_URL=http://你的服务器IP:8080
+CORS_ALLOWED_ORIGINS=http://你的服务器IP:8080
+```
+
+如果你准备让外部 OpenResty/Nginx 继续对外提供域名和 HTTPS，请看下面的“方式 C”。
 
 ### 方式 B：使用 GHCR 预构建镜像
 
@@ -152,7 +174,66 @@ docker compose up -d
 docker login ghcr.io
 ```
 
-注意：根级 `.env` 只给 Docker Compose 做变量替换；后端运行配置仍然写在 `backend/.env`。
+注意：根级 `.env` 只给 Docker Compose 做变量替换，例如 `WEB_HOST`、`WEB_PORT` 和镜像名；后端运行配置仍然写在 `backend/.env`。
+
+如果服务器 `80/tcp` 已被占用，可以在同一个根级 `.env` 里额外加上：
+
+```env
+WEB_HOST=127.0.0.1
+WEB_PORT=8080
+```
+
+### 方式 C：已有 OpenResty / Nginx 反代
+
+如果你服务器上已经有 OpenResty、Nginx、宝塔反代或其他网关，推荐这样部署：
+
+- 项目自己的 `nginx` 容器只监听 `127.0.0.1:8080`
+- 公网 `80/443` 仍然由你现有的 OpenResty / Nginx 接管
+- OpenResty / Nginx 把站点域名反代到 `http://127.0.0.1:8080`
+- XBT Tracker 的 `2710/tcp` 和 `6881/udp` 仍然按 tracker 端口单独放行，不走 Web 反代
+
+项目根目录 `.env`：
+
+```env
+WEB_HOST=127.0.0.1
+WEB_PORT=8080
+```
+
+OpenResty 站点配置示例：
+
+```nginx
+server {
+    listen 80;
+    server_name pt.example.com;
+
+    client_max_body_size 20m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+同样的示例文件也放在 `docker/openresty/subtitlegroupdiversionsite.conf.example`。如果 OpenResty 已经配置 HTTPS，`backend/.env` 里的外部地址应该写 HTTPS 域名：
+
+```env
+APP_ENV=production
+PUBLIC_WEB_BASE_URL=https://pt.example.com
+CORS_ALLOWED_ORIGINS=https://pt.example.com
+TRUSTED_HOSTS=pt.example.com
+SESSION_COOKIE_SECURE=true
+```
+
+`TRACKER_BASE_URL` 仍然建议保留 tracker 端口，例如：
+
+```env
+TRACKER_BASE_URL=http://pt.example.com:2710/announce
+```
 
 ### 环境变量配置
 
@@ -194,6 +275,13 @@ PUBLIC_WEB_BASE_URL=http://你的服务器IP
 TRACKER_BASE_URL=http://你的服务器IP:2710/announce
 CORS_ALLOWED_ORIGINS=http://你的服务器IP
 TRUSTED_HOSTS=你的服务器IP
+```
+
+如果你把 `WEB_PORT` 改成了 `8080` 且没有外部反代，这里的站点地址也要带端口：
+
+```env
+PUBLIC_WEB_BASE_URL=http://你的服务器IP:8080
+CORS_ALLOWED_ORIGINS=http://你的服务器IP:8080
 ```
 
 通常保持默认的内部连接项：
@@ -288,6 +376,27 @@ docker compose up -d --build
 注意：上面的 `rm -rf` 会删除现有数据库和已上传文件，只适合开发或测试环境。
 
 ### 常见问题
+
+如果 `nginx` 启动失败并看到端口占用：
+
+```text
+failed to bind host port 0.0.0.0:80/tcp: address already in use
+```
+
+说明宿主机的 `80/tcp` 已经被其他服务占用。最简单的处理方式是在项目根目录 `.env` 改成只监听本机回环地址：
+
+```env
+WEB_HOST=127.0.0.1
+WEB_PORT=8080
+```
+
+然后重启：
+
+```bash
+docker compose up -d
+```
+
+如果没有外部反代，访问地址改成 `http://你的服务器IP:8080`，并同步更新 `backend/.env` 里的 `PUBLIC_WEB_BASE_URL` 和 `CORS_ALLOWED_ORIGINS`。如果已有 OpenResty/Nginx，就让它反代到 `http://127.0.0.1:8080`，`backend/.env` 里继续写用户实际访问的域名。
 
 如果第一次启动遇到类似错误：
 

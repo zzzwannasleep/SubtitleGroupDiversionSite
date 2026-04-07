@@ -17,6 +17,7 @@ frontend/dist/
 
 backend/.venv/
 backend/.env
+.env
 
 data/postgres/*
 !data/postgres/.gitkeep
