@@ -10,6 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api import admin, auth, categories, health, rss, site_settings, torrents, users
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
+from app.core.errors import REQUEST_ID_HEADER, configure_error_handlers
 from app.internal_admin import configure_internal_admin, sync_internal_admin_title
 from app.models import import_all_models
 from app.services.bootstrap_service import seed_default_categories
@@ -116,8 +117,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[REQUEST_ID_HEADER],
 )
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, same_site="lax")
+configure_error_handlers(app)
 
 app.include_router(health.router)
 app.include_router(auth.router)

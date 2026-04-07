@@ -19,6 +19,7 @@ Status note:
 - Follow-up static verification completed on 2026-04-07 after the Compose/auth-rate-limit/UI-feedback pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Follow-up static verification completed on 2026-04-07 after the SQLAdmin/ConfirmDialog pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
 - Follow-up static verification completed on 2026-04-07 after the bigint/audit-log pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
+- Follow-up static verification completed on 2026-04-07 after the unified API error-envelope pass: `npm run build` in `frontend/`, `python -m compileall backend/app`, `git diff --check`, and a lightweight FastAPI TestClient error-shape check passed.
 - Development data policy: this project is not published yet and is only being run for local testing. Historical local database compatibility is not a requirement at this stage. If a schema change conflicts with local test data, it is acceptable to clear the local Docker data directories/volumes and recreate the database. Alembic may remain as tooling, but migration compatibility is not an MVP acceptance requirement.
 
 ================================================
@@ -45,6 +46,7 @@ Implemented in the repository:
 - Alembic migration coverage includes `site_settings` and `audit_logs`.
 - Bigint alignment is implemented for primary IDs, foreign keys, torrent sizes, file sizes, and tracker traffic byte counters, with a SQLite-compatible local-test variant.
 - Admin API write operations now record baseline audit logs for site settings, users, categories, torrents, and manual tracker sync; SQLAdmin includes a read-only Audit Log view.
+- API errors now use a shared JSON response envelope with `detail`, `error.code`, `error.message`, `error.status_code`, `error.request_id`, and optional `error.details`; `X-Request-ID` is set on responses and exposed to the frontend API client.
 - Frontend routes and pages for login, register, torrent list, torrent detail, upload, profile, RSS, and admin entry.
 - AppShell, header/sidebar navigation, responsive torrent table/card display, route-level lazy loading, route transitions, basic skeleton loaders, inline error states, shared toast and confirm feedback, local appearance preferences, and an admin audit-log panel.
 
@@ -66,7 +68,8 @@ Known implementation deviations to resolve before MVP acceptance:
 - [x] Completed - `Integer` / `bigint` choices are aligned to bigint for IDs and byte counters in models and fresh Alembic schema, with SQLite remaining usable for local tests.
 - [x] Completed - The upload form and API expose a dedicated `nfo_text` input path.
 - [x] Completed - Basic in-memory auth rate limiting is implemented for login and registration endpoints.
-- [ ] Pending - Production-grade error shape consistency and broader security hardening are still pending; a baseline admin audit log now exists.
+- [x] Completed - Unified API error response shape and request correlation IDs are implemented for HTTP errors, request validation errors, and unhandled API exceptions.
+- [ ] Pending - Broader security hardening remains pending; a baseline admin audit log now exists.
 
 ================================================
 1. PROJECT GOAL
@@ -655,6 +658,43 @@ Role assignment rules:
 - only admins can create other admins
 - system must reject demotion of the last admin
 
+12.6 Common response conventions
+
+List endpoints should generally return:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+Error responses should use the shared compatible envelope:
+
+```json
+{
+  "detail": "Human readable message",
+  "error": {
+    "code": "some_error_code",
+    "message": "Human readable message",
+    "status_code": 400,
+    "request_id": "request-correlation-id",
+    "details": {}
+  }
+}
+```
+
+Notes:
+
+- `detail` remains at the top level for compatibility with older callers.
+- `error.details` is optional and is mainly used for validation details.
+- API error responses should also include the `X-Request-ID` header.
+- time values should use ISO 8601 strings.
+- byte fields should use raw integers, not formatted strings.
+- `tracker_credential` and `rss_key` should return masked values by default.
+
 ================================================
 13. AUTHENTICATION AND SECURITY
 ================================================
@@ -1086,7 +1126,7 @@ Current step status as of 2026-04-07:
 - [x] Step 5 is implemented in code and still needs downloader/RSS consumption runtime testing.
 - [ ] Step 6 is partially implemented: XBT container/config/schema and provisioning code exist, but XBT PoC and BT client announce validation are not complete.
 - [x] Step 7 scheduled-sync code is implemented: cache tables, display paths, XBT DB sync code, manual admin sync, and configurable 30-60 second scheduled sync exist; live XBT runtime verification remains pending.
-- [ ] Step 8 is partially implemented: AppShell, transitions, responsive layout, appearance preferences, route-level lazy loading, shared toast feedback, SQLAdmin role/status hardening, a shared confirm dialog, and a baseline admin audit log exist; deeper accessibility polish and broader confirm coverage remain.
+- [ ] Step 8 is partially implemented: AppShell, transitions, responsive layout, appearance preferences, route-level lazy loading, shared toast feedback, SQLAdmin role/status hardening, a shared confirm dialog, a baseline admin audit log, and a unified API error envelope exist; deeper accessibility polish, broader confirm coverage, and broader security hardening remain.
 
 ================================================
 21. ACCEPTANCE CRITERIA
