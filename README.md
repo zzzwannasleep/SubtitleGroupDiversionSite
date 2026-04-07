@@ -37,7 +37,7 @@
 
 ## 当前状态
 
-当前仓库已经完成第一批基础骨架：
+当前仓库已经完成第一批基础骨架。
 
 数据策略说明：
 
@@ -45,6 +45,8 @@
 - 当前阶段不需要为历史本地测试数据做数据库迁移兼容。
 - 如果 schema 改动导致本地数据不兼容，直接清空本地 `data/` 目录或相关 Docker volume 后重建是可以接受的。
 - Alembic 配置可以继续保留作工具和发布前整理依据，但 MVP 开发阶段以 `AUTO_CREATE_TABLES=true` 自动建表和本地重建数据为主。
+
+代码结构：
 
 - `backend/`：FastAPI 后端基础结构、用户模型、认证、种子列表/详情接口、分类接口、管理接口骨架
 - `frontend/`：Vue 3 + Vite + Tailwind CSS 前端骨架、路由、Pinia、基础页面与 AppShell
@@ -63,7 +65,7 @@
 - 下载时按可配置 credential 策略重写 `announce`
 - RSS XML 输出与 RSS 下载端点
 - SQLAdmin 内部后台接入，管理员可通过 `/internal-admin` 登录
-- 管理员接口补充分类管理、种子可见性/Free 状态调整、手动 tracker sync
+- 管理员接口补充分类管理、种子可见性 / Free 状态调整、手动 tracker sync
 - SQLAdmin 用户 role/status 编辑已接入最后一个 active admin 保护与 XBT 用户同步
 - 前端 `/admin` 已补充用户角色 / 状态、分类、种子可见性 / Free / 分类调整面板，并对敏感变更使用确认弹窗
 - [x] 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` 仅保留登录时校验并升级的兼容路径
@@ -87,167 +89,213 @@
 
 ## 服务器 Docker 部署
 
-当前仓库最适合的部署方式是直接在 Linux 服务器上使用 `docker compose`。
+推荐部署路径是 Linux 服务器 + Docker Compose。当前 `docker-compose.yml` 会启动完整运行栈：
 
-注意：项目目前尚未发布，实际运行目标仍以本地测试为主；下面的服务器部署步骤先作为后续部署参考保留。
+| 服务 | 作用 | 对外端口 |
+| --- | --- | --- |
+| `nginx` | 统一 Web 入口，转发前端、API、RSS、内部后台 | `80/tcp` |
+| `frontend` | Vue 静态站点，由内部 Nginx 托管 | 不直接暴露 |
+| `backend` | FastAPI API 与 SQLAdmin | 不直接暴露 |
+| `postgres` | 站点主数据库 | 不直接暴露 |
+| `redis` | 登录 / 注册限流等缓存能力 | 不直接暴露 |
+| `tracker-db` | XBT Tracker 的 MariaDB 数据库 | 不直接暴露 |
+| `tracker` | XBT Tracker announce / UDP tracker | `2710/tcp`、`6881/udp` |
 
 ### 部署前准备
 
-确保服务器已经安装：
+服务器需要安装：
 
 - Docker
 - Docker Compose Plugin
 
-确保服务器或安全组已经放行这些端口：
+服务器防火墙或云厂商安全组需要放行：
 
 - `80/tcp`：站点入口
 - `2710/tcp`：XBT Tracker HTTP announce
 - `6881/udp`：XBT Tracker UDP
 
-### 1. 登录服务器
+### 方式 A：源码构建部署
 
-```bash
-ssh root@你的服务器IP
-```
-
-如果你不是 `root`，把上面的用户名换成你自己的服务器用户。
-
-### 2. 把项目放到服务器
-
-最常见的方式是直接在服务器上拉代码：
+这是当前最直接、最容易排查问题的部署方式。
 
 ```bash
 git clone <repo-url> SubtitleGroupDiversionSite
 cd SubtitleGroupDiversionSite
+cp backend/.env.example backend/.env
+nano backend/.env
+docker compose up -d --build
 ```
 
-如果你不是用 Git，而是手动上传压缩包，也可以：
+第一次启动会下载基础镜像、安装依赖并构建 `backend`、`frontend`、`tracker` 三个本地镜像，耗时会比普通重启更久。
 
-```bash
-unzip SubtitleGroupDiversionSite.zip
-cd SubtitleGroupDiversionSite
-```
+### 方式 B：使用 GHCR 预构建镜像
 
-这里的“项目根目录”就是这个目录，也就是你执行 `ls` 时能看到这些文件和目录的地方：
-
-- `docker-compose.yml`
-- `backend/`
-- `frontend/`
-- `README.md`
-
-你可以用这两个命令确认：
-
-```bash
-pwd
-ls
-```
-
-### 3. 准备配置
-
-检查 `backend/.env`。如果你是新环境，也可以先参考 `backend/.env.example`。
-
-至少建议修改这些值：
-
-- `SECRET_KEY`
-- `JWT_SECRET_KEY`
-- `APP_NAME`
-- `PUBLIC_WEB_BASE_URL`
-- `TRACKER_BASE_URL`
-- `CORS_ALLOWED_ORIGINS`
-
-常见示例：
-
-- 用域名部署：
-  - `PUBLIC_WEB_BASE_URL=https://pt.example.com`
-  - `TRACKER_BASE_URL=http://pt.example.com:2710/announce`
-  - `CORS_ALLOWED_ORIGINS=https://pt.example.com`
-- 用公网 IP 先测试：
-  - `PUBLIC_WEB_BASE_URL=http://你的服务器IP`
-  - `TRACKER_BASE_URL=http://你的服务器IP:2710/announce`
-  - `CORS_ALLOWED_ORIGINS=http://你的服务器IP`
-
-如果 `backend/.env` 还不存在，可以先复制一份：
+仓库里的 GitHub Actions 工作流会构建并推送三组镜像到 GitHub Container Registry。服务器只想拉镜像运行时，可以在项目根目录创建根级 `.env`，用于覆盖 compose 里的镜像名。
 
 ```bash
 cp backend/.env.example backend/.env
 nano backend/.env
+
+cat > .env <<'EOF'
+BACKEND_IMAGE=ghcr.io/<owner>/<repo>-backend:main
+FRONTEND_IMAGE=ghcr.io/<owner>/<repo>-frontend:main
+TRACKER_IMAGE=ghcr.io/<owner>/<repo>-xbt-tracker:main
+EOF
+
+docker compose pull backend frontend tracker
+docker compose up -d
 ```
 
-`backend/.env` 变量说明：
+如果 GHCR package 是私有的，先在服务器登录：
 
-- `APP_NAME`：后端应用名称。主要是后端应用自身的名字，不是前台给用户看的站点名。前台站点名建议在站点启动后，用 admin 页里的“站点名称”去改。
-- `APP_ENV`：运行环境标记。当前主要用于区分环境说明，常见值是 `development` 或 `production`。
-- `SECRET_KEY`：后端会话和签名相关密钥，必须改成你自己的随机长字符串。
-- `JWT_SECRET_KEY`：登录 JWT 的签名密钥，也必须改成你自己的随机长字符串。
-- `JWT_EXPIRE_MINUTES`：登录令牌过期时间，单位是分钟。
-- `DATABASE_URL`：站点主数据库连接串。当前这份 `docker compose` 默认使用 `postgres` 服务，所以通常保持为 `postgresql+psycopg2://ptuser:ptpass@postgres:5432/ptapp` 即可。
-- `REDIS_URL`：Redis 连接串。当前这份 `docker compose` 默认使用 `redis` 服务，所以通常保持为 `redis://redis:6379/0` 即可。
-- `TORRENT_STORAGE_PATH`：上传后的 `.torrent` 原始文件保存目录。
-- `UPLOAD_STORAGE_PATH`：上传过程中的临时文件目录。
-- `PUBLIC_WEB_BASE_URL`：站点对外访问地址。这里应该写用户访问前台时使用的地址，例如 `https://pt.example.com` 或 `http://你的服务器IP`。
-- `TRACKER_IMPL`：当前 tracker 实现类型。这个项目当前默认按 `xbt` 跑。
-- `TRACKER_BASE_URL`：下载出来的 `.torrent` 文件里会被写入的 announce 基础地址。这里应该写 BT 客户端真正访问的 tracker 地址，例如 `http://pt.example.com:2710/announce`。
-- `TRACKER_CREDENTIAL_MODE`：tracker 凭证写入 announce 的方式。当前默认 `xbt_path`，会生成 `/<tracker_credential>/announce` 这种路径风格。
-- `TRACKER_CREDENTIAL_QUERY_KEY`：当凭证模式走 query string 时使用的参数名。当前默认是 `passkey`。如果你继续使用 `xbt_path`，这一项基本不用管。
-- `TRACKER_SYNC_MODE`：站点从 tracker 拉统计信息的方式。当前默认 `xbt_db`，表示直接从 XBT 的数据库同步。
-- `TRACKER_USER_STATS_ENDPOINT`：如果你未来改成通过 HTTP 接口拉用户统计，可以在这里填地址。当前 XBT 数据库直连方案下可以留空。
-- `TRACKER_TORRENT_STATS_ENDPOINT`：如果你未来改成通过 HTTP 接口拉种子统计，可以在这里填地址。当前 XBT 数据库直连方案下可以留空。
-- `TRACKER_SYNC_TIMEOUT_SECONDS`：tracker 同步请求超时时间，单位是秒。
-- `TRACKER_SYNC_INTERVAL_SECONDS`：周期性 tracker 统计同步间隔，单位是秒。当前默认建议保持 `60`；如需关闭周期同步，可设为 `0`。
-- `XBT_TRACKER_DB_DSN`：XBT Tracker 数据库连接串。当前这份 `docker compose` 默认使用 `tracker-db` 服务，所以通常保持为 `mysql+pymysql://tracker:tracker-pass@tracker-db:3306/xbt` 即可。
-- `ALLOW_PUBLIC_TORRENT_LIST`：是否允许未登录用户查看种子列表。
-- `ALLOW_USER_REGISTRATION`：是否允许公开注册。
-- `AUTH_RATE_LIMIT_ENABLED`：是否启用登录 / 注册端点的基础限流，默认建议保持 `true`。
-- `AUTH_RATE_LIMIT_WINDOW_SECONDS`：认证限流统计窗口，单位是秒，默认 `60`。
-- `AUTH_LOGIN_RATE_LIMIT_ATTEMPTS`：单个客户端 IP 在统计窗口内允许的登录尝试次数，默认 `8`。
-- `AUTH_REGISTER_RATE_LIMIT_ATTEMPTS`：单个客户端 IP 在统计窗口内允许的注册尝试次数，默认 `5`。
-- `AUTO_CREATE_TABLES`：是否在后端启动时自动创建缺少的数据表。当前默认部署方案建议保持 `true`。
-- `CORS_ALLOWED_ORIGINS`：允许跨域访问的前端来源地址，多个值用英文逗号分隔。通常填你的前台域名，例如 `https://pt.example.com`。
-- `TRUSTED_HOSTS`：允许访问后端的 Host 列表，多个值用英文逗号分隔。开发环境可以保持 `*`；生产环境建议改成你的域名。
-- `SECURITY_HEADERS_ENABLED`：是否启用后端基础安全响应头，默认建议保持 `true`。
-- `HSTS_ENABLED`：是否启用 HSTS。只有确认全站 HTTPS 后再设为 `true`。
-- `HSTS_MAX_AGE_SECONDS`：HSTS 的 max-age 秒数，默认 `31536000`。
-- `SESSION_COOKIE_SECURE`：是否要求 SQLAdmin session cookie 仅通过 HTTPS 发送。生产 HTTPS 部署建议设为 `true`。
-- `CONTENT_SECURITY_POLICY`：可选 CSP 响应头。默认留空，避免未验证前影响 `/internal-admin` 静态资源。
+```bash
+docker login ghcr.io
+```
 
-当前这份 `docker compose` 部署里，下面这些变量通常不用改主机名部分：
+注意：根级 `.env` 只给 Docker Compose 做变量替换；后端运行配置仍然写在 `backend/.env`。
 
-- `DATABASE_URL` 里的 `@postgres`
-- `REDIS_URL` 里的 `redis`
-- `XBT_TRACKER_DB_DSN` 里的 `@tracker-db`
+### 环境变量配置
 
-因为它们对应的是 compose 内部服务名，不是公网域名。
+新环境先复制 `backend/.env.example`：
 
-说明：
+```bash
+cp backend/.env.example backend/.env
+```
 
-- 当前默认部署路径不要求你手工执行数据库迁移命令。
-- 只要 `AUTO_CREATE_TABLES=true`，后端启动时会自动补齐缺少的表。
-- 新增的 `site_settings` 这类表也会走这条路径自动创建。
-- 由于项目尚未发布且只在本地测试运行，不需要为旧的本地测试数据做迁移兼容；遇到 schema 不兼容时，清空本地数据后重建即可。
+服务器部署至少检查这几项：
 
-### 4. 启动服务
+| 变量 | 示例 | 说明 |
+| --- | --- | --- |
+| `APP_ENV` | `production` | 正式部署建议设为 `production`；如果密钥仍是默认值，后端会拒绝启动 |
+| `SECRET_KEY` | 随机长字符串 | 后端会话与签名密钥，必须改 |
+| `JWT_SECRET_KEY` | 随机长字符串 | 登录 JWT 签名密钥，必须改 |
+| `PUBLIC_WEB_BASE_URL` | `https://pt.example.com` | 用户访问站点的外部地址 |
+| `TRACKER_BASE_URL` | `http://pt.example.com:2710/announce` | 写入 `.torrent` 的 tracker announce 基础地址 |
+| `CORS_ALLOWED_ORIGINS` | `https://pt.example.com` | 允许访问 API 的前端来源，多个值用英文逗号分隔 |
+| `TRUSTED_HOSTS` | `pt.example.com` | 允许访问后端的 Host，开发环境可用 `*`，生产环境建议写域名或 IP |
 
-在项目根目录执行：
+已配置 HTTPS 反向代理的域名部署示例：
+
+```env
+APP_ENV=production
+PUBLIC_WEB_BASE_URL=https://pt.example.com
+TRACKER_BASE_URL=http://pt.example.com:2710/announce
+CORS_ALLOWED_ORIGINS=https://pt.example.com
+TRUSTED_HOSTS=pt.example.com
+```
+
+如果只使用当前 compose 默认暴露的 `80/tcp`，先把上面的 `https://` 改成 `http://`。
+
+公网 IP 测试示例：
+
+```env
+APP_ENV=development
+PUBLIC_WEB_BASE_URL=http://你的服务器IP
+TRACKER_BASE_URL=http://你的服务器IP:2710/announce
+CORS_ALLOWED_ORIGINS=http://你的服务器IP
+TRUSTED_HOSTS=你的服务器IP
+```
+
+通常保持默认的内部连接项：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DATABASE_URL` | `postgresql+psycopg2://ptuser:ptpass@postgres:5432/ptapp` | `postgres` 是 compose 内部服务名，不要改成公网域名 |
+| `REDIS_URL` | `redis://redis:6379/0` | `redis` 是 compose 内部服务名 |
+| `XBT_TRACKER_DB_DSN` | `mysql+pymysql://tracker:tracker-pass@tracker-db:3306/xbt` | `tracker-db` 是 compose 内部服务名 |
+| `TORRENT_STORAGE_PATH` | `./data/torrents` | `.torrent` 原始文件保存目录 |
+| `UPLOAD_STORAGE_PATH` | `./data/uploads` | 上传临时目录 |
+| `TRACKER_IMPL` | `xbt` | 当前默认 tracker 实现 |
+| `TRACKER_CREDENTIAL_MODE` | `xbt_path` | 当前按 `/<tracker_credential>/announce` 风格重写 announce |
+| `TRACKER_SYNC_MODE` | `xbt_db` | 默认从 XBT 数据库同步统计 |
+| `TRACKER_SYNC_INTERVAL_SECONDS` | `60` | 周期同步间隔；设为 `0` 可关闭周期同步 |
+| `AUTO_CREATE_TABLES` | `true` | 当前 MVP 默认用启动时自动建表 |
+
+按需调整的高级项：
+
+| 变量 | 何时调整 |
+| --- | --- |
+| `APP_NAME` | 想改后端应用名时调整；前台站点名建议在管理页里改 |
+| `JWT_EXPIRE_MINUTES` | 想调整登录有效期时调整 |
+| `ALLOW_PUBLIC_TORRENT_LIST` | 想禁止游客查看种子列表时设为 `false` |
+| `ALLOW_USER_REGISTRATION` | 想关闭公开注册时设为 `false` |
+| `AUTH_RATE_LIMIT_*` | 想调整登录 / 注册限流窗口和次数时调整 |
+| `SECURITY_HEADERS_ENABLED` | 默认建议保持 `true` |
+| `HSTS_ENABLED` | 只有确认全站 HTTPS 后再设为 `true` |
+| `SESSION_COOKIE_SECURE` | 生产 HTTPS 部署建议设为 `true` |
+| `CONTENT_SECURITY_POLICY` | 只有验证过 `/internal-admin` 静态资源后再填写 |
+
+### 启动与检查
 
 ```bash
 docker compose up -d --build
+docker compose ps
+docker compose logs -f backend frontend nginx tracker
 ```
 
-第一次启动会下载镜像、安装依赖、构建前后端，可能需要几分钟。
+启动后访问：
 
-如果你想看启动过程日志，可以执行：
+- 前台：`http://localhost`
+- 健康检查：`http://localhost/api/health`
+- 内部后台：`http://localhost/internal-admin`
+
+部署在服务器时，把 `localhost` 换成公网 IP 或域名即可。
+
+### 初始化账号
+
+- 打开 `/register`
+- 注册第一个账号
+- 第一个注册用户会自动成为 `admin`
+
+注册后建议检查：
+
+- `/admin`
+- `/profile`
+- `/rss`
+- `/upload`
+- `/torrents`
+- `/internal-admin`
+
+### 数据持久化与备份
+
+容器内数据已经挂载到项目根目录的 `data/` 下：
+
+| 路径 | 用途 |
+| --- | --- |
+| `./data/postgres` | 站点主数据库 |
+| `./data/tracker-db` | XBT Tracker 数据库 |
+| `./data/torrents` | 上传后的 `.torrent` 原始文件 |
+| `./data/uploads` | 上传临时目录 |
+
+迁移机器或备份时，至少保留这些目录。
+
+### 常用命令
 
 ```bash
-docker compose logs -f
+docker compose logs -f backend frontend nginx tracker
+docker compose up -d --build
+docker compose down
 ```
 
-如果你看到类似下面的错误：
+清空测试数据后重新开始：
+
+```bash
+docker compose down
+rm -rf data/postgres data/tracker-db data/torrents data/uploads
+docker compose up -d --build
+```
+
+注意：上面的 `rm -rf` 会删除现有数据库和已上传文件，只适合开发或测试环境。
+
+### 常见问题
+
+如果第一次启动遇到类似错误：
 
 ```text
 dependency failed to start: container subtitlegroupdiversionsite-postgres-1 is unhealthy
 ```
 
-通常是第一次初始化时 `postgres` 数据目录残留了旧内容。当前 compose 会把真正的 Postgres 数据直接写到 `data/postgres/pgdata`，但如果你是在旧版本配置上失败过一次，建议先清掉旧目录再重试：
+通常是 `data/postgres/pgdata` 里残留了旧初始化数据。开发测试环境可以清理后重试：
 
 ```bash
 docker compose down
@@ -256,118 +304,26 @@ docker compose up -d --build
 docker compose logs -f postgres
 ```
 
-### 5. 确认容器已经起来
+生产环境不要直接删除数据目录，先做备份并确认问题来源。
 
-```bash
-docker compose ps
-```
+## GitHub Actions Docker 镜像构建
 
-你应该能看到这些服务：
+仓库已包含 `.github/workflows/docker-images.yml`，用于构建项目自建 Docker 镜像。
 
-- `postgres`
-- `redis`
-- `tracker-db`
-- `tracker`
-- `backend`
-- `frontend`
-- `nginx`
+工作流触发方式：
 
-### 6. 访问站点
+- `pull_request`：只构建校验，不推送镜像
+- `push` 到 `main`：构建并推送到 GHCR
+- `push` tag `v*.*.*`：构建并推送到 GHCR
+- `workflow_dispatch`：手动触发构建并推送到 GHCR
 
-启动后可以访问：
+构建镜像：
 
-- 前台：`http://localhost`
-- 健康检查：`http://localhost/api/health`
-- 内部后台：`http://localhost/internal-admin`
+- `ghcr.io/<owner>/<repo>-backend:<tag>`
+- `ghcr.io/<owner>/<repo>-frontend:<tag>`
+- `ghcr.io/<owner>/<repo>-xbt-tracker:<tag>`
 
-如果你部署在服务器，把 `localhost` 换成你的公网 IP 或域名即可，例如：
-
-- `http://你的服务器IP`
-- `http://pt.example.com`
-
-### 7. 初始化账号
-
-- 打开 `/register`
-- 注册第一个账号
-- 第一个注册用户会自动成为 `admin`
-
-注册后，建议按这个顺序检查：
-
-1. `/admin`
-2. `/profile`
-3. `/rss`
-4. `/upload`
-5. `/torrents`
-6. `/internal-admin`
-
-### 8. 文件会保存到哪里
-
-Docker 容器里的数据库和上传文件不会只存在容器内部，它们已经映射到你本机当前项目目录下的 `data/` 里了。
-
-也就是说，你在本机能直接看到这些目录：
-
-- `./data/postgres`
-- `./data/tracker-db`
-- `./data/torrents`
-- `./data/uploads`
-
-用途分别是：
-
-- `data/postgres`：站点主数据库
-- `data/tracker-db`：XBT Tracker 的数据库
-- `data/torrents`：上传后的 `.torrent` 原始文件
-- `data/uploads`：上传临时目录
-
-如果你问的“文件怎么下载到本机”是指“Docker 里的数据怎么落到宿主机”，答案就是：已经通过这些挂载目录落到本机了。
-
-### 9. 持久化数据目录
-
-当前 compose 会把这些目录挂载到宿主机：
-
-- `./data/postgres`
-- `./data/tracker-db`
-- `./data/torrents`
-- `./data/uploads`
-
-如果你要迁移机器或备份，至少要保留这些目录。
-
-### 10. 常用命令
-
-查看日志：
-
-```bash
-docker compose logs -f backend frontend nginx tracker
-```
-
-重建并重启：
-
-```bash
-docker compose up -d --build
-```
-
-停止服务：
-
-```bash
-docker compose down
-```
-
-清空开发数据后重新开始：
-
-注意：下面这一步会删除现有数据库和已上传文件。
-
-```bash
-docker compose down
-rm -rf data/postgres data/tracker-db data/torrents data/uploads
-docker compose up -d --build
-```
-
-### 11. 部署注意事项
-
-- 当前 compose 已经包含 `Postgres + Redis + XBT Tracker + tracker-db + backend + frontend + nginx`。
-- 当前 compose 的公共 Web 入口是宿主机 `80` 端口上的 `nginx`，`frontend` 服务不再直接暴露 `8080` 到宿主机。
-- BT 客户端实际使用的 announce 地址来自 `TRACKER_BASE_URL`，不是 Nginx 的 `/api` 入口。
-- 如果你之前使用过旧数据，旧用户的 `tracker_credential` 可能与当前 XBT 方案不兼容，最稳妥的做法是直接从空数据重新开始。
-- 如果你只是想快速验证站点流程，优先用一套全新数据启动。
+默认标签由分支名、版本 tag 和提交 SHA 生成，例如 `main`、`v1.0.0`、`sha-<commit>`。当前工作流只构建 `linux/amd64`，如果后续要支持 ARM 服务器，可以再扩展 `platforms`。
 
 ## 说明
 

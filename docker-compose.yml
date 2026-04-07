@@ -43,6 +43,7 @@ services:
       - ./docker/xbt-tracker/initdb:/docker-entrypoint-initdb.d:ro
 
   backend:
+    image: ${BACKEND_IMAGE:-subtitlegroupdiversionsite-backend:local}
     build:
       context: ./backend
     env_file:
@@ -60,6 +61,7 @@ services:
       - ./data/uploads:/app/data/uploads
 
   frontend:
+    image: ${FRONTEND_IMAGE:-subtitlegroupdiversionsite-frontend:local}
     build:
       context: ./frontend
     depends_on:
@@ -67,6 +69,7 @@ services:
     restart: unless-stopped
 
   tracker:
+    image: ${TRACKER_IMAGE:-subtitlegroupdiversionsite-xbt-tracker:local}
     build:
       context: ./docker/xbt-tracker
     environment:

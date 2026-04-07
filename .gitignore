@@ -20,8 +20,9 @@ backend/.env
 
 data/postgres/*
 !data/postgres/.gitkeep
+data/tracker-db/*
+!data/tracker-db/.gitkeep
 data/torrents/*
 !data/torrents/.gitkeep
 data/uploads/*
 !data/uploads/.gitkeep
-
