@@ -119,7 +119,7 @@
 这是当前最直接、最容易排查问题的部署方式。
 
 ```bash
-git clone <repo-url> SubtitleGroupDiversionSite
+git clone https://github.com/zzzwannasleep/SubtitleGroupDiversionSite.git
 cd SubtitleGroupDiversionSite
 cp backend/.env.example backend/.env
 nano backend/.env
@@ -137,9 +137,9 @@ cp backend/.env.example backend/.env
 nano backend/.env
 
 cat > .env <<'EOF'
-BACKEND_IMAGE=ghcr.io/<owner>/<repo>-backend:main
-FRONTEND_IMAGE=ghcr.io/<owner>/<repo>-frontend:main
-TRACKER_IMAGE=ghcr.io/<owner>/<repo>-xbt-tracker:main
+BACKEND_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-backend:main
+FRONTEND_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-frontend:main
+TRACKER_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-xbt-tracker:main
 EOF
 
 docker compose pull backend frontend tracker
@@ -319,9 +319,9 @@ docker compose logs -f postgres
 
 构建镜像：
 
-- `ghcr.io/<owner>/<repo>-backend:<tag>`
-- `ghcr.io/<owner>/<repo>-frontend:<tag>`
-- `ghcr.io/<owner>/<repo>-xbt-tracker:<tag>`
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-backend:<tag>`
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-frontend:<tag>`
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-xbt-tracker:<tag>`
 
 默认标签由分支名、版本 tag 和提交 SHA 生成，例如 `main`、`v1.0.0`、`sha-<commit>`。当前工作流只构建 `linux/amd64`，如果后续要支持 ARM 服务器，可以再扩展 `platforms`。
 
