@@ -1,6 +1,7 @@
 PROJECT: 私有种子分发平台
 DOCUMENT: 架构 / 实施规格说明（中文版）
-VERSION: v0.7 Tracker 方案修订稿（ZH-CN）
+VERSION: v0.8 实现状态对齐版（ZH-CN）
+STATUS DATE: 2026-04-07
 SOURCE: 对应 `pt_platform_implementation_spec.md`
 TARGET USERS: 20-50
 DEPLOYMENT: Docker Compose
@@ -14,6 +15,48 @@ CACHE: Redis + Tracker 统计快照缓存表
 - 本文是英文 spec 的中文对照版。
 - API 路径、数据表字段名、环境变量名、目录名尽量保持英文原样，避免后续实现时对不上。
 - 本文里的“站点”指 Web 站点与后端 API；“Tracker”指独立 Tracker 服务，默认指 XBT Tracker。
+- 本文仍然是目标架构 / 实施规格，同时从 v0.8 开始记录当前仓库实现状态。
+- 下文“已实现”表示代码已在仓库中存在，不等于 Docker 栈、XBT announce 或 BT 客户端行为已经完成运行时验收。
+- 2026-04-07 已完成基础静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app` 通过。
+
+================================================
+当前实现状态快照（2026-04-07）
+================================================
+
+仓库中已实现：
+
+- FastAPI 后端结构、Vue 3 / Vite / Tailwind 前端结构、Dockerfile 与 Docker Compose 栈。
+- PostgreSQL、Redis、backend、frontend、Nginx、XBT tracker、XBT tracker-db 服务声明。
+- 用户注册、登录、JWT bearer auth、`/api/auth/me` 与 Profile API。
+- 角色枚举 `admin`、`uploader`、`user`；首个注册用户自动成为 `admin`。
+- 每用户 `tracker_credential` 与独立 `rss_key` 生成。
+- categories、torrents、torrent_files、download_logs、tracker_user_stats_cache、tracker_torrent_stats_cache 模型。
+- 种子上传 API，包括 `.torrent` 校验、10 MiB 大小限制、bencode 解析、info_hash 提取、文件列表提取、重复 info_hash 拒绝、原始 torrent 文件保存。
+- 种子列表 API / 页面与种子详情 API / 页面。
+- 下载端点：读取原始 torrent，在内存中重写 `announce` 与 `announce-list`，写入 `download_logs`，返回重写后的 `.torrent`。
+- RSS feed 端点与基于 `rss_key` 的 RSS 下载端点。
+- SQLAdmin 内部后台，以及用户、分类、种子、站点设置、手动 tracker sync 的 Admin API。
+- XBT 用户 / 种子 provision 与 XBT 数据库直读统计同步代码。
+- 前端登录、注册、种子列表、种子详情、上传、Profile、RSS、Admin 入口页面与路由。
+- AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由过渡、基础 skeleton loader、内联错误状态、本地外观偏好。
+
+部分实现或等待运行时验证：
+
+- XBT 容器、XBT schema、provision 代码与 `xbt_db` 同步路径已经存在，但最终 XBT PoC 与 BT 客户端 announce 验证仍未完成。
+- Tracker 统计缓存展示已经存在，Admin 手动触发 sync 已存在，但 30-60 秒周期同步循环尚未实现。
+- Redis 已在栈中并有 helper 模块，但暂未真正作为热点统计缓存使用。
+- RSS XML 生成与 RSS 下载重写已实现，但仍需要用真实下载器做端到端消费验证。
+- SQLAdmin 可以编辑用户 role/status；最后一个 admin 保护与 XBT 同步逻辑目前在 Admin API 中实现，尚未在 SQLAdmin model hook 中统一强制执行。
+- 前端路由守卫已实现；route-level lazy loading、共享 toast / confirm 组件、更完整的可访问性打磨仍是后续强化项。
+
+MVP 验收前需要处理的已知偏差：
+
+- 密码 hash 当前同时支持 `pbkdf2_sha256` 与 `bcrypt`；目标要求仍然是新密码 hash 只使用 bcrypt。
+- RSS key 查询必须拒绝非 active 用户，不能只校验 key 是否存在。
+- Docker Compose 对外入口需要明确：当前 `frontend` 服务暴露 `8080:80`，但 `nginx` 反向代理服务未暴露到宿主机。
+- Alembic 迁移需要重新与模型对齐，包括 `site_settings`；`Integer` / `bigint` 的选择也需要明确并保持一致。
+- 上传表单与 API 还没有单独的 `nfo_text` 输入路径。
+- 认证限流、生产级统一错误返回、完整审计与安全加固仍未完成。
 
 ================================================
 1. 项目目标
@@ -1164,12 +1207,19 @@ Backend:
 - UPLOAD_STORAGE_PATH=/app/data/uploads
 - PUBLIC_WEB_BASE_URL=https://app.example.com
 - TRACKER_IMPL=xbt
-- TRACKER_BASE_URL=https://tracker.example.com
-- TRACKER_SYNC_MODE=pull
+- TRACKER_BASE_URL=https://tracker.example.com/announce
+- TRACKER_CREDENTIAL_MODE=xbt_path
+- TRACKER_CREDENTIAL_QUERY_KEY=passkey
+- TRACKER_SYNC_MODE=xbt_db
 - TRACKER_SYNC_INTERVAL_SECONDS=30
-- XBT_TRACKER_DB_DSN=mysql://tracker:tracker-pass@tracker-db:3306/xbt
+- TRACKER_SYNC_TIMEOUT_SECONDS=10
+- TRACKER_USER_STATS_ENDPOINT=
+- TRACKER_TORRENT_STATS_ENDPOINT=
+- XBT_TRACKER_DB_DSN=mysql+pymysql://tracker:tracker-pass@tracker-db:3306/xbt
 - ALLOW_PUBLIC_TORRENT_LIST=true
 - ALLOW_USER_REGISTRATION=true
+- AUTO_CREATE_TABLES=true
+- CORS_ALLOWED_ORIGINS=https://app.example.com
 
 Frontend:
 
@@ -1181,7 +1231,9 @@ Frontend:
 
 说明：
 
-- 如果后续改用 Torrust，且其 API / event 路径验证可行，可把 `TRACKER_SYNC_MODE` 从 `pull` 改为对应模式
+- 当前实现默认 `TRACKER_SYNC_MODE=xbt_db`，通过 `XBT_TRACKER_DB_DSN` 直读 XBT 数据库同步统计。
+- `TRACKER_SYNC_INTERVAL_SECONDS` 仍是目标周期同步配置；当前实现已有 Admin 手动触发 sync，周期循环仍待实现。
+- 如果后续改用 Torrust，且其 API / event 路径验证可行，可把 `TRACKER_SYNC_MODE` 改为对应 API / event 模式。
 
 ================================================
 20. MVP 开发顺序
@@ -1235,6 +1287,17 @@ Step 8
 - 打磨 UI
 - 补齐共享 AppShell、页面动效、外观偏好
 
+截至 2026-04-07 的步骤状态：
+
+- Step 1：代码层面已实现。
+- Step 2：代码层面已实现，但密码 hash 方案仍需对齐到 bcrypt-only。
+- Step 3：代码层面已实现，仍需补充生产级校验与独立 `nfo_text` 上传路径。
+- Step 4：代码层面已实现。
+- Step 5：代码层面已实现，仍需做 RSS 下载器消费与端到端运行时测试。
+- Step 6：部分实现；XBT 容器 / 配置 / schema 与 provision 代码已存在，但 XBT PoC 与 BT 客户端 announce 验证尚未完成。
+- Step 7：部分实现；缓存表、页面展示、XBT DB 同步代码与 Admin 手动 sync 已存在，30-60 秒周期同步仍待实现。
+- Step 8：部分实现；AppShell、页面过渡、响应式布局与外观偏好已存在，权限加固、toast / confirm 模式、lazy loading 与可访问性打磨仍待完成。
+
 ================================================
 21. 验收标准
 ================================================
@@ -1253,6 +1316,13 @@ Step 8
 10. RSS 端点能返回合法 XML。
 11. RSS feed 能被下载器正常消费。
 
+截至 2026-04-07 的验收状态：
+
+- 第 1-7 项已有代码实现，但仍需在完整 Docker 栈中做回归验证。
+- 第 8 项仍待完成，是当前主要 PoC 闸门。
+- 第 9 项部分完成；缓存读取 / 展示路径已存在，但周期刷新与真实 XBT 数据验证仍待完成。
+- 第 10-11 项已有代码路径，但仍需要在运行中的部署里验证 XML 合法性与下载器消费。
+
 ================================================
 22. 未决问题 / PoC 检查清单
 ================================================
@@ -1264,6 +1334,9 @@ Step 8
 3. 如果 XBT 在运维或集成上不合适，Torrust 是否能满足 PT 式每用户凭证与统计归属要求？
 4. 如果切换到 Torrust，应该采用哪个管理 API / event / pull 路径，以及刷新频率定为多少合适？
 5. 第一阶段是否需要把封禁同步到 Tracker，还是仅站点侧拒绝下载就足够？
+6. Docker Compose 对外入口应该是宿主机 80 端口上的 Nginx，还是继续保留当前 `frontend` 服务直出宿主机 8080 的部署方式？
+7. SQLAdmin 是否允许直接编辑用户 role/status，还是这类受保护变更必须统一走 Admin API，以确保最后一个 admin 保护与 XBT 同步规则一定执行？
+8. RSS key 鉴权是否要在与 bearer auth 相同的层级显式拒绝所有非 active 用户？
 
 在这些问题确认之前，spec 有意保持以下内容抽象化：
 
