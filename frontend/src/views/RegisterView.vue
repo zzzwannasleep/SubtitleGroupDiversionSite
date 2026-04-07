@@ -62,12 +62,24 @@ async function submit(): Promise<void> {
 
       <label class="block">
         <span class="auth-field-label">{{ t("auth.register.password") }}</span>
-        <input v-model="form.password" type="password" class="auth-input mt-3" required />
+        <input
+          v-model="form.password"
+          type="password"
+          autocomplete="new-password"
+          class="auth-input mt-3"
+          required
+        />
       </label>
 
       <label class="block">
         <span class="auth-field-label">{{ t("auth.register.confirmPassword") }}</span>
-        <input v-model="form.confirmPassword" type="password" class="auth-input mt-3" required />
+        <input
+          v-model="form.confirmPassword"
+          type="password"
+          autocomplete="new-password"
+          class="auth-input mt-3"
+          required
+        />
       </label>
 
       <p v-if="errorMessage" class="auth-error-banner">{{ errorMessage }}</p>

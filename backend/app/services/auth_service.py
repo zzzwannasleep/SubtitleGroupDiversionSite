@@ -9,7 +9,7 @@ from app.core.security import (
     generate_rss_key,
     generate_tracker_credential,
     hash_password,
-    verify_password,
+    verify_and_update_password,
 )
 from app.models.tracker_user_stats_cache import TrackerUserStatsCache
 from app.models.user import User, UserRole, UserStatus
@@ -75,8 +75,11 @@ def authenticate_user(db: Session, identifier: str, password: str) -> User | Non
         return None
     if user.status != UserStatus.ACTIVE:
         return None
-    if not verify_password(password, user.password_hash):
+    is_valid, replacement_hash = verify_and_update_password(password, user.password_hash)
+    if not is_valid:
         return None
+    if replacement_hash is not None:
+        user.password_hash = replacement_hash
     user.last_login_at = datetime.now(UTC)
     db.add(user)
     db.commit()
