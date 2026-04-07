@@ -24,6 +24,7 @@ const form = reactive({
   description: "",
   coverImageUrl: "",
   mediaInfo: "",
+  nfoText: "",
 });
 
 async function loadCategories(): Promise<void> {
@@ -47,6 +48,7 @@ async function submit(): Promise<void> {
   payload.append("description", form.description);
   payload.append("cover_image_url", form.coverImageUrl);
   payload.append("media_info", form.mediaInfo);
+  payload.append("nfo_text", form.nfoText);
 
   loading.value = true;
   try {
@@ -60,6 +62,7 @@ async function submit(): Promise<void> {
       form.description = "";
       form.coverImageUrl = "";
       form.mediaInfo = "";
+      form.nfoText = "";
       await router.push(`/torrents/${response.id}`);
     }
   } catch (error) {
@@ -124,12 +127,20 @@ onMounted(() => {
     </PageSection>
 
     <PageSection :title="t('upload.advancedTitle')" :subtitle="t('upload.advancedSubtitle')">
-      <textarea
-        v-model="form.mediaInfo"
-        rows="8"
-        :placeholder="t('upload.placeholders.mediaInfo')"
-        class="w-full rounded-xl border border-slate-300 px-4 py-3"
-      />
+      <div class="grid gap-4 lg:grid-cols-2">
+        <textarea
+          v-model="form.mediaInfo"
+          rows="8"
+          :placeholder="t('upload.placeholders.mediaInfo')"
+          class="w-full rounded-xl border border-slate-300 px-4 py-3"
+        />
+        <textarea
+          v-model="form.nfoText"
+          rows="8"
+          :placeholder="t('upload.placeholders.nfoText')"
+          class="w-full rounded-xl border border-slate-300 px-4 py-3"
+        />
+      </div>
     </PageSection>
 
     <p v-if="errorMessage" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{{ errorMessage }}</p>

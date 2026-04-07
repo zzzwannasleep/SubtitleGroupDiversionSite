@@ -93,6 +93,7 @@ async def upload_torrent(
     description: str | None = Form(default=None),
     cover_image_url: str | None = Form(default=None),
     media_info: str | None = Form(default=None),
+    nfo_text: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.UPLOADER)),
 ) -> TorrentUploadResponse:
@@ -110,6 +111,7 @@ async def upload_torrent(
             description=description,
             cover_image_url=cover_image_url,
             media_info=media_info,
+            nfo_text=nfo_text,
         )
     except TorrentUploadError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

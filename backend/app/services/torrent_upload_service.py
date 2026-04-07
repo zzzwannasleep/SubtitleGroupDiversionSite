@@ -51,6 +51,13 @@ def _validate_upload_file(filename: str | None, file_bytes: bytes) -> None:
         raise TorrentUploadError("Uploaded .torrent file exceeds the 10 MiB size limit")
 
 
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
 def _ensure_category_exists(db: Session, category_id: int) -> Category:
     category = db.get(Category, category_id)
     if category is None or not category.is_enabled:
@@ -85,6 +92,7 @@ def create_uploaded_torrent(
     description: str | None,
     cover_image_url: str | None,
     media_info: str | None,
+    nfo_text: str | None,
 ) -> tuple[Torrent, ParsedTorrent]:
     _validate_upload_file(filename, file_bytes)
     _ensure_category_exists(db, category_id)
@@ -102,15 +110,16 @@ def create_uploaded_torrent(
     try:
         torrent = Torrent(
             name=name.strip() if name and name.strip() else parsed.torrent_name,
-            subtitle=subtitle.strip() if subtitle and subtitle.strip() else None,
-            description=description.strip() if description and description.strip() else None,
+            subtitle=_normalize_optional_text(subtitle),
+            description=_normalize_optional_text(description),
             info_hash=parsed.info_hash,
             size_bytes=parsed.size_bytes,
             owner_id=current_user.id,
             category_id=category_id,
             torrent_path=str(saved_path),
             cover_image_url=normalized_cover_url,
-            media_info=media_info.strip() if media_info and media_info.strip() else None,
+            media_info=_normalize_optional_text(media_info),
+            nfo_text=_normalize_optional_text(nfo_text),
         )
         db.add(torrent)
         db.flush()

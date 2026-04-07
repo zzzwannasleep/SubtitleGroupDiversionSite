@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.user import User
-from app.services.rss_service import RssFeedError, build_rss_feed_xml
+from app.services.rss_service import RssFeedError, build_rss_feed_xml, get_rss_user
 from app.services.torrent_download_service import TorrentDownloadError, create_download_payload
 
 
@@ -80,9 +78,10 @@ def rss_download(
     key: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
 ) -> Response:
-    user = db.scalar(select(User).where(User.rss_key == key))
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid RSS key")
+    try:
+        user = get_rss_user(db, key)
+    except RssFeedError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
     requester_ip = request.client.host if request.client else "unknown"
 

@@ -350,6 +350,9 @@ const zhCN = {
     mediaInfo: "媒体信息",
     mediaInfoSubtitle: "MVP 阶段以纯文本形式展示可选元数据块。",
     mediaInfoEmpty: "暂无",
+    nfo: "NFO",
+    nfoSubtitle: "MVP 阶段以纯文本形式展示可选 NFO 文本。",
+    nfoEmpty: "暂无",
   },
   upload: {
     pageTitle: "上传种子",
@@ -367,6 +370,7 @@ const zhCN = {
       description: "简介",
       coverImageUrl: "封面图 URL",
       mediaInfo: "媒体信息",
+      nfoText: "NFO 文本",
     },
     requiredError: "种子文件和分类为必填项。",
     errorFallback: "上传失败",

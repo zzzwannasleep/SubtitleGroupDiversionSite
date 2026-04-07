@@ -18,6 +18,8 @@ CACHE: Redis + Tracker 统计快照缓存表
 - 本文仍然是目标架构 / 实施规格，同时从 v0.8 开始记录当前仓库实现状态。
 - 下文“已实现”表示代码已在仓库中存在，不等于 Docker 栈、XBT announce 或 BT 客户端行为已经完成运行时验收。
 - 2026-04-07 已完成基础静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app` 通过。
+- 2026-04-07 MVP 缺口修补后已再次完成静态验证：`frontend/` 下 `npm run build` 通过，`python -m compileall backend/app backend/alembic` 通过，`git diff --check` 通过。
+- 开发数据策略：本项目尚未发布，目前只在本地测试运行；此阶段不要求兼容历史本地数据库数据。若 schema 改动与本地测试数据冲突，可以清空本地 Docker 数据目录 / volume 后重新建库。Alembic 可以作为工具保留，但“迁移兼容性”不是 MVP 验收要求。
 
 ================================================
 当前实现状态快照（2026-04-07）
@@ -31,19 +33,22 @@ CACHE: Redis + Tracker 统计快照缓存表
 - 角色枚举 `admin`、`uploader`、`user`；首个注册用户自动成为 `admin`。
 - 每用户 `tracker_credential` 与独立 `rss_key` 生成。
 - categories、torrents、torrent_files、download_logs、tracker_user_stats_cache、tracker_torrent_stats_cache 模型。
-- 种子上传 API，包括 `.torrent` 校验、10 MiB 大小限制、bencode 解析、info_hash 提取、文件列表提取、重复 info_hash 拒绝、原始 torrent 文件保存。
+- 种子上传 API，包括 `.torrent` 校验、10 MiB 大小限制、bencode 解析、info_hash 提取、文件列表提取、重复 info_hash 拒绝、原始 torrent 文件保存，以及独立 `nfo_text` 输入路径。
 - 种子列表 API / 页面与种子详情 API / 页面。
 - 下载端点：读取原始 torrent，在内存中重写 `announce` 与 `announce-list`，写入 `download_logs`，返回重写后的 `.torrent`。
-- RSS feed 端点与基于 `rss_key` 的 RSS 下载端点。
+- RSS feed 端点与基于 `rss_key` 的 RSS 下载端点，并在 RSS key 鉴权时拒绝非 active 用户。
 - SQLAdmin 内部后台，以及用户、分类、种子、站点设置、手动 tracker sync 的 Admin API。
 - XBT 用户 / 种子 provision 与 XBT 数据库直读统计同步代码。
+- 通过 `TRACKER_SYNC_INTERVAL_SECONDS` 配置的周期性 tracker 统计同步循环。
+- 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` hash 仅保留登录时校验并升级的兼容路径。
+- Alembic 迁移已包含 `site_settings`。
 - 前端登录、注册、种子列表、种子详情、上传、Profile、RSS、Admin 入口页面与路由。
 - AppShell、header/sidebar 导航、响应式种子表格 / 卡片、路由过渡、基础 skeleton loader、内联错误状态、本地外观偏好。
 
 部分实现或等待运行时验证：
 
 - XBT 容器、XBT schema、provision 代码与 `xbt_db` 同步路径已经存在，但最终 XBT PoC 与 BT 客户端 announce 验证仍未完成。
-- Tracker 统计缓存展示已经存在，Admin 手动触发 sync 已存在，但 30-60 秒周期同步循环尚未实现。
+- Tracker 统计缓存展示、Admin 手动触发 sync、可配置的 30-60 秒周期同步循环已经存在；真实 XBT 数据回读仍需运行时验收。
 - Redis 已在栈中并有 helper 模块，但暂未真正作为热点统计缓存使用。
 - RSS XML 生成与 RSS 下载重写已实现，但仍需要用真实下载器做端到端消费验证。
 - SQLAdmin 可以编辑用户 role/status；最后一个 admin 保护与 XBT 同步逻辑目前在 Admin API 中实现，尚未在 SQLAdmin model hook 中统一强制执行。
@@ -51,12 +56,13 @@ CACHE: Redis + Tracker 统计快照缓存表
 
 MVP 验收前需要处理的已知偏差：
 
-- 密码 hash 当前同时支持 `pbkdf2_sha256` 与 `bcrypt`；目标要求仍然是新密码 hash 只使用 bcrypt。
-- RSS key 查询必须拒绝非 active 用户，不能只校验 key 是否存在。
-- Docker Compose 对外入口需要明确：当前 `frontend` 服务暴露 `8080:80`，但 `nginx` 反向代理服务未暴露到宿主机。
-- Alembic 迁移需要重新与模型对齐，包括 `site_settings`；`Integer` / `bigint` 的选择也需要明确并保持一致。
-- 上传表单与 API 还没有单独的 `nfo_text` 输入路径。
-- 认证限流、生产级统一错误返回、完整审计与安全加固仍未完成。
+- [x] 已完成 - 新密码 hash 现在使用 bcrypt；旧 `pbkdf2_sha256` hash 仅保留登录时校验并升级的兼容路径。
+- [x] 已完成 - RSS key 查询已经在 feed 与 RSS 下载路径中拒绝非 active 用户。
+- [ ] 待处理 - Docker Compose 对外入口需要明确：当前 `frontend` 服务暴露 `8080:80`，但 `nginx` 反向代理服务未暴露到宿主机。
+- [x] 已完成 - Alembic 已新增 `site_settings` 迁移；由于项目尚未发布、仅本地测试运行，MVP 阶段不要求兼容历史数据库迁移。
+- [ ] 真正发布前待处理 - `Integer` / `bigint` 的最终选择需要在真正发布前再统一确认。
+- [x] 已完成 - 上传表单与 API 已有单独的 `nfo_text` 输入路径。
+- [ ] 待处理 - 认证限流、生产级统一错误返回、完整审计与安全加固仍未完成。
 
 ================================================
 1. 项目目标
@@ -1211,7 +1217,7 @@ Backend:
 - TRACKER_CREDENTIAL_MODE=xbt_path
 - TRACKER_CREDENTIAL_QUERY_KEY=passkey
 - TRACKER_SYNC_MODE=xbt_db
-- TRACKER_SYNC_INTERVAL_SECONDS=30
+- TRACKER_SYNC_INTERVAL_SECONDS=60
 - TRACKER_SYNC_TIMEOUT_SECONDS=10
 - TRACKER_USER_STATS_ENDPOINT=
 - TRACKER_TORRENT_STATS_ENDPOINT=
@@ -1232,7 +1238,7 @@ Frontend:
 说明：
 
 - 当前实现默认 `TRACKER_SYNC_MODE=xbt_db`，通过 `XBT_TRACKER_DB_DSN` 直读 XBT 数据库同步统计。
-- `TRACKER_SYNC_INTERVAL_SECONDS` 仍是目标周期同步配置；当前实现已有 Admin 手动触发 sync，周期循环仍待实现。
+- [x] 已完成 - `TRACKER_SYNC_INTERVAL_SECONDS` 已作为可配置周期同步间隔实现；当前默认值为 60 秒，目标刷新节奏仍是 30-60 秒。
 - 如果后续改用 Torrust，且其 API / event 路径验证可行，可把 `TRACKER_SYNC_MODE` 改为对应 API / event 模式。
 
 ================================================
@@ -1289,14 +1295,14 @@ Step 8
 
 截至 2026-04-07 的步骤状态：
 
-- Step 1：代码层面已实现。
-- Step 2：代码层面已实现，但密码 hash 方案仍需对齐到 bcrypt-only。
-- Step 3：代码层面已实现，仍需补充生产级校验与独立 `nfo_text` 上传路径。
-- Step 4：代码层面已实现。
-- Step 5：代码层面已实现，仍需做 RSS 下载器消费与端到端运行时测试。
-- Step 6：部分实现；XBT 容器 / 配置 / schema 与 provision 代码已存在，但 XBT PoC 与 BT 客户端 announce 验证尚未完成。
-- Step 7：部分实现；缓存表、页面展示、XBT DB 同步代码与 Admin 手动 sync 已存在，30-60 秒周期同步仍待实现。
-- Step 8：部分实现；AppShell、页面过渡、响应式布局与外观偏好已存在，权限加固、toast / confirm 模式、lazy loading 与可访问性打磨仍待完成。
+- [x] Step 1：代码层面已实现。
+- [x] Step 2：代码层面已实现；新密码 hash 已对齐到 bcrypt-only，旧 `pbkdf2_sha256` 仅保留登录时校验并升级的兼容路径。
+- [x] Step 3：代码层面已实现，包括独立 `nfo_text` 上传路径；生产级校验仍是后续强化项。
+- [x] Step 4：代码层面已实现。
+- [x] Step 5：代码层面已实现，仍需做 RSS 下载器消费与端到端运行时测试。
+- [ ] Step 6：部分实现；XBT 容器 / 配置 / schema 与 provision 代码已存在，但 XBT PoC 与 BT 客户端 announce 验证尚未完成。
+- [x] Step 7：周期同步代码已实现；缓存表、页面展示、XBT DB 同步代码、Admin 手动 sync、可配置 30-60 秒周期同步均已存在；真实 XBT 运行时验证仍待完成。
+- [ ] Step 8：部分实现；AppShell、页面过渡、响应式布局与外观偏好已存在，权限加固、toast / confirm 模式、lazy loading 与可访问性打磨仍待完成。
 
 ================================================
 21. 验收标准
@@ -1318,10 +1324,10 @@ Step 8
 
 截至 2026-04-07 的验收状态：
 
-- 第 1-7 项已有代码实现，但仍需在完整 Docker 栈中做回归验证。
-- 第 8 项仍待完成，是当前主要 PoC 闸门。
-- 第 9 项部分完成；缓存读取 / 展示路径已存在，但周期刷新与真实 XBT 数据验证仍待完成。
-- 第 10-11 项已有代码路径，但仍需要在运行中的部署里验证 XML 合法性与下载器消费。
+- [x] 第 1-7 项已有代码实现，但仍需在完整 Docker 栈中做回归验证。
+- [ ] 第 8 项仍待完成，是当前主要 PoC 闸门。
+- [x] 第 9 项代码路径已实现，包括缓存读取 / 展示与周期刷新；真实 XBT 数据验证仍待完成。
+- [x] 第 10-11 项已有代码路径，但仍需要在运行中的部署里验证 XML 合法性与下载器消费。
 
 ================================================
 22. 未决问题 / PoC 检查清单
@@ -1336,7 +1342,7 @@ Step 8
 5. 第一阶段是否需要把封禁同步到 Tracker，还是仅站点侧拒绝下载就足够？
 6. Docker Compose 对外入口应该是宿主机 80 端口上的 Nginx，还是继续保留当前 `frontend` 服务直出宿主机 8080 的部署方式？
 7. SQLAdmin 是否允许直接编辑用户 role/status，还是这类受保护变更必须统一走 Admin API，以确保最后一个 admin 保护与 XBT 同步规则一定执行？
-8. RSS key 鉴权是否要在与 bearer auth 相同的层级显式拒绝所有非 active 用户？
+8. [x] 已于 2026-04-07 解决：RSS key 鉴权已经在 feed 与 RSS 下载端点共用的 RSS key 查询路径中显式拒绝所有非 active 用户。
 
 在这些问题确认之前，spec 有意保持以下内容抽象化：
 

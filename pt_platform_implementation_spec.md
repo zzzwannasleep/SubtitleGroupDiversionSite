@@ -15,6 +15,8 @@ Status note:
 - It now also records the current repository implementation status as of 2026-04-07.
 - "Implemented" below means the code exists in the repository; it does not imply the Docker stack, XBT announce flow, or BT client behavior has been fully runtime-accepted.
 - Basic static verification completed on 2026-04-07: `npm run build` in `frontend/` and `python -m compileall backend/app` both passed.
+- Follow-up static verification completed on 2026-04-07 after the MVP-gap pass: `npm run build` in `frontend/`, `python -m compileall backend/app backend/alembic`, and `git diff --check` passed.
+- Development data policy: this project is not published yet and is only being run for local testing. Historical local database compatibility is not a requirement at this stage. If a schema change conflicts with local test data, it is acceptable to clear the local Docker data directories/volumes and recreate the database. Alembic may remain as tooling, but migration compatibility is not an MVP acceptance requirement.
 
 ================================================
 CURRENT IMPLEMENTATION SNAPSHOT (2026-04-07)
@@ -28,19 +30,22 @@ Implemented in the repository:
 - Role enum values `admin`, `uploader`, and `user`; first registered user becomes `admin`.
 - Per-user `tracker_credential` and separate `rss_key` generation.
 - Categories, torrents, torrent files, download logs, tracker user stats cache, and tracker torrent stats cache models.
-- Torrent upload API with `.torrent` validation, 10 MiB size limit, bencode parsing, info_hash extraction, file list extraction, duplicate info_hash rejection, and original torrent file storage.
+- Torrent upload API with `.torrent` validation, 10 MiB size limit, bencode parsing, info_hash extraction, file list extraction, duplicate info_hash rejection, original torrent file storage, and a dedicated `nfo_text` input path.
 - Torrent list and detail APIs and pages.
 - Download endpoint that reads the original torrent, rewrites `announce` and `announce-list` in memory, records `download_logs`, and returns a rewritten `.torrent`.
-- RSS feed endpoints and RSS download endpoint using `rss_key`.
+- RSS feed endpoints and RSS download endpoint using `rss_key`, with non-active users rejected during RSS key authentication.
 - SQLAdmin internal admin integration and admin APIs for users, categories, torrents, site settings, and manual tracker sync.
 - XBT integration code for user/torrent provisioning and direct XBT DB stat readback.
+- Configurable scheduled tracker stats sync loop via `TRACKER_SYNC_INTERVAL_SECONDS`.
+- New password hashes use bcrypt; legacy `pbkdf2_sha256` hashes remain verifiable for login-time upgrade.
+- Alembic migration coverage includes `site_settings`.
 - Frontend routes and pages for login, register, torrent list, torrent detail, upload, profile, RSS, and admin entry.
 - AppShell, header/sidebar navigation, responsive torrent table/card display, route transitions, basic skeleton loaders, inline error states, and local appearance preferences.
 
 Partially implemented or pending runtime verification:
 
 - XBT container, XBT schema, provisioning code, and `xbt_db` sync path exist, but the final XBT PoC and BT client announce validation remain pending.
-- Tracker stats cache display exists, and admin-triggered sync exists, but the 30-60 second scheduled sync loop is not implemented yet.
+- Tracker stats cache display, admin-triggered sync, and configurable 30-60 second scheduled sync loop exist; runtime acceptance against live XBT data remains pending.
 - Redis is part of the stack and has a helper module, but it is not yet materially used as a hot stats cache.
 - RSS XML generation and RSS download rewriting exist, but downloader consumption should still be tested end-to-end.
 - SQLAdmin can edit user role/status, but the protected last-admin and XBT-sync mutation path is implemented in the Admin API, not yet enforced inside SQLAdmin model hooks.
@@ -48,12 +53,13 @@ Partially implemented or pending runtime verification:
 
 Known implementation deviations to resolve before MVP acceptance:
 
-- Password hashing currently supports `pbkdf2_sha256` and `bcrypt`; the target requirement remains bcrypt-only for new password hashes.
-- RSS key lookup must reject non-active users, not only invalid keys.
-- The Docker Compose public entrypoint should be clarified: currently the `frontend` service publishes `8080:80`, while the `nginx` reverse proxy service is not published to the host.
-- Alembic migrations should be brought back in sync with models, including `site_settings`; integer-vs-bigint choices should be made explicit and consistent.
-- The upload form and API do not yet expose a dedicated `nfo_text` input path.
-- Auth rate limiting, production-grade error shape consistency, and full audit/security hardening are still pending.
+- [x] Completed - New password hashes now use bcrypt; legacy `pbkdf2_sha256` hashes remain supported only for login-time upgrade.
+- [x] Completed - RSS key lookup rejects non-active users in both feed and RSS download paths.
+- [ ] Pending - The Docker Compose public entrypoint should be clarified: currently the `frontend` service publishes `8080:80`, while the `nginx` reverse proxy service is not published to the host.
+- [x] Completed - Alembic now includes a `site_settings` migration; because the project is unpublished and local-test-only, historical database migration compatibility is not required for MVP.
+- [ ] Pending before real release - `Integer` / `bigint` choices should be finalized before any real release.
+- [x] Completed - The upload form and API expose a dedicated `nfo_text` input path.
+- [ ] Pending - Auth rate limiting, production-grade error shape consistency, and full audit/security hardening are still pending.
 
 ================================================
 1. PROJECT GOAL
@@ -983,7 +989,7 @@ Backend:
 - TRACKER_CREDENTIAL_MODE=xbt_path
 - TRACKER_CREDENTIAL_QUERY_KEY=passkey
 - TRACKER_SYNC_MODE=xbt_db
-- TRACKER_SYNC_INTERVAL_SECONDS=30
+- TRACKER_SYNC_INTERVAL_SECONDS=60
 - TRACKER_SYNC_TIMEOUT_SECONDS=10
 - TRACKER_USER_STATS_ENDPOINT=
 - TRACKER_TORRENT_STATS_ENDPOINT=
@@ -1004,7 +1010,7 @@ Frontend:
 Note:
 
 - current implementation default is `TRACKER_SYNC_MODE=xbt_db`, using direct XBT database readback through `XBT_TRACKER_DB_DSN`
-- `TRACKER_SYNC_INTERVAL_SECONDS` remains a target periodic-sync setting; the current implementation exposes manual admin-triggered sync, while the scheduled loop is still pending
+- [x] Completed - `TRACKER_SYNC_INTERVAL_SECONDS` is implemented as the configurable periodic-sync interval; the current default is 60 seconds, and the target cadence remains 30-60 seconds
 - replace `TRACKER_SYNC_MODE` with a Torrust-specific API or event mode later only if the fallback PoC proves it is suitable
 
 ================================================
@@ -1061,14 +1067,14 @@ Step 8
 
 Current step status as of 2026-04-07:
 
-- Step 1 is implemented in code.
-- Step 2 is implemented in code, with the password-hash scheme still needing bcrypt-only alignment.
-- Step 3 is implemented in code, except for additional production validation and a dedicated `nfo_text` upload path.
-- Step 4 is implemented in code.
-- Step 5 is implemented in code and still needs downloader/RSS consumption runtime testing.
-- Step 6 is partially implemented: XBT container/config/schema and provisioning code exist, but XBT PoC and BT client announce validation are not complete.
-- Step 7 is partially implemented: cache tables, display paths, XBT DB sync code, and manual admin sync exist; scheduled 30-60 second sync is pending.
-- Step 8 is partially implemented: AppShell, transitions, responsive layout, and appearance preferences exist; permission hardening, toast/confirm patterns, lazy loading, and accessibility polish remain.
+- [x] Step 1 is implemented in code.
+- [x] Step 2 is implemented in code; bcrypt-only new password hashing is aligned, with legacy `pbkdf2_sha256` kept only for login-time upgrade.
+- [x] Step 3 is implemented in code, including the dedicated `nfo_text` upload path; additional production validation remains future hardening.
+- [x] Step 4 is implemented in code.
+- [x] Step 5 is implemented in code and still needs downloader/RSS consumption runtime testing.
+- [ ] Step 6 is partially implemented: XBT container/config/schema and provisioning code exist, but XBT PoC and BT client announce validation are not complete.
+- [x] Step 7 scheduled-sync code is implemented: cache tables, display paths, XBT DB sync code, manual admin sync, and configurable 30-60 second scheduled sync exist; live XBT runtime verification remains pending.
+- [ ] Step 8 is partially implemented: AppShell, transitions, responsive layout, and appearance preferences exist; permission hardening, toast/confirm patterns, lazy loading, and accessibility polish remain.
 
 ================================================
 21. ACCEPTANCE CRITERIA
@@ -1090,10 +1096,10 @@ The system is minimally usable when all of the following work:
 
 Current acceptance status as of 2026-04-07:
 
-- Items 1-7 are implemented in code but still need full Docker-stack regression testing.
-- Item 8 is pending and is the main PoC gate.
-- Item 9 is partially implemented; cache read/display exists, but scheduled refresh and real XBT data verification are pending.
-- Items 10-11 have code paths implemented; valid XML and downloader consumption should still be verified against a running deployment.
+- [x] Items 1-7 are implemented in code but still need full Docker-stack regression testing.
+- [ ] Item 8 is pending and is the main PoC gate.
+- [x] Item 9 code paths are implemented, including cache read/display and scheduled refresh; real XBT data verification remains pending.
+- [x] Items 10-11 have code paths implemented; valid XML and downloader consumption should still be verified against a running deployment.
 
 ================================================
 22. OPEN QUESTIONS / POC CHECKLIST
@@ -1108,7 +1114,7 @@ These items must be validated before freezing the final tracker implementation:
 5. Does phase 1 need tracker-side ban synchronization, or is website-side download denial enough?
 6. Should the public Docker Compose entrypoint be Nginx on host port 80, or should the frontend service remain directly published on host port 8080 for the current deployment style?
 7. Should SQLAdmin allow direct user role/status edits, or should those protected mutations be routed only through the Admin API so the last-admin and XBT-sync rules always run?
-8. Should RSS key authentication explicitly reject all non-active users at the same layer as bearer authentication?
+8. [x] Resolved on 2026-04-07: RSS key authentication explicitly rejects all non-active users in the shared RSS key lookup path used by both feed and RSS download endpoints.
 
 Until these are verified, the spec intentionally keeps the tracker credential transport and sync transport abstract.
 

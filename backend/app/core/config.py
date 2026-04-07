@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     tracker_user_stats_endpoint: str | None = None
     tracker_torrent_stats_endpoint: str | None = None
     tracker_sync_timeout_seconds: float = 10.0
+    tracker_sync_interval_seconds: int = 60
     xbt_tracker_db_dsn: str | None = None
     allow_public_torrent_list: bool = True
     allow_user_registration: bool = True

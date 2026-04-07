@@ -351,6 +351,9 @@ const enUS = {
     mediaInfo: "Media Info",
     mediaInfoSubtitle: "Optional metadata blocks shown as plain text in MVP.",
     mediaInfoEmpty: "N/A",
+    nfo: "NFO",
+    nfoSubtitle: "Optional NFO text shown as plain text in MVP.",
+    nfoEmpty: "N/A",
   },
   upload: {
     pageTitle: "Upload Torrent",
@@ -368,6 +371,7 @@ const enUS = {
       description: "Description",
       coverImageUrl: "Cover image URL",
       mediaInfo: "Media info",
+      nfoText: "NFO text",
     },
     requiredError: "Torrent file and category are required.",
     errorFallback: "Upload failed",

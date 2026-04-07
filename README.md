@@ -39,6 +39,13 @@
 
 当前仓库已经完成第一批基础骨架：
 
+数据策略说明：
+
+- 这个项目目前尚未发布，只在本地测试运行。
+- 当前阶段不需要为历史本地测试数据做数据库迁移兼容。
+- 如果 schema 改动导致本地数据不兼容，直接清空本地 `data/` 目录或相关 Docker volume 后重建是可以接受的。
+- Alembic 配置可以继续保留作工具和发布前整理依据，但 MVP 开发阶段以 `AUTO_CREATE_TABLES=true` 自动建表和本地重建数据为主。
+
 - `backend/`：FastAPI 后端基础结构、用户模型、认证、种子列表/详情接口、分类接口、管理接口骨架
 - `frontend/`：Vue 3 + Vite + Tailwind CSS 前端骨架、路由、Pinia、基础页面与 AppShell
 - `docker-compose.yml`：Postgres / Redis / Backend / Frontend / XBT Tracker / XBT tracker-db / Nginx 组合
@@ -56,7 +63,11 @@
 - RSS XML 输出与 RSS 下载端点
 - SQLAdmin 内部后台接入，管理员可通过 `/internal-admin` 登录
 - 管理员接口补充分类管理、种子可见性/Free 状态调整、手动 tracker sync
-- 保留 Alembic 配置；当前默认部署路径以 `AUTO_CREATE_TABLES=true` 自动建表为主
+- [x] 新密码 hash 使用 bcrypt；旧 `pbkdf2_sha256` 仅保留登录时校验并升级的兼容路径
+- [x] RSS key 鉴权会拒绝非 active 用户
+- [x] 上传表单与 API 已支持独立 `nfo_text` 输入路径，详情页可展示 NFO 文本
+- [x] 已支持通过 `TRACKER_SYNC_INTERVAL_SECONDS` 配置周期性 tracker stats sync
+- [x] Alembic 已包含 `site_settings` 迁移；当前默认部署路径仍以 `AUTO_CREATE_TABLES=true` 自动建表为主
 - 用户 Profile 基础接口
 - 前端登录 / 注册 / 列表 / 详情 / 上传 / Profile / RSS 页面骨架
 - 基础响应式布局、路由守卫、页面切换动画、外观偏好本地存储
@@ -65,12 +76,14 @@
 
 - XBT 的真实部署、announce 验证与统计回读需要第一次实际 `docker compose` 验证
 - 只有在 XBT 不合适时，才切回 Torrust 备选方案
-- 更完整的上传校验、NFO/MediaInfo 处理与生产级错误处理
+- 更完整的上传校验、NFO/MediaInfo 深度解析与生产级错误处理
 - 更完整的后台前端化管理页与操作审计
 
 ## 服务器 Docker 部署
 
 当前仓库最适合的部署方式是直接在 Linux 服务器上使用 `docker compose`。
+
+注意：项目目前尚未发布，实际运行目标仍以本地测试为主；下面的服务器部署步骤先作为后续部署参考保留。
 
 ### 部署前准备
 
@@ -174,6 +187,7 @@ nano backend/.env
 - `TRACKER_USER_STATS_ENDPOINT`：如果你未来改成通过 HTTP 接口拉用户统计，可以在这里填地址。当前 XBT 数据库直连方案下可以留空。
 - `TRACKER_TORRENT_STATS_ENDPOINT`：如果你未来改成通过 HTTP 接口拉种子统计，可以在这里填地址。当前 XBT 数据库直连方案下可以留空。
 - `TRACKER_SYNC_TIMEOUT_SECONDS`：tracker 同步请求超时时间，单位是秒。
+- `TRACKER_SYNC_INTERVAL_SECONDS`：周期性 tracker 统计同步间隔，单位是秒。当前默认建议保持 `60`；如需关闭周期同步，可设为 `0`。
 - `XBT_TRACKER_DB_DSN`：XBT Tracker 数据库连接串。当前这份 `docker compose` 默认使用 `tracker-db` 服务，所以通常保持为 `mysql+pymysql://tracker:tracker-pass@tracker-db:3306/xbt` 即可。
 - `ALLOW_PUBLIC_TORRENT_LIST`：是否允许未登录用户查看种子列表。
 - `ALLOW_USER_REGISTRATION`：是否允许公开注册。
@@ -193,6 +207,7 @@ nano backend/.env
 - 当前默认部署路径不要求你手工执行数据库迁移命令。
 - 只要 `AUTO_CREATE_TABLES=true`，后端启动时会自动补齐缺少的表。
 - 新增的 `site_settings` 这类表也会走这条路径自动创建。
+- 由于项目尚未发布且只在本地测试运行，不需要为旧的本地测试数据做迁移兼容；遇到 schema 不兼容时，清空本地数据后重建即可。
 
 ### 4. 启动服务
 

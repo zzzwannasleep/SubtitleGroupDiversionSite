@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import get_settings
 from app.models.category import Category
 from app.models.torrent import Torrent
-from app.models.user import User
+from app.models.user import User, UserStatus
 from app.services.torrent_query_service import apply_torrent_filters, apply_torrent_sort
 
 
@@ -19,7 +19,7 @@ class RssFeedError(ValueError):
 
 
 def get_rss_user(db: Session, key: str) -> User:
-    user = db.scalar(select(User).where(User.rss_key == key))
+    user = db.scalar(select(User).where(User.rss_key == key, User.status == UserStatus.ACTIVE))
     if user is None:
         raise RssFeedError("Invalid RSS key")
     return user

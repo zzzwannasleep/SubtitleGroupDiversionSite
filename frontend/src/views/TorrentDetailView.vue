@@ -141,5 +141,11 @@ watch(() => route.params.id, loadTorrent);
         torrent.media_info || t("torrentDetail.mediaInfoEmpty")
       }}</pre>
     </PageSection>
+
+    <PageSection :title="t('torrentDetail.nfo')" :subtitle="t('torrentDetail.nfoSubtitle')">
+      <pre class="overflow-x-auto rounded-2xl bg-slate-950/95 p-4 text-sm text-slate-100">{{
+        torrent.nfo_text || t("torrentDetail.nfoEmpty")
+      }}</pre>
+    </PageSection>
   </div>
 </template>
