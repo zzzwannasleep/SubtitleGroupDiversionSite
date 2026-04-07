@@ -123,21 +123,25 @@
 ```bash
 git clone https://github.com/zzzwannasleep/SubtitleGroupDiversionSite.git
 cd SubtitleGroupDiversionSite
+cp .env.example .env
 cp backend/.env.example backend/.env
+nano .env
 nano backend/.env
 docker compose up -d --build
 ```
 
 第一次启动会下载基础镜像、安装依赖并构建 `backend`、`frontend`、`tracker` 三个本地镜像，耗时会比普通重启更久。
 
-如果服务器 `80/tcp` 已被占用，先在项目根目录创建 `.env` 覆盖 Web 监听地址：
+如果服务器 `80/tcp` 已被占用，先在项目根目录 `.env` 覆盖 Web 监听地址：
 
-```bash
-cat > .env <<'EOF'
+```env
 WEB_HOST=127.0.0.1
 WEB_PORT=8080
-EOF
+```
 
+然后重新启动：
+
+```bash
 docker compose up -d --build
 ```
 
@@ -154,18 +158,24 @@ CORS_ALLOWED_ORIGINS=http://你的服务器IP:8080
 
 仓库里的 GitHub Actions 工作流会构建并推送三组镜像到 GitHub Container Registry。服务器只想拉镜像运行时，可以在项目根目录创建根级 `.env`，用于覆盖 compose 里的镜像名。
 
-```bash
-cp backend/.env.example backend/.env
-nano backend/.env
+先复制示例文件，然后编辑根目录 `.env`，取消 GHCR 镜像变量的注释：
 
-cat > .env <<'EOF'
-BACKEND_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-backend:main
-FRONTEND_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-frontend:main
-TRACKER_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-xbt-tracker:main
-EOF
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+nano .env
+nano backend/.env
 
 docker compose pull backend frontend tracker
 docker compose up -d
+```
+
+根目录 `.env` 里需要启用这几行：
+
+```env
+BACKEND_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-backend:main
+FRONTEND_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-frontend:main
+TRACKER_IMAGE=ghcr.io/zzzwannasleep/subtitlegroupdiversionsite-xbt-tracker:main
 ```
 
 如果 GHCR package 是私有的，先在服务器登录：
