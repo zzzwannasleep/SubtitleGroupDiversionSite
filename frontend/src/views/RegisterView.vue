@@ -23,6 +23,26 @@ const form = reactive({
 });
 const errorMessage = ref("");
 
+function formatRegisterError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return t("auth.register.errorFallback");
+  }
+
+  if (error.message === "Username or email already exists") {
+    return t("auth.register.usernameOrEmailExists");
+  }
+  if (error.message === "Registration is disabled") {
+    return t("auth.register.registrationDisabled");
+  }
+  if (error.message.startsWith("XBT user provisioning failed")) {
+    return t("auth.register.trackerProvisionFailed");
+  }
+  if (error.message === "Invalid host header") {
+    return t("auth.register.invalidHost");
+  }
+  return error.message || t("auth.register.errorFallback");
+}
+
 async function submit(): Promise<void> {
   errorMessage.value = "";
 
@@ -55,7 +75,7 @@ async function submit(): Promise<void> {
     toastStore.success(t("toasts.registerSuccess"));
     await router.push("/torrents");
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t("auth.register.errorFallback");
+    errorMessage.value = formatRegisterError(error);
   }
 }
 </script>

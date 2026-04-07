@@ -85,6 +85,10 @@ const enUS = {
       passwordTooShort: "Password must be at least {length} characters.",
       passwordTooLong: "Password cannot be longer than {length} characters.",
       passwordWhitespace: "Password cannot start or end with spaces.",
+      usernameOrEmailExists: "Username or email already exists.",
+      registrationDisabled: "Registration is currently disabled.",
+      trackerProvisionFailed: "Tracker account provisioning failed. Please check the XBT database and try again.",
+      invalidHost: "This domain is not allowed by the backend TRUSTED_HOSTS setting.",
     },
     styleStudio: {
       kicker: "Style studio",

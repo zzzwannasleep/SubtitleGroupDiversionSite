@@ -96,15 +96,16 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     let requestId = response.headers.get("X-Request-ID") ?? undefined;
     let details: unknown;
 
+    const responseText = await response.text();
     try {
-      const payload = await response.json();
+      const payload = JSON.parse(responseText);
       const structuredError = readStructuredError(payload);
       message = structuredError.message ?? message;
       code = structuredError.code;
       requestId = structuredError.request_id ?? requestId;
       details = structuredError.details;
     } catch {
-      message = response.statusText || message;
+      message = responseText.trim() || response.statusText || message;
     }
     throw new ApiError(message, response.status, { code, requestId, details });
   }

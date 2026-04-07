@@ -338,8 +338,10 @@ CORS_ALLOWED_ORIGINS=http://你的服务器IP:8080
 ```bash
 docker compose up -d --build
 docker compose ps
-docker compose logs -f backend frontend nginx tracker
+docker compose logs -f
 ```
+
+默认会直接输出所有 Compose 服务日志；如果只想看某几个服务，可以在命令后追加服务名，例如 `docker compose logs -f backend nginx`。
 
 启动后访问：
 
@@ -380,7 +382,7 @@ docker compose logs -f backend frontend nginx tracker
 ### 常用命令
 
 ```bash
-docker compose logs -f backend frontend nginx tracker
+docker compose logs -f
 docker compose up -d --build
 docker compose down
 ```

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
@@ -19,9 +20,33 @@ from app.services.bootstrap_service import seed_default_categories
 from app.services.tracker_sync_service import sync_tracker_stats
 
 
+def configure_application_logging(log_level_name: str) -> None:
+    normalized_level = log_level_name.strip().upper()
+    log_level = getattr(logging, normalized_level, logging.INFO)
+    if not isinstance(log_level, int):
+        log_level = logging.INFO
+
+    formatter = logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    if not root_logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(formatter)
+        handler.setLevel(log_level)
+        root_logger.addHandler(handler)
+        return
+
+    for handler in root_logger.handlers:
+        handler.setFormatter(formatter)
+        handler.setLevel(log_level)
+
+
 settings = get_settings()
 settings.validate_runtime_safety()
+configure_application_logging(settings.app_log_level)
 logger = logging.getLogger(__name__)
+logger.info("Application logging configured at %s level", settings.app_log_level.strip().upper())
 
 
 async def wait_for_database(max_attempts: int = 30, delay_seconds: float = 2.0) -> None:
@@ -88,15 +113,19 @@ async def run_tracker_sync_loop(interval_seconds: int) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logger.info("Starting %s backend in %s environment", settings.app_name, settings.app_env)
     import_all_models()
     await wait_for_database()
+    logger.info("Database is available")
     if settings.auto_create_tables:
+        logger.info("Auto-creating missing database tables if needed")
         Base.metadata.create_all(bind=engine)
     sync_internal_admin_title()
 
     if inspect(engine).has_table("categories"):
         with SessionLocal() as db:
             seed_default_categories(db)
+        logger.info("Default categories are ready")
 
     tracker_sync_task: asyncio.Task[None] | None = None
     if should_start_tracker_sync_scheduler():

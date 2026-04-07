@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "pt-platform"
     app_env: str = "development"
+    app_log_level: str = "INFO"
     secret_key: str = "change-me"
     jwt_secret_key: str = "change-me"
     jwt_expire_minutes: int = 1440

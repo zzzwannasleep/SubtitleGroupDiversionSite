@@ -85,6 +85,10 @@ const zhCN = {
       passwordTooShort: "密码至少需要 {length} 个字符。",
       passwordTooLong: "密码不能超过 {length} 个字符。",
       passwordWhitespace: "密码不能以空格开头或结尾。",
+      usernameOrEmailExists: "用户名或邮箱已存在。",
+      registrationDisabled: "当前已关闭注册。",
+      trackerProvisionFailed: "Tracker 账号同步失败，请检查 XBT 数据库后重试。",
+      invalidHost: "当前访问域名未加入后端 TRUSTED_HOSTS 配置。",
     },
     styleStudio: {
       kicker: "样式工作台",
