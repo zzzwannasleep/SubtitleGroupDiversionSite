@@ -18,6 +18,14 @@
 
 - `docs/frontend-style-system-spec.md`
 
+后端接口、认证、权限、XBT 同步与日志规范，见：
+
+- `docs/backend-architecture-spec.md`
+
+项目级“必须简单易用、低复杂度、低部署成本”的硬约束，见：
+
+- `docs/simplicity-usability-operability-rules.md`
+
 ## 2. 技术前提
 
 当前前端默认技术路线：

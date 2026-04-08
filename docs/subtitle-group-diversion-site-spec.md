@@ -21,6 +21,9 @@
 
 ### 1.3 核心设计原则
 
+- 项目级“易用、低复杂度、低部署成本”硬约束见：
+- `docs/simplicity-usability-operability-rules.md`
+
 - `极简`: 只做必须功能，避免 PT 站“全家桶”
 - `好上手`: 页面和流程尽量接近普通资源站
 - `权限清楚`: 只保留 `admin`、`uploader`、`user` 三类角色
@@ -1123,6 +1126,13 @@
 
 ## 11. 推荐技术方案
 
+后端架构、模块拆分、认证权限、XBT 集成、日志与测试的详细设计，见：
+
+- `docs/backend-architecture-spec.md`
+- `docs/database-xbt-mapping-spec.md`
+- `docs/docker-compose-deployment-spec.md`
+- `docs/xbt-container-integration-spec.md`
+
 ### 11.1 整体建议
 
 根据当前需求和你的偏好，推荐采用：
@@ -1408,6 +1418,61 @@ Docker 部署后，日志的最低要求不是“做得多漂亮”，而是：
 - 对接 Loki、ELK 或其他日志聚合系统
 - 增加后台日志检索页或错误告警
 
+### 11.8 镜像构建与分发建议
+
+考虑到部署便利性，推荐默认采用：
+
+- `GitHub Actions` 负责构建镜像
+- 镜像推送到 `GitHub Container Registry (ghcr.io)`
+- 服务器上的 `docker compose` 直接使用固定镜像地址
+
+推荐原因：
+
+- 服务器不需要再本地构建镜像
+- 部署机器依赖更少
+- 版本更清楚，回滚更方便
+- 更符合“少步骤、少环境差异”的目标
+
+推荐镜像来源：
+
+- `ghcr.io/<owner>/<repo>/frontend:<tag>`
+- `ghcr.io/<owner>/<repo>/backend:<tag>`
+
+推荐标签策略：
+
+- `latest`：仅用于开发或测试环境
+- `main-<short_sha>`：用于日常构建
+- `v1.0.0`：用于正式版本发布
+
+推荐 Compose 用法：
+
+- 生产环境优先使用 `image`
+- 本地开发环境才使用 `build`
+
+示例思路：
+
+- `docker-compose.yml` 里直接写 `image`
+- 如需本地开发，再额外提供 `docker-compose.dev.yml`
+
+这样可以避免：
+
+- 服务器本地还要装完整构建环境
+- 因为本地 Dockerfile 或缓存差异导致部署结果不一致
+- 部署文档变得过长
+
+当前项目推荐做法：
+
+1. 推送代码到 GitHub
+2. GitHub Actions 自动构建 `frontend` 与 `backend` 镜像
+3. 推送到 `ghcr.io`
+4. 服务器执行 `docker compose pull`
+5. 服务器执行 `docker compose up -d`
+
+注意：
+
+- `mysql`、`redis`、`nginx`、`xbt` 通常可以继续使用现成镜像或本地少量定制镜像
+- 主要需要进入 GitHub 镜像构建流程的是 `frontend` 与 `backend`
+
 ## 12. 接口草案
 
 ### 12.1 认证接口
@@ -1595,7 +1660,12 @@ MVP 上线前必须打通以下闭环：
 - [ ] 配置 Redis
 - [ ] 配置文件存储目录
 - [ ] 配置环境变量模板
+- [ ] 提供尽量开箱即用的 `.env.example`
+- [ ] 控制 MVP 必填环境变量数量
 - [ ] 编写 `docker-compose.yml`
+- [ ] 编写 GitHub Actions 镜像构建工作流
+- [ ] 配置镜像推送到 `ghcr.io`
+- [ ] 约定 `frontend` / `backend` 镜像标签策略
 - [ ] 编写前端 Dockerfile
 - [ ] 编写后端 Dockerfile
 - [ ] 编写 `XBT` 容器与配置文件
@@ -1610,6 +1680,8 @@ MVP 上线前必须打通以下闭环：
 - [ ] 验证 `mysql` / `redis` 容器日志可通过 `docker logs` 查看
 - [ ] 配置容器日志前缀与基础级别
 - [ ] 配置日志与错误监控
+- [ ] 验证 `docker compose up -d` 能按文档拉起整套服务
+- [ ] 验证 `docker compose pull && docker compose up -d` 可完成更新
 - [ ] 配置备份策略
 
 ### 14.10 测试与验收
