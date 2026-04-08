@@ -1,0 +1,15 @@
+:root {
+  --page-bg: 241 245 249;
+  --surface: 255 255 255;
+  --surface-muted: 248 250 252;
+  --border: 226 232 240;
+  --text-primary: 15 23 42;
+  --text-secondary: 100 116 139;
+  --primary: 37 99 235;
+  --primary-hover: 29 78 216;
+  --success: 22 163 74;
+  --warning: 217 119 6;
+  --danger: 220 38 38;
+  --admin-sidebar: 2 6 23;
+}
+

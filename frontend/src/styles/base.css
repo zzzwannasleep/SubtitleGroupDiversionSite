@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: theme('fontFamily.sans');
+    color: rgb(var(--text-primary));
+    background-color: rgb(var(--page-bg));
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: rgb(var(--page-bg));
+    color: rgb(var(--text-primary));
+  }
+
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .app-container {
+    @apply mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8;
+  }
+
+  .app-surface {
+    @apply rounded-xl border border-slate-200 bg-white shadow-card;
+  }
+
+  .app-card-header {
+    @apply flex flex-col gap-2 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6;
+  }
+
+  .app-card-body {
+    @apply px-4 py-4 sm:px-6 sm:py-5;
+  }
+
+  .app-card-footer {
+    @apply border-t border-slate-200 px-4 py-4 sm:px-6;
+  }
+
+  .app-page-title {
+    @apply text-2xl font-semibold tracking-tight text-slate-900;
+  }
+
+  .app-page-subtitle {
+    @apply text-sm leading-6 text-slate-500;
+  }
+
+  .app-field-label {
+    @apply mb-2 block text-sm font-medium text-slate-700;
+  }
+
+  .app-field-help {
+    @apply mt-2 text-xs text-slate-500;
+  }
+
+  .app-field-error {
+    @apply mt-2 text-xs text-red-600;
+  }
+
+  .app-table {
+    @apply min-w-full border-collapse text-sm;
+  }
+
+  .app-table thead {
+    @apply bg-slate-50 text-slate-500;
+  }
+
+  .app-table th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide;
+  }
+
+  .app-table td {
+    @apply px-4 py-3 align-top text-slate-700;
+  }
+
+  .app-table tbody tr {
+    @apply border-t border-slate-200 transition-colors hover:bg-slate-50;
+  }
+}
