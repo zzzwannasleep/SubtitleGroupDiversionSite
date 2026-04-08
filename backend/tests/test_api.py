@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.audit.models import AuditLog
 from apps.common.throttles import LoginRateThrottle
-from apps.common.torrent import bencode
+from apps.common.torrent import bdecode, bencode
 from apps.releases.models import Category, Release, Tag
 from apps.tracker_sync.services import TrackerSyncService
 from apps.tracker_sync.models import XbtFileMirror, XbtUserMirror
@@ -131,7 +131,11 @@ class ApiFlowTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(f"/api/releases/{release.id}/download/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn(self.user.passkey.encode(), response.content)
+        torrent = bdecode(response.content)
+        self.assertEqual(
+            torrent[b"announce"].decode("utf-8"),
+            f"http://localhost:8000/{self.user.passkey}/announce",
+        )
 
     def test_rss_feed_uses_passkey_download_link(self):
         release = self.create_release()

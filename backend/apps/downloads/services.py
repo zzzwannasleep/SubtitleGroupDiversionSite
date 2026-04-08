@@ -11,7 +11,8 @@ from apps.users.models import User, UserStatus
 class DownloadService:
     @staticmethod
     def build_announce_url(user) -> str:
-        return f"{settings.TRACKER_ANNOUNCE_BASE_URL}/announce/{user.passkey}"
+        base = settings.TRACKER_ANNOUNCE_BASE_URL.rstrip("/")
+        return f"{base}/{user.passkey}/announce"
 
     @staticmethod
     def resolve_user(request):

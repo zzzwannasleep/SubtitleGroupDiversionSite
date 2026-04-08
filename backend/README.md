@@ -26,4 +26,4 @@
 
 - `REDIS_URL`：启用 Redis 作为 Django 缓存后端，用于 Session 缓存和限流共享状态。
 - `SITE_BASE_URL`：站点基础地址，用于生成 RSS 与下载链接。
-- `TRACKER_ANNOUNCE_BASE_URL`：个性化 torrent 注入的 announce 基础地址，默认跟随 `SITE_BASE_URL`。
+- `TRACKER_ANNOUNCE_BASE_URL`：Tracker 的公网基础地址，后端会生成 `/<passkey>/announce` 形式的个人 announce URL。
