@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime, timezone as dt_timezone
 
 from django.conf import settings
 
@@ -31,6 +32,99 @@ class TrackerSyncService:
             user=user,
             release=release,
         )
+
+    @staticmethod
+    def _unix_to_iso(value: int | None) -> str | None:
+        if not value:
+            return None
+        return datetime.fromtimestamp(value, tz=dt_timezone.utc).isoformat()
+
+    @staticmethod
+    def _serialize_log(log: TrackerSyncLog | None):
+        if not log:
+            return None
+        return {
+            "status": log.status,
+            "message": log.message,
+            "updatedAt": log.updated_at.isoformat(),
+        }
+
+    @classmethod
+    def get_user_sync_snapshot(cls, user: User):
+        latest_log = TrackerSyncLog.objects.filter(scope=TrackerSyncScope.USER, user=user).order_by("-updated_at", "-id").first()
+        xbt_state = {
+            "state": "missing",
+            "canLeech": None,
+            "downloaded": None,
+            "uploaded": None,
+            "completed": None,
+        }
+        try:
+            mirror = XbtUserMirror.objects.using(cls._xbt_database_alias()).filter(uid=user.id).first()
+            if mirror:
+                xbt_state = {
+                    "state": "enabled" if mirror.can_leech else "disabled",
+                    "canLeech": mirror.can_leech,
+                    "downloaded": mirror.downloaded,
+                    "uploaded": mirror.uploaded,
+                    "completed": mirror.completed,
+                }
+        except Exception:
+            logger.exception("failed to read xbt user mirror for %s via %s", user.id, cls._xbt_database_alias())
+            xbt_state = {
+                "state": "unavailable",
+                "canLeech": None,
+                "downloaded": None,
+                "uploaded": None,
+                "completed": None,
+            }
+
+        return {
+            "trackerSync": cls._serialize_log(latest_log),
+            "xbtUser": xbt_state,
+        }
+
+    @classmethod
+    def get_release_sync_snapshot(cls, release):
+        latest_log = (
+            TrackerSyncLog.objects.filter(scope=TrackerSyncScope.RELEASE, release=release)
+            .order_by("-updated_at", "-id")
+            .first()
+        )
+        xbt_state = {
+            "state": "missing",
+            "seeders": None,
+            "leechers": None,
+            "completed": None,
+            "createdAt": None,
+            "updatedAt": None,
+        }
+        try:
+            mirror = XbtFileMirror.objects.using(cls._xbt_database_alias()).filter(info_hash=bytes.fromhex(release.infohash)).first()
+            if mirror:
+                xbt_state = {
+                    "state": "whitelisted" if mirror.flags == 0 else "deleted",
+                    "seeders": mirror.seeders,
+                    "leechers": mirror.leechers,
+                    "completed": mirror.completed,
+                    "createdAt": cls._unix_to_iso(mirror.ctime),
+                    "updatedAt": cls._unix_to_iso(mirror.mtime),
+                }
+        except Exception:
+            logger.exception("failed to read xbt file mirror for %s via %s", release.id, cls._xbt_database_alias())
+            xbt_state = {
+                "state": "unavailable",
+                "seeders": None,
+                "leechers": None,
+                "completed": None,
+                "createdAt": None,
+                "updatedAt": None,
+            }
+
+        return {
+            "trackerSync": cls._serialize_log(latest_log),
+            "xbtFile": xbt_state,
+        }
 
     @classmethod
     def sync_user_by_id(cls, user_id: int):

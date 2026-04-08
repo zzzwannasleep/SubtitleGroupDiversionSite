@@ -12,7 +12,7 @@ import AppStatusBadge from '@/components/app/AppStatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { changeUserStatus, getUserDetail, resetUserPasskey } from '@/services/admin';
 import type { AdminUser } from '@/types/admin';
-import { formatDateTime } from '@/utils/format';
+import { formatBytes, formatDateTime } from '@/utils/format';
 
 const route = useRoute();
 const state = ref<'loading' | 'ready' | 'not-found' | 'error'>('loading');
@@ -42,6 +42,29 @@ const statusActionMeta = computed(() => {
   };
 });
 
+const trackerFacts = computed(() => {
+  if (!user.value?.xbtUser) return [];
+
+  return [
+    {
+      label: '可下载',
+      value: user.value.xbtUser.canLeech === null ? '-' : user.value.xbtUser.canLeech ? '是' : '否',
+    },
+    {
+      label: '已下载',
+      value: user.value.xbtUser.downloaded === null ? '-' : formatBytes(user.value.xbtUser.downloaded),
+    },
+    {
+      label: '已上传',
+      value: user.value.xbtUser.uploaded === null ? '-' : formatBytes(user.value.xbtUser.uploaded),
+    },
+    {
+      label: '完成数',
+      value: user.value.xbtUser.completed === null ? '-' : `${user.value.xbtUser.completed}`,
+    },
+  ];
+});
+
 async function loadUserDetail() {
   state.value = 'loading';
   user.value = null;
@@ -57,6 +80,14 @@ async function loadUserDetail() {
   }
 }
 
+async function refreshUserDetailSilently() {
+  const nextUser = await getUserDetail(Number(route.params.id));
+  if (nextUser) {
+    user.value = nextUser;
+    state.value = 'ready';
+  }
+}
+
 async function toggleStatus() {
   if (!user.value) return;
 
@@ -65,10 +96,11 @@ async function toggleStatus() {
   pendingAction.value = 'toggle-status';
 
   try {
-    user.value = await changeUserStatus({
+    await changeUserStatus({
       userId: user.value.id,
       nextStatus: user.value.status === 'active' ? 'disabled' : 'active',
     });
+    await refreshUserDetailSilently();
     feedback.value = `用户状态已切换为 ${user.value.status}`;
     activeDialog.value = null;
   } catch (error) {
@@ -86,7 +118,8 @@ async function handleResetPasskey() {
   pendingAction.value = 'reset-passkey';
 
   try {
-    user.value = await resetUserPasskey(user.value.id);
+    await resetUserPasskey(user.value.id);
+    await refreshUserDetailSilently();
     feedback.value = 'passkey 已重置，并应同步到 XBT。';
     activeDialog.value = null;
   } catch (error) {
@@ -146,6 +179,47 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
           <p class="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
             {{ user.passkey }}
           </p>
+        </AppCard>
+        <AppCard title="XBT 状态" description="这里展示用户在 Tracker 侧的最近同步结果与镜像状态。">
+          <div class="space-y-4">
+            <div>
+              <p class="mb-2 text-sm text-slate-500">最近同步</p>
+              <div v-if="user.trackerSync" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div class="flex items-center justify-between gap-3">
+                  <AppStatusBadge type="sync-status" :value="user.trackerSync.status" />
+                  <span class="text-xs text-slate-500">{{ formatDateTime(user.trackerSync.updatedAt) }}</span>
+                </div>
+                <p class="mt-3 text-sm leading-6 text-slate-600">{{ user.trackerSync.message }}</p>
+              </div>
+              <p v-else class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                暂无同步记录。
+              </p>
+            </div>
+
+            <div>
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <p class="text-sm text-slate-500">XBT 镜像状态</p>
+                <AppStatusBadge
+                  v-if="user.xbtUser"
+                  type="xbt-user-state"
+                  :value="user.xbtUser.state"
+                />
+              </div>
+              <div v-if="user.xbtUser" class="grid gap-3 sm:grid-cols-2">
+                <div
+                  v-for="item in trackerFacts"
+                  :key="item.label"
+                  class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <p class="text-xs text-slate-500">{{ item.label }}</p>
+                  <p class="mt-2 text-sm font-medium text-slate-900">{{ item.value }}</p>
+                </div>
+              </div>
+              <p v-else class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                当前没有可展示的 XBT 镜像状态。
+              </p>
+            </div>
+          </div>
         </AppCard>
         <AppCard title="管理动作" description="危险操作统一使用强调按钮或二次确认。">
           <div class="flex flex-wrap gap-2">

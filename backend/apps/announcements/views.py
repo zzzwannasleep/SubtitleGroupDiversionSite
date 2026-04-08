@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.views import APIView
 
 from apps.announcements.models import Announcement, SiteSetting
@@ -7,6 +8,7 @@ from apps.announcements.serializers import (
     AnnouncementWriteSerializer,
     SiteSettingSerializer,
 )
+from apps.audit.services import AuditService
 from apps.common.permissions import IsActiveAuthenticated, IsAdminRole
 from apps.common.responses import success_response
 
@@ -19,6 +21,9 @@ def allowed_audiences_for_role(role: str):
     return ["all"]
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取当前用户可见公告", tags=["Announcements"]),
+)
 class VisibleAnnouncementListView(APIView):
     permission_classes = [IsActiveAuthenticated]
 
@@ -29,6 +34,10 @@ class VisibleAnnouncementListView(APIView):
         return success_response(AnnouncementSerializer(queryset, many=True).data)
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取后台公告列表", tags=["Admin Announcements"]),
+    post=extend_schema(summary="创建或更新公告", tags=["Admin Announcements"]),
+)
 class AdminAnnouncementListCreateView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -36,6 +45,7 @@ class AdminAnnouncementListCreateView(APIView):
         return success_response(AnnouncementSerializer(Announcement.objects.all(), many=True).data)
 
     def post(self, request):
+        is_update = bool(request.data.get("id"))
         if request.data.get("id"):
             announcement = get_object_or_404(Announcement, pk=request.data["id"])
             serializer = AnnouncementWriteSerializer(announcement, data=request.data, partial=True)
@@ -43,9 +53,21 @@ class AdminAnnouncementListCreateView(APIView):
             serializer = AnnouncementWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         announcement = serializer.save()
+        AuditService.log(
+            request.user,
+            "更新公告" if is_update else "创建公告",
+            "公告",
+            announcement.title,
+            detail=f"公告状态：{announcement.status}，可见范围：{announcement.audience}。",
+            payload={"announcement_id": announcement.id},
+        )
         return success_response(AnnouncementSerializer(announcement).data, message="公告已保存。")
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取站点设置", tags=["Admin Settings"]),
+    put=extend_schema(summary="更新站点设置", tags=["Admin Settings"]),
+)
 class SiteSettingView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -57,4 +79,12 @@ class SiteSettingView(APIView):
         serializer = SiteSettingSerializer(setting, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        AuditService.log(
+            request.user,
+            "更新站点设置",
+            "站点设置",
+            "基础配置",
+            detail=f"RSS 基础路径更新为 {serializer.instance.rss_base_path}。",
+            payload={"site_setting_id": setting.id},
+        )
         return success_response(serializer.data, message="站点设置已保存。")

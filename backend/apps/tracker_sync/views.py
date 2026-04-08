@@ -1,23 +1,54 @@
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.views import APIView
 
 from apps.audit.services import AuditService
 from apps.common.permissions import IsAdminRole
 from apps.common.responses import success_response
 from apps.releases.models import Release
-from apps.tracker_sync.models import TrackerSyncLog
+from apps.tracker_sync.models import TrackerSyncLog, TrackerSyncScope, TrackerSyncStatus
 from apps.tracker_sync.serializers import TrackerSyncLogSerializer
 from apps.tracker_sync.services import TrackerSyncService
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="获取 XBT 同步日志",
+        tags=["Tracker Sync"],
+        parameters=[
+            OpenApiParameter(name="scope", description="同步范围筛选。", enum=TrackerSyncScope.values),
+            OpenApiParameter(name="status", description="同步状态筛选。", enum=TrackerSyncStatus.values),
+            OpenApiParameter(name="q", description="按目标名称或说明搜索。", type=str),
+            OpenApiParameter(name="limit", description="返回条数，默认 100，最大 200。", type=int),
+        ],
+    ),
+)
 class TrackerSyncLogListView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
-        logs = TrackerSyncLog.objects.all()[:100]
-        return success_response(TrackerSyncLogSerializer(logs, many=True).data)
+        scope = (request.query_params.get("scope") or "").strip()
+        status = (request.query_params.get("status") or "").strip()
+        keyword = (request.query_params.get("q") or "").strip()
+        try:
+            limit = min(max(int(request.query_params.get("limit", 100)), 1), 200)
+        except (TypeError, ValueError):
+            limit = 100
+
+        logs = TrackerSyncLog.objects.all()
+        if scope in TrackerSyncScope.values:
+            logs = logs.filter(scope=scope)
+        if status in TrackerSyncStatus.values:
+            logs = logs.filter(status=status)
+        if keyword:
+            logs = logs.filter(Q(target_name__icontains=keyword) | Q(message__icontains=keyword))
+        return success_response(TrackerSyncLogSerializer(logs[:limit], many=True).data)
 
 
+@extend_schema_view(
+    post=extend_schema(summary="执行全量 XBT 同步", tags=["Tracker Sync"]),
+)
 class TrackerSyncFullView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -34,6 +65,9 @@ class TrackerSyncFullView(APIView):
         return success_response(TrackerSyncLogSerializer(log).data, message="已触发全量同步。")
 
 
+@extend_schema_view(
+    post=extend_schema(summary="同步指定资源到 XBT", tags=["Tracker Sync"]),
+)
 class TrackerSyncReleaseView(APIView):
     permission_classes = [IsAdminRole]
 

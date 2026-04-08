@@ -35,7 +35,7 @@ class ReleaseSerializer(serializers.ModelSerializer):
     files = ReleaseFileSerializer(many=True)
     sizeBytes = serializers.IntegerField(source="size_bytes")
     coverImageUrl = serializers.CharField(source="cover_image_url", allow_blank=True)
-    publishedAt = serializers.DateTimeField(source="published_at", allow_null=True)
+    publishedAt = serializers.SerializerMethodField()
     updatedAt = serializers.DateTimeField(source="updated_at")
     downloadCount = serializers.IntegerField(source="download_count")
     completionCount = serializers.IntegerField(source="completion_count")
@@ -62,6 +62,46 @@ class ReleaseSerializer(serializers.ModelSerializer):
             "completionCount",
             "activePeers",
         )
+
+    def get_publishedAt(self, obj):
+        # Draft resources still need a stable display/sort timestamp for the current frontend contract.
+        return (obj.published_at or obj.created_at).isoformat()
+
+
+class ReleaseDetailSerializer(ReleaseSerializer):
+    trackerSync = serializers.SerializerMethodField()
+    xbtFile = serializers.SerializerMethodField()
+
+    class Meta(ReleaseSerializer.Meta):
+        fields = ReleaseSerializer.Meta.fields + ("trackerSync", "xbtFile")
+
+    def _can_view_tracker_data(self, obj) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not getattr(user, "is_authenticated", False):
+            return False
+        return user.role == "admin" or obj.created_by_id == user.id
+
+    def _get_sync_snapshot(self, obj):
+        cache = getattr(self, "_sync_snapshot_cache", None)
+        if cache is None:
+            cache = {}
+            self._sync_snapshot_cache = cache
+        if obj.pk not in cache:
+            from apps.tracker_sync.services import TrackerSyncService
+
+            cache[obj.pk] = TrackerSyncService.get_release_sync_snapshot(obj)
+        return cache[obj.pk]
+
+    def get_trackerSync(self, obj):
+        if not self._can_view_tracker_data(obj):
+            return None
+        return self._get_sync_snapshot(obj)["trackerSync"]
+
+    def get_xbtFile(self, obj):
+        if not self._can_view_tracker_data(obj):
+            return None
+        return self._get_sync_snapshot(obj)["xbtFile"]
 
 
 class ReleaseWriteSerializer(serializers.Serializer):

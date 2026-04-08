@@ -1,5 +1,6 @@
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.views import APIView
 
@@ -10,6 +11,9 @@ from apps.releases.models import Category, Release, Tag
 from apps.rss.services import RssService
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取 RSS 概览和订阅地址", tags=["RSS"]),
+)
 class RssOverviewView(APIView):
     permission_classes = [IsActiveAuthenticated]
 
@@ -34,6 +38,13 @@ class BaseFeedView(APIView):
         return HttpResponse(xml, content_type="application/rss+xml; charset=utf-8")
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="获取全部资源 RSS",
+        tags=["RSS"],
+        parameters=[OpenApiParameter(name="passkey", description="RSS 访问使用的 passkey。", type=str)],
+    ),
+)
 class AllFeedView(BaseFeedView):
     def get(self, request):
         user = self.get_user(request)
@@ -41,6 +52,13 @@ class AllFeedView(BaseFeedView):
         return self.render_feed("全部资源 RSS", queryset, user.passkey)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="获取分类 RSS",
+        tags=["RSS"],
+        parameters=[OpenApiParameter(name="passkey", description="RSS 访问使用的 passkey。", type=str)],
+    ),
+)
 class CategoryFeedView(BaseFeedView):
     def get(self, request, slug: str):
         user = self.get_user(request)
@@ -49,6 +67,13 @@ class CategoryFeedView(BaseFeedView):
         return self.render_feed(f"{category.name} RSS", queryset, user.passkey)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="获取标签 RSS",
+        tags=["RSS"],
+        parameters=[OpenApiParameter(name="passkey", description="RSS 访问使用的 passkey。", type=str)],
+    ),
+)
 class TagFeedView(BaseFeedView):
     def get(self, request, slug: str):
         user = self.get_user(request)

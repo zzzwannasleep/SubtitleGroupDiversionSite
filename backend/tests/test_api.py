@@ -1,9 +1,13 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
+from apps.audit.models import AuditLog
+from apps.common.throttles import LoginRateThrottle
 from apps.common.torrent import bencode
 from apps.releases.models import Category, Release, Tag
+from apps.tracker_sync.services import TrackerSyncService
 from apps.tracker_sync.models import XbtFileMirror, XbtUserMirror
 from apps.users.models import User
 
@@ -77,6 +81,32 @@ class ApiFlowTests(TestCase):
         me = self.client.get("/api/auth/me/")
         self.assertEqual(me.status_code, 200, me.json())
         self.assertEqual(me.json()["data"]["username"], "admin")
+
+    def test_login_throttle_returns_unified_error(self):
+        original_rates = LoginRateThrottle.THROTTLE_RATES
+        LoginRateThrottle.THROTTLE_RATES = {**original_rates, "login": "2/min"}
+        self.addCleanup(setattr, LoginRateThrottle, "THROTTLE_RATES", original_rates)
+        self.addCleanup(cache.clear)
+        cache.clear()
+
+        payload = {"username": "admin", "password": "wrong-password"}
+        first = self.client.post("/api/auth/login/", payload, format="json")
+        second = self.client.post("/api/auth/login/", payload, format="json")
+        third = self.client.post("/api/auth/login/", payload, format="json")
+
+        self.assertEqual(first.status_code, 403, first.json())
+        self.assertEqual(second.status_code, 403, second.json())
+        self.assertEqual(third.status_code, 429, third.json())
+        self.assertEqual(
+            third.json(),
+            {
+                "success": False,
+                "code": "throttled",
+                "message": "请求过于频繁，请稍后再试。",
+                "retryAfter": third.json()["retryAfter"],
+            },
+        )
+        self.assertGreaterEqual(third.json()["retryAfter"], 0)
 
     def test_user_cannot_create_release(self):
         self.client.force_login(self.user)
@@ -185,3 +215,89 @@ class ApiFlowTests(TestCase):
                 "message": "无效的 torrent 文件。",
             },
         )
+
+    def test_duplicate_username_returns_unified_validation_error(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/api/admin/users/",
+            {
+                "username": self.user.username,
+                "displayName": "重复用户名用户",
+                "email": "duplicate@example.com",
+                "role": "user",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.json())
+        self.assertEqual(response.json()["success"], False)
+        self.assertEqual(response.json()["code"], "validation_error")
+        self.assertEqual(response.json()["message"], "参数校验失败。")
+        self.assertEqual(response.json()["errors"], {"username": ["该用户名已存在。"]})
+
+    def test_request_logging_redacts_passkey(self):
+        self.create_release()
+        with self.assertLogs("apps.request", level="INFO") as captured:
+            response = self.client.get(f"/rss/all?passkey={self.user.passkey}")
+        self.assertEqual(response.status_code, 200)
+
+        combined = "\n".join(captured.output)
+        self.assertIn("passkey=%2A%2A%2A", combined)
+        self.assertIn("actor=passkey:user", combined)
+        self.assertNotIn(self.user.passkey, combined)
+
+    def test_admin_user_filters_match_role_and_status(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/api/admin/users/?role=uploader&status=active")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["username"], "uploader")
+        self.assertIsInstance(data[0]["lastLoginAt"], str)
+        self.assertTrue(data[0]["lastLoginAt"])
+
+    def test_my_releases_returns_safe_published_at_for_draft_release(self):
+        release = self.create_release(status="draft")
+        self.client.force_login(self.uploader)
+        response = self.client.get("/api/me/releases/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        returned = next(item for item in response.json()["data"] if item["id"] == release.id)
+        self.assertIsInstance(returned["publishedAt"], str)
+        self.assertTrue(returned["publishedAt"])
+
+    def test_admin_category_save_writes_audit_log(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/api/admin/categories/",
+            {"name": "纪录片", "slug": "documentary"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertTrue(
+            AuditLog.objects.filter(action="创建分类", target_type="分类", target_name="纪录片").exists()
+        )
+
+    def test_admin_user_detail_includes_tracker_sync_snapshot(self):
+        TrackerSyncService.sync_user(self.user)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/api/admin/users/{self.user.id}/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["trackerSync"]["status"], "success")
+        self.assertEqual(data["xbtUser"]["state"], "enabled")
+        self.assertEqual(data["xbtUser"]["canLeech"], True)
+
+    def test_release_detail_for_owner_includes_xbt_snapshot(self):
+        release = self.create_release(execute_on_commit=True)
+
+        self.client.force_login(self.uploader)
+        response = self.client.get(f"/api/releases/{release.id}/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["trackerSync"]["status"], "success")
+        self.assertEqual(data["xbtFile"]["state"], "whitelisted")
+        self.assertIsNotNone(data["xbtFile"]["updatedAt"])

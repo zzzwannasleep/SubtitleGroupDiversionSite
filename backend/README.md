@@ -11,9 +11,19 @@
 
 ## 本地启动
 
-1. 安装依赖：`python -m pip install -r backend/requirements.txt`
-2. 迁移数据库：`python backend/manage.py migrate`
-3. 创建管理员：`python backend/manage.py createsuperuser`
-4. 启动服务：`python backend/manage.py runserver`
+1. 复制环境模板：`Copy-Item backend/.env.example backend/.env`
+2. 按需修改 `backend/.env` 中的少量配置
+3. 安装依赖：`python -m pip install -r backend/requirements.txt`
+4. 迁移数据库：`python backend/manage.py migrate`
+5. 创建管理员：`python backend/manage.py createsuperuser`
+6. 启动服务：`python backend/manage.py runserver`
 
-默认使用 `SQLite`，配置 `MYSQL_DATABASE` 等变量后可切换到 `MySQL 8`。
+默认使用 `SQLite + LocMemCache`，配置 `MYSQL_DATABASE` 等变量后可切换到 `MySQL 8`。
+
+后端会自动读取 `backend/.env`，不需要额外引入 `python-dotenv` 或手动导出环境变量。
+
+## 可选配置
+
+- `REDIS_URL`：启用 Redis 作为 Django 缓存后端，用于 Session 缓存和限流共享状态。
+- `SITE_BASE_URL`：站点基础地址，用于生成 RSS 与下载链接。
+- `TRACKER_ANNOUNCE_BASE_URL`：个性化 torrent 注入的 announce 基础地址，默认跟随 `SITE_BASE_URL`。

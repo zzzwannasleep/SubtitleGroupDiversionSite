@@ -2,10 +2,27 @@ import type { CurrentUser, UserRole, UserStatus } from './auth';
 
 export type SyncStatus = 'success' | 'warning' | 'failed';
 export type AnnouncementStatus = 'online' | 'draft' | 'offline';
+export type XbtUserState = 'enabled' | 'disabled' | 'missing' | 'unavailable';
+
+export interface TrackerSyncSnapshot {
+  status: SyncStatus;
+  message: string;
+  updatedAt: string;
+}
+
+export interface XbtUserSnapshot {
+  state: XbtUserState;
+  canLeech: boolean | null;
+  downloaded: number | null;
+  uploaded: number | null;
+  completed: number | null;
+}
 
 export interface AdminUser extends CurrentUser {
   createdReleaseCount: number;
   initialPassword?: string;
+  trackerSync?: TrackerSyncSnapshot | null;
+  xbtUser?: XbtUserSnapshot | null;
 }
 
 export interface Announcement {

@@ -31,6 +31,13 @@ const visibilityDialogOpen = ref(false);
 
 const canEdit = computed(() => canEditRelease(authStore.currentUser, release.value));
 const canHide = computed(() => authStore.currentUser?.role === 'admin');
+const canViewTrackerPanel = computed(() => {
+  if (!authStore.currentUser || !release.value) return false;
+  return authStore.currentUser.role === 'admin' || authStore.currentUser.id === release.value.createdBy.id;
+});
+const hasTrackerPanel = computed(
+  () => canViewTrackerPanel.value && Boolean(release.value?.trackerSync || release.value?.xbtFile),
+);
 const detailMetrics = computed(() => {
   if (!release.value) return [];
 
@@ -39,6 +46,28 @@ const detailMetrics = computed(() => {
     { label: '下载次数', value: release.value.downloadCount, hint: '个性化种子下载记录' },
     { label: '完成次数', value: release.value.completionCount, hint: '用于衡量分发完成情况' },
     { label: '活跃 peers', value: release.value.activePeers, hint: '便于快速判断资源健康度' },
+  ];
+});
+const trackerFacts = computed(() => {
+  if (!release.value?.xbtFile) return [];
+
+  return [
+    {
+      label: 'Seeders',
+      value: release.value.xbtFile.seeders === null ? '-' : `${release.value.xbtFile.seeders}`,
+    },
+    {
+      label: 'Leechers',
+      value: release.value.xbtFile.leechers === null ? '-' : `${release.value.xbtFile.leechers}`,
+    },
+    {
+      label: '完成数',
+      value: release.value.xbtFile.completed === null ? '-' : `${release.value.xbtFile.completed}`,
+    },
+    {
+      label: '白名单写入',
+      value: release.value.xbtFile.createdAt ? formatDateTime(release.value.xbtFile.createdAt) : '-',
+    },
   ];
 });
 const hiddenNotice = computed(() => {
@@ -84,13 +113,15 @@ async function loadRelease() {
 async function toggleVisibility() {
   if (!release.value) return;
 
+  const releaseId = release.value.id;
   errorMessage.value = '';
   feedback.value = '';
   pendingVisibilityAction.value = true;
 
   try {
     const nextStatus = release.value.status === 'hidden' ? 'published' : 'hidden';
-    release.value = await toggleReleaseStatus(release.value.id, nextStatus);
+    await toggleReleaseStatus(releaseId, nextStatus);
+    release.value = await getReleaseById(releaseId);
     feedback.value = nextStatus === 'hidden' ? '资源已隐藏，前台入口已移除。' : '资源已恢复为前台可见。';
     visibilityDialogOpen.value = false;
   } catch (error) {
@@ -254,6 +285,56 @@ watch(() => route.params.id, loadRelease, { immediate: true });
               <li>若 RSS 地址或种子泄露，可在“我的账户”中重置 passkey。</li>
               <li>管理员隐藏资源时，不会删除文件和审计记录，只会收起前台入口。</li>
             </ul>
+          </div>
+        </AppCard>
+
+        <AppCard
+          v-if="hasTrackerPanel"
+          title="Tracker 状态"
+          description="发布者和管理员可直接看到白名单状态，便于判断同步是否完成。"
+        >
+          <div class="space-y-4">
+            <div>
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <p class="text-sm text-slate-500">最近同步</p>
+                <AppStatusBadge
+                  v-if="release.trackerSync"
+                  type="sync-status"
+                  :value="release.trackerSync.status"
+                />
+              </div>
+              <div v-if="release.trackerSync" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm leading-6 text-slate-700">{{ release.trackerSync.message }}</p>
+                <p class="mt-2 text-xs text-slate-500">{{ formatDateTime(release.trackerSync.updatedAt) }}</p>
+              </div>
+            </div>
+
+            <div>
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <p class="text-sm text-slate-500">XBT 白名单</p>
+                <AppStatusBadge
+                  v-if="release.xbtFile"
+                  type="xbt-file-state"
+                  :value="release.xbtFile.state"
+                />
+              </div>
+              <div v-if="release.xbtFile" class="grid gap-3 sm:grid-cols-2">
+                <div
+                  v-for="item in trackerFacts"
+                  :key="item.label"
+                  class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <p class="text-xs text-slate-500">{{ item.label }}</p>
+                  <p class="mt-2 text-sm font-medium text-slate-900">{{ item.value }}</p>
+                </div>
+              </div>
+              <p
+                v-if="release.xbtFile?.updatedAt"
+                class="text-xs text-slate-500"
+              >
+                最近白名单更新时间：{{ formatDateTime(release.xbtFile.updatedAt) }}
+              </p>
+            </div>
           </div>
         </AppCard>
       </div>

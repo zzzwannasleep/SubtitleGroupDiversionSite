@@ -6,6 +6,32 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 
+def load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        if "=" not in line:
+            continue
+
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip()
+        if not name or name in os.environ:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ[name] = value
+
+
+load_env_file(BASE_DIR / ".env")
+
+
 def env(name: str, default: str | None = None) -> str | None:
     value = os.getenv(name)
     return value if value not in (None, "") else default
@@ -21,6 +47,7 @@ CSRF_TRUSTED_ORIGINS = [
 SITE_BASE_URL = env("SITE_BASE_URL", "http://localhost:8000").rstrip("/")
 TRACKER_ANNOUNCE_BASE_URL = env("TRACKER_ANNOUNCE_BASE_URL", SITE_BASE_URL).rstrip("/")
 LOG_LEVEL = env("LOG_LEVEL", "INFO")
+REDIS_URL = env("REDIS_URL")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -49,6 +76,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.common.middleware.RequestLoggingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -107,6 +135,22 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "subtitle-group-diversion-site",
+    }
+}
+
+if REDIS_URL:
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+    }
+
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+SESSION_CACHE_ALIAS = "default"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "apps.common.authentication.CsrfExemptSessionAuthentication",
@@ -119,6 +163,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {
+        "login": "10/minute",
         "rss": "120/hour",
         "download": "240/hour",
     },
@@ -169,6 +214,7 @@ LOGGING = {
     "loggers": {
         "django.server": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
         "apps": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "apps.request": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
     },
 }
 

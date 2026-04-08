@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -6,12 +7,17 @@ from rest_framework.views import APIView
 from apps.authx.serializers import ChangePasswordSerializer, LoginSerializer
 from apps.common.permissions import IsActiveAuthenticated
 from apps.common.responses import success_response
+from apps.common.throttles import LoginRateThrottle
 from apps.users.serializers import CurrentUserSerializer
 
 
+@extend_schema_view(
+    post=extend_schema(summary="登录并建立 Session 会话", tags=["Auth"]),
+)
 class LoginView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -29,6 +35,9 @@ class LoginView(APIView):
         return success_response(CurrentUserSerializer(user).data)
 
 
+@extend_schema_view(
+    post=extend_schema(summary="退出当前会话", tags=["Auth"]),
+)
 class LogoutView(APIView):
     permission_classes = [IsActiveAuthenticated]
 
@@ -37,6 +46,9 @@ class LogoutView(APIView):
         return success_response(message="已退出登录。")
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取当前登录用户信息", tags=["Auth"]),
+)
 class MeView(APIView):
     permission_classes = [IsActiveAuthenticated]
 
@@ -44,6 +56,9 @@ class MeView(APIView):
         return success_response(CurrentUserSerializer(request.user).data)
 
 
+@extend_schema_view(
+    post=extend_schema(summary="修改当前登录用户密码", tags=["Auth"]),
+)
 class ChangePasswordView(APIView):
     permission_classes = [IsActiveAuthenticated]
 

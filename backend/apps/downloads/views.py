@@ -1,5 +1,6 @@
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
@@ -12,6 +13,15 @@ from apps.downloads.services import DownloadService
 from apps.releases.models import Release
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="下载个性化 torrent",
+        tags=["Downloads"],
+        parameters=[
+            OpenApiParameter(name="passkey", description="未登录时可通过 passkey 下载个性化 torrent。", type=str),
+        ],
+    ),
+)
 class ReleaseDownloadView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [TorrentDownloadThrottle]
@@ -27,6 +37,9 @@ class ReleaseDownloadView(APIView):
         return response
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取当前用户下载记录", tags=["Downloads"]),
+)
 class MyDownloadListView(APIView):
     permission_classes = [IsActiveAuthenticated]
 

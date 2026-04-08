@@ -40,6 +40,18 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-08T14:20:00+08:00',
     joinedAt: '2025-11-15T10:00:00+08:00',
     createdReleaseCount: 8,
+    trackerSync: {
+      status: 'success',
+      message: '用户状态与 passkey 已同步到 XBT。',
+      updatedAt: '2026-04-08T14:18:00+08:00',
+    },
+    xbtUser: {
+      state: 'enabled',
+      canLeech: true,
+      downloaded: 428000000000,
+      uploaded: 1950000000000,
+      completed: 312,
+    },
   },
   {
     id: 2,
@@ -52,6 +64,18 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-08T13:40:00+08:00',
     joinedAt: '2025-12-01T09:10:00+08:00',
     createdReleaseCount: 14,
+    trackerSync: {
+      status: 'success',
+      message: '用户状态与 passkey 已同步到 XBT。',
+      updatedAt: '2026-04-08T13:36:00+08:00',
+    },
+    xbtUser: {
+      state: 'enabled',
+      canLeech: true,
+      downloaded: 156000000000,
+      uploaded: 820000000000,
+      completed: 144,
+    },
   },
   {
     id: 3,
@@ -64,6 +88,18 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-08T11:10:00+08:00',
     joinedAt: '2026-01-03T11:10:00+08:00',
     createdReleaseCount: 0,
+    trackerSync: {
+      status: 'success',
+      message: '用户状态与 passkey 已同步到 XBT。',
+      updatedAt: '2026-04-08T11:08:00+08:00',
+    },
+    xbtUser: {
+      state: 'enabled',
+      canLeech: true,
+      downloaded: 92000000000,
+      uploaded: 44000000000,
+      completed: 28,
+    },
   },
   {
     id: 4,
@@ -76,6 +112,18 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-07T23:10:00+08:00',
     joinedAt: '2026-01-13T20:20:00+08:00',
     createdReleaseCount: 4,
+    trackerSync: {
+      status: 'warning',
+      message: '最近一次同步已完成，但统计字段仍等待刷新。',
+      updatedAt: '2026-04-07T22:58:00+08:00',
+    },
+    xbtUser: {
+      state: 'enabled',
+      canLeech: true,
+      downloaded: 118000000000,
+      uploaded: 360000000000,
+      completed: 63,
+    },
   },
   {
     id: 5,
@@ -88,6 +136,18 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-05T19:40:00+08:00',
     joinedAt: '2026-02-10T18:00:00+08:00',
     createdReleaseCount: 0,
+    trackerSync: {
+      status: 'failed',
+      message: '禁用状态同步超时，等待重试。',
+      updatedAt: '2026-04-07T22:10:00+08:00',
+    },
+    xbtUser: {
+      state: 'disabled',
+      canLeech: false,
+      downloaded: 12000000000,
+      uploaded: 3000000000,
+      completed: 4,
+    },
   },
 ];
 
@@ -113,6 +173,19 @@ export const releases: Release[] = [
     downloadCount: 74,
     completionCount: 23,
     activePeers: 9,
+    trackerSync: {
+      status: 'success',
+      message: '资源白名单状态已同步到 XBT。',
+      updatedAt: '2026-04-08T10:16:00+08:00',
+    },
+    xbtFile: {
+      state: 'whitelisted',
+      seeders: 9,
+      leechers: 2,
+      completed: 23,
+      createdAt: '2026-04-08T10:15:00+08:00',
+      updatedAt: '2026-04-08T10:16:00+08:00',
+    },
     files: [
       { path: '[SubGroup]/Bocchi/S01E01.mkv', sizeBytes: 3_120_000_000 },
       { path: '[SubGroup]/Bocchi/S01E12.mkv', sizeBytes: 3_250_000_000 },
@@ -134,6 +207,19 @@ export const releases: Release[] = [
     downloadCount: 46,
     completionCount: 17,
     activePeers: 7,
+    trackerSync: {
+      status: 'success',
+      message: '资源白名单状态已同步到 XBT。',
+      updatedAt: '2026-04-07T19:21:00+08:00',
+    },
+    xbtFile: {
+      state: 'whitelisted',
+      seeders: 7,
+      leechers: 1,
+      completed: 17,
+      createdAt: '2026-04-07T19:20:00+08:00',
+      updatedAt: '2026-04-07T19:21:00+08:00',
+    },
     files: [{ path: 'Last.Mile.2026.1080p.WEB-DL.mkv', sizeBytes: 8_420_000_000 }],
   },
   {
@@ -152,6 +238,19 @@ export const releases: Release[] = [
     downloadCount: 32,
     completionCount: 11,
     activePeers: 5,
+    trackerSync: {
+      status: 'success',
+      message: '资源白名单状态已同步到 XBT。',
+      updatedAt: '2026-04-06T22:08:00+08:00',
+    },
+    xbtFile: {
+      state: 'whitelisted',
+      seeders: 5,
+      leechers: 2,
+      completed: 11,
+      createdAt: '2026-04-06T22:05:00+08:00',
+      updatedAt: '2026-04-06T22:08:00+08:00',
+    },
     files: [{ path: 'Ariyoshi.Mokuyou.20260403.ts', sizeBytes: 4_050_000_000 }],
   },
   {
@@ -170,6 +269,19 @@ export const releases: Release[] = [
     downloadCount: 0,
     completionCount: 0,
     activePeers: 0,
+    trackerSync: {
+      status: 'warning',
+      message: '资源尚未发布，当前未写入 XBT 白名单。',
+      updatedAt: '2026-04-05T13:18:00+08:00',
+    },
+    xbtFile: {
+      state: 'missing',
+      seeders: null,
+      leechers: null,
+      completed: null,
+      createdAt: null,
+      updatedAt: null,
+    },
     files: [{ path: 'Deep.Sea.Train.S02E01.mkv', sizeBytes: 3_700_000_000 }],
   },
   {
@@ -188,6 +300,19 @@ export const releases: Release[] = [
     downloadCount: 28,
     completionCount: 8,
     activePeers: 3,
+    trackerSync: {
+      status: 'success',
+      message: '资源白名单状态已同步到 XBT。',
+      updatedAt: '2026-04-04T09:05:00+08:00',
+    },
+    xbtFile: {
+      state: 'whitelisted',
+      seeders: 3,
+      leechers: 1,
+      completed: 8,
+      createdAt: '2026-04-04T09:00:00+08:00',
+      updatedAt: '2026-04-04T09:05:00+08:00',
+    },
     files: [{ path: 'Polar.Crew/S01E01.mkv', sizeBytes: 5_200_000_000 }],
   },
   {
@@ -206,6 +331,19 @@ export const releases: Release[] = [
     downloadCount: 11,
     completionCount: 4,
     activePeers: 0,
+    trackerSync: {
+      status: 'success',
+      message: '资源已从 XBT 白名单中移除。',
+      updatedAt: '2026-04-08T08:15:00+08:00',
+    },
+    xbtFile: {
+      state: 'deleted',
+      seeders: 0,
+      leechers: 0,
+      completed: 4,
+      createdAt: '2026-04-02T17:30:00+08:00',
+      updatedAt: '2026-04-08T08:15:00+08:00',
+    },
     files: [{ path: 'Archive/Spring/Title-01.mkv', sizeBytes: 6_000_000_000 }],
   },
 ];
@@ -254,6 +392,11 @@ export function resetPasskey(userId: number): AdminUser {
   const user = getUserById(userId);
   if (!user) throw new Error('用户不存在');
   user.passkey = createPasskey();
+  user.trackerSync = {
+    status: 'success',
+    message: 'passkey 已重置并同步到 XBT。',
+    updatedAt: new Date().toISOString(),
+  };
   return user;
 }
 
@@ -291,6 +434,28 @@ export function createReleaseFromPayload(payload: {
     downloadCount: 0,
     completionCount: 0,
     activePeers: 0,
+    trackerSync: {
+      status: payload.status === 'published' ? 'success' : 'warning',
+      message: payload.status === 'published' ? '资源白名单状态已同步到 XBT。' : '资源尚未发布，当前未写入 XBT 白名单。',
+      updatedAt: now,
+    },
+    xbtFile: payload.status === 'published'
+      ? {
+          state: 'whitelisted',
+          seeders: 0,
+          leechers: 0,
+          completed: 0,
+          createdAt: now,
+          updatedAt: now,
+        }
+      : {
+          state: 'missing',
+          seeders: null,
+          leechers: null,
+          completed: null,
+          createdAt: null,
+          updatedAt: null,
+        },
     files: [{ path: payload.torrentFileName ?? 'new-upload.torrent', sizeBytes: 9_800_000_000 }],
   };
   releases.unshift(release);
@@ -308,7 +473,30 @@ export function updateReleaseData(
 }
 
 export function updateReleaseVisibility(releaseId: number, status: 'published' | 'hidden'): Release {
-  return updateReleaseData(releaseId, { status });
+  const release = updateReleaseData(releaseId, { status });
+  release.trackerSync = {
+    status: 'success',
+    message: status === 'hidden' ? '资源已从 XBT 白名单中移除。' : '资源白名单状态已同步到 XBT。',
+    updatedAt: new Date().toISOString(),
+  };
+  release.xbtFile = status === 'hidden'
+    ? {
+        state: 'deleted',
+        seeders: 0,
+        leechers: 0,
+        completed: release.completionCount,
+        createdAt: release.xbtFile?.createdAt ?? release.publishedAt,
+        updatedAt: new Date().toISOString(),
+      }
+    : {
+        state: 'whitelisted',
+        seeders: release.activePeers,
+        leechers: 0,
+        completed: release.completionCount,
+        createdAt: release.xbtFile?.createdAt ?? release.publishedAt,
+        updatedAt: new Date().toISOString(),
+      };
+  return release;
 }
 
 export function createUserRecord(payload: {
@@ -328,6 +516,18 @@ export function createUserRecord(payload: {
     lastLoginAt: new Date().toISOString(),
     joinedAt: new Date().toISOString(),
     createdReleaseCount: 0,
+    trackerSync: {
+      status: 'success',
+      message: '用户状态与 passkey 已同步到 XBT。',
+      updatedAt: new Date().toISOString(),
+    },
+    xbtUser: {
+      state: 'enabled',
+      canLeech: true,
+      downloaded: 0,
+      uploaded: 0,
+      completed: 0,
+    },
   };
   users.unshift(user);
   return user;
@@ -337,6 +537,18 @@ export function toggleUserStatus(userId: number, nextStatus: 'active' | 'disable
   const user = getUserById(userId);
   if (!user) throw new Error('用户不存在');
   user.status = nextStatus;
+  user.trackerSync = {
+    status: 'success',
+    message: nextStatus === 'active' ? '用户状态已同步到 XBT。' : '用户已在 XBT 中禁用。',
+    updatedAt: new Date().toISOString(),
+  };
+  user.xbtUser = {
+    state: nextStatus === 'active' ? 'enabled' : 'disabled',
+    canLeech: nextStatus === 'active',
+    downloaded: user.xbtUser?.downloaded ?? 0,
+    uploaded: user.xbtUser?.uploaded ?? 0,
+    completed: user.xbtUser?.completed ?? 0,
+  };
   return user;
 }
 

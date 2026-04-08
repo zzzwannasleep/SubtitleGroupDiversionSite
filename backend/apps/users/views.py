@@ -1,5 +1,6 @@
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.views import APIView
 
 from apps.announcements.models import Announcement
@@ -10,11 +11,14 @@ from apps.releases.models import Release
 from apps.releases.serializers import ReleaseSerializer
 from apps.tracker_sync.models import TrackerSyncLog
 from apps.tracker_sync.services import TrackerSyncService
-from apps.users.models import User
-from apps.users.serializers import AdminUserSerializer, ChangeUserStatusSerializer, CreateUserSerializer
+from apps.users.models import User, UserRole, UserStatus
+from apps.users.serializers import AdminUserDetailSerializer, AdminUserSerializer, ChangeUserStatusSerializer, CreateUserSerializer
 from apps.users.services import UserService
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取后台仪表盘概览", tags=["Admin"]),
+)
 class AdminDashboardView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -42,8 +46,19 @@ class AdminDashboardView(APIView):
 class AdminUserListCreateView(APIView):
     permission_classes = [IsAdminRole]
 
+    @extend_schema(
+        summary="获取用户列表",
+        tags=["Admin Users"],
+        parameters=[
+            OpenApiParameter(name="q", description="关键词，支持用户名、显示名、邮箱和角色搜索。", type=str),
+            OpenApiParameter(name="role", description="按角色筛选。", enum=UserRole.values),
+            OpenApiParameter(name="status", description="按状态筛选。", enum=UserStatus.values),
+        ],
+    )
     def get(self, request):
         keyword = (request.query_params.get("q") or "").strip()
+        role = (request.query_params.get("role") or "").strip()
+        status = (request.query_params.get("status") or "").strip()
         queryset = User.objects.annotate(created_release_count=Count("created_releases"))
         if keyword:
             queryset = queryset.filter(
@@ -52,8 +67,13 @@ class AdminUserListCreateView(APIView):
                 | Q(email__icontains=keyword)
                 | Q(role__icontains=keyword)
             )
+        if role in UserRole.values:
+            queryset = queryset.filter(role=role)
+        if status in UserStatus.values:
+            queryset = queryset.filter(status=status)
         return success_response(AdminUserSerializer(queryset.order_by("-date_joined", "-id"), many=True).data)
 
+    @extend_schema(summary="创建用户", tags=["Admin Users"])
     def post(self, request):
         serializer = CreateUserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -69,14 +89,20 @@ class AdminUserListCreateView(APIView):
         return success_response(data, message="用户创建成功。", status_code=201)
 
 
+@extend_schema_view(
+    get=extend_schema(summary="获取用户详情", tags=["Admin Users"]),
+)
 class AdminUserDetailView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request, user_id: int):
         user = get_object_or_404(User.objects.annotate(created_release_count=Count("created_releases")), pk=user_id)
-        return success_response(AdminUserSerializer(user).data)
+        return success_response(AdminUserDetailSerializer(user).data)
 
 
+@extend_schema_view(
+    post=extend_schema(summary="更新用户状态", tags=["Admin Users"]),
+)
 class AdminUserStatusView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -88,6 +114,9 @@ class AdminUserStatusView(APIView):
         return success_response(AdminUserSerializer(user).data, message="用户状态已更新。")
 
 
+@extend_schema_view(
+    post=extend_schema(summary="重置指定用户 passkey", tags=["Admin Users"]),
+)
 class AdminUserResetPasskeyView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -97,6 +126,9 @@ class AdminUserResetPasskeyView(APIView):
         return success_response(AdminUserSerializer(user).data, message="passkey 已重置。")
 
 
+@extend_schema_view(
+    post=extend_schema(summary="重置当前登录用户 passkey", tags=["Users"]),
+)
 class SelfPasskeyResetView(APIView):
     permission_classes = [IsActiveAuthenticated]
 
@@ -105,6 +137,9 @@ class SelfPasskeyResetView(APIView):
         return success_response(AdminUserSerializer(user).data, message="passkey 已重置。")
 
 
+@extend_schema_view(
+    post=extend_schema(summary="手动同步指定用户到 XBT", tags=["Tracker Sync"]),
+)
 class AdminTrackerSyncUserView(APIView):
     permission_classes = [IsAdminRole]
 

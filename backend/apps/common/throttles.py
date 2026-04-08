@@ -3,6 +3,22 @@ import hashlib
 from rest_framework.throttling import SimpleRateThrottle
 
 
+class LoginRateThrottle(SimpleRateThrottle):
+    scope = "login"
+
+    def get_cache_key(self, request, view):
+        username = ""
+        try:
+            username = str(request.data.get("username", "")).strip().lower()
+        except Exception:
+            username = ""
+
+        ident = self.get_ident(request) or "unknown"
+        source = f"{ident}:{username or 'anonymous'}"
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        return self.cache_format % {"scope": self.scope, "ident": digest}
+
+
 class PasskeyOrIPRateThrottle(SimpleRateThrottle):
     def get_cache_key(self, request, view):
         ident = self._build_ident(request)
