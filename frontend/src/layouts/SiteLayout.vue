@@ -1,16 +1,24 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import AnnouncementStrip from '@/components/navigation/AnnouncementStrip.vue';
 import SiteFooter from '@/components/navigation/SiteFooter.vue';
 import SiteHeader from '@/components/navigation/SiteHeader.vue';
 import type { Announcement } from '@/types/admin';
 import { listVisibleAnnouncements } from '@/services/admin';
+import { useAuthStore } from '@/stores/auth';
 
+const authStore = useAuthStore();
+const { currentUser } = storeToRefs(authStore);
 const announcements = ref<Announcement[]>([]);
 
-onMounted(async () => {
-  announcements.value = await listVisibleAnnouncements();
-});
+watch(
+  () => currentUser.value?.role,
+  async () => {
+    announcements.value = await listVisibleAnnouncements(currentUser.value);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -25,4 +33,3 @@ onMounted(async () => {
     <SiteFooter />
   </div>
 </template>
-

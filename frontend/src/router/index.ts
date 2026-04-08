@@ -1,9 +1,12 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router';
 import { registerRouterGuards } from './guards';
 import { routes } from './routes';
 
+const history =
+  window.location.protocol === 'file:' ? createWebHashHistory() : createWebHistory();
+
 const router = createRouter({
-  history: createWebHistory(),
+  history,
   routes,
   scrollBehavior() {
     return { top: 0 };

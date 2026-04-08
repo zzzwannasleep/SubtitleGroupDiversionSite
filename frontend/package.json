@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
+    "preview:local": "npm run build && vite preview --host 127.0.0.1 --open",
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
@@ -26,4 +27,3 @@
     "vue-tsc": "^2.2.8"
   }
 }
-

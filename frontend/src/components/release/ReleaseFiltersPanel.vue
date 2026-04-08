@@ -25,11 +25,15 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <AppCard title="筛选条件" description="按关键词、分类、标签和排序方式筛选资源。">
-    <form class="grid gap-4 lg:grid-cols-4" @submit.prevent="emit('apply')">
+  <AppCard title="筛选条件" description="按关键词、分类、标签和排序方式筛选资源，常用条件尽量放在首屏。">
+    <form class="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_180px_180px_180px]" @submit.prevent="emit('apply')">
       <div>
         <label class="app-field-label">关键词</label>
-        <UiInput :model-value="q" placeholder="标题 / 副标题 / 简介" @update:model-value="emit('update:q', $event)" />
+        <UiInput
+          :model-value="q"
+          placeholder="标题 / 副标题 / 简介"
+          @update:model-value="emit('update:q', $event)"
+        />
       </div>
       <div>
         <label class="app-field-label">分类</label>
@@ -61,11 +65,11 @@ const emit = defineEmits<{
           @update:model-value="emit('update:sort', $event)"
         />
       </div>
-      <div class="flex items-end gap-2 lg:col-span-4">
+      <div class="flex flex-wrap items-end gap-2 xl:col-span-4">
         <UiButton type="submit" variant="primary">应用筛选</UiButton>
         <UiButton type="button" variant="ghost" @click="emit('reset')">重置</UiButton>
+        <p class="text-xs text-slate-500">列表页保持单行主操作，避免把筛选流程做得过长。</p>
       </div>
     </form>
   </AppCard>
 </template>
-

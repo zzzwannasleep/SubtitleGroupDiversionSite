@@ -13,8 +13,13 @@ app.use(router);
 
 async function bootstrap() {
   const authStore = useAuthStore(pinia);
-  await authStore.bootstrap();
-  app.mount('#app');
+  try {
+    await authStore.bootstrap();
+  } catch (error) {
+    console.error('Frontend bootstrap failed:', error);
+  } finally {
+    app.mount('#app');
+  }
 }
 
 bootstrap();

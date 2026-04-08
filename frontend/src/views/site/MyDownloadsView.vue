@@ -7,7 +7,7 @@ import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiTable from '@/components/ui/UiTable.vue';
-import { listMyDownloads } from '@/services/releases';
+import { downloadRelease, listMyDownloads } from '@/services/releases';
 import { useAuthStore } from '@/stores/auth';
 import type { DownloadRecord } from '@/types/release';
 import { formatDateTime } from '@/utils/format';
@@ -44,16 +44,21 @@ onMounted(loadDownloads);
       <thead>
         <tr>
           <th>下载时间</th>
-          <th>资源名</th>
-          <th>重新下载</th>
+          <th>资源</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="item in downloads" :key="item.id">
           <td>{{ formatDateTime(item.downloadedAt) }}</td>
-          <td>{{ item.releaseTitle }}</td>
           <td>
-            <UiButton :to="`/releases/${item.releaseId}`" size="sm">前往资源</UiButton>
+            <div class="space-y-1">
+              <p class="font-medium text-slate-900">{{ item.releaseTitle }}</p>
+              <UiButton :to="`/releases/${item.releaseId}`" variant="ghost" size="sm">查看资源页</UiButton>
+            </div>
+          </td>
+          <td>
+            <UiButton size="sm" @click="downloadRelease(item.releaseId)">重新下载</UiButton>
           </td>
         </tr>
       </tbody>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
@@ -34,6 +34,9 @@ const state = ref<'loading' | 'ready' | 'forbidden' | 'not-found' | 'error'>('lo
 
 async function loadRelease() {
   state.value = 'loading';
+  release.value = null;
+  feedback.value = '';
+  errorMessage.value = '';
   pageErrorMessage.value = '';
 
   try {
@@ -93,7 +96,7 @@ async function handleSave() {
   }
 }
 
-onMounted(loadRelease);
+watch(() => route.params.id, loadRelease, { immediate: true });
 </script>
 
 <template>

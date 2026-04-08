@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
@@ -44,6 +44,8 @@ const statusActionMeta = computed(() => {
 
 async function loadUserDetail() {
   state.value = 'loading';
+  user.value = null;
+  feedback.value = '';
   errorMessage.value = '';
 
   try {
@@ -94,7 +96,7 @@ async function handleResetPasskey() {
   }
 }
 
-onMounted(loadUserDetail);
+watch(() => route.params.id, loadUserDetail, { immediate: true });
 </script>
 
 <template>

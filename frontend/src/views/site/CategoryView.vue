@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import AppCard from '@/components/app/AppCard.vue';
 import AppEmpty from '@/components/app/AppEmpty.vue';
@@ -9,7 +9,7 @@ import AppNotFound from '@/components/app/AppNotFound.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import ReleaseListTable from '@/components/release/ReleaseListTable.vue';
-import { listCategories, listReleases } from '@/services/releases';
+import { downloadRelease, listCategories, listReleases } from '@/services/releases';
 import type { Category, Release } from '@/types/release';
 
 const route = useRoute();
@@ -23,6 +23,8 @@ const hasData = computed(() => !!category.value);
 async function loadData() {
   loading.value = true;
   failed.value = false;
+  category.value = null;
+  releases.value = [];
 
   try {
     const allCategories = await listCategories();
@@ -39,7 +41,7 @@ async function loadData() {
   }
 }
 
-onMounted(loadData);
+watch(() => route.params.slug, loadData, { immediate: true });
 </script>
 
 <template>
@@ -52,6 +54,7 @@ onMounted(loadData);
       <AppEmpty v-if="!releases.length" title="当前分类还没有资源" description="新的分类资源发布后会显示在这里。" />
       <ReleaseListTable v-else :releases="releases">
         <template #actions="{ release }">
+          <UiButton variant="secondary" size="sm" @click="downloadRelease(release.id)">下载</UiButton>
           <UiButton :to="`/releases/${release.id}`" size="sm">详情</UiButton>
         </template>
       </ReleaseListTable>

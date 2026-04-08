@@ -558,7 +558,7 @@ MVP 至少保证：
 - [x] 选择器
 - [x] 表格
 - [x] 标签
-- [ ] 弹窗
+- [x] 弹窗
 - [x] 空状态 / 错误状态 / 加载状态
 
 暂时不必做：
@@ -583,6 +583,8 @@ MVP 至少保证：
 
 - [x] 统一状态组件：`AppLoading`、`AppEmpty`、`AppError`、`AppForbidden`、`AppNotFound`
 - [x] 统一页内反馈组件：`AppAlert`
+- [x] 统一弹窗基础组件：`UiDialog`
+- [x] 统一确认弹窗封装：`AppConfirmDialog`
 - [x] 统一状态徽标与语义标签：`AppStatusBadge`
 - [x] 前台/后台导航的统一 Lucide 图标与浅色主题视觉
 
