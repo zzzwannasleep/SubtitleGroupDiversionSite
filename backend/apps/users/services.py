@@ -30,35 +30,37 @@ class UserService:
                 detail=f"角色：{user.role}",
                 payload={"user_id": user.id},
             )
-        TrackerSyncService.sync_user(user)
+            transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
         return user, initial_password
 
     @staticmethod
     def change_status(*, actor, user: User, next_status: str):
-        user.status = next_status
-        user.save(update_fields=["status"])
-        AuditService.log(
-            actor,
-            "启用用户" if next_status == "active" else "禁用用户",
-            "用户",
-            user.username,
-            detail=f"状态切换为 {next_status}",
-            payload={"user_id": user.id},
-        )
-        TrackerSyncService.sync_user(user)
+        with transaction.atomic():
+            user.status = next_status
+            user.save(update_fields=["status"])
+            AuditService.log(
+                actor,
+                "启用用户" if next_status == "active" else "禁用用户",
+                "用户",
+                user.username,
+                detail=f"状态切换为 {next_status}",
+                payload={"user_id": user.id},
+            )
+            transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
         return user
 
     @staticmethod
     def reset_passkey(*, actor, user: User):
-        user.passkey = generate_passkey()
-        user.save(update_fields=["passkey"])
-        AuditService.log(
-            actor,
-            "重置 passkey",
-            "用户",
-            user.username,
-            detail="passkey 已重置，旧 RSS 与旧 torrent 失效。",
-            payload={"user_id": user.id},
-        )
-        TrackerSyncService.sync_user(user)
+        with transaction.atomic():
+            user.passkey = generate_passkey()
+            user.save(update_fields=["passkey"])
+            AuditService.log(
+                actor,
+                "重置 passkey",
+                "用户",
+                user.username,
+                detail="passkey 已重置，旧 RSS 与旧 torrent 失效。",
+                payload={"user_id": user.id},
+            )
+            transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
         return user

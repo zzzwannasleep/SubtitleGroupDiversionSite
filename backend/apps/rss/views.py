@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from apps.common.permissions import IsActiveAuthenticated
 from apps.common.responses import success_response
+from apps.common.throttles import RssFeedThrottle
 from apps.releases.models import Category, Release, Tag
 from apps.rss.services import RssService
 
@@ -19,6 +20,7 @@ class RssOverviewView(APIView):
 class BaseFeedView(APIView):
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [RssFeedThrottle]
 
     def get_user(self, request):
         passkey = request.query_params.get("passkey", "")

@@ -118,6 +118,10 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 10,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
+    "DEFAULT_THROTTLE_RATES": {
+        "rss": "120/hour",
+        "download": "240/hour",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -140,7 +144,6 @@ CSRF_COOKIE_SAMESITE = "Lax"
 
 XBT_SYNC_DATABASE_ALIAS = env("XBT_SYNC_DATABASE_ALIAS", "default")
 XBT_SYNC_ENABLED = env("XBT_SYNC_ENABLED", "true").lower() == "true"
-XBT_SYNC_CREATE_SHADOW_TABLES = env("XBT_SYNC_CREATE_SHADOW_TABLES", "true").lower() == "true"
 
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 os.makedirs(STATIC_ROOT, exist_ok=True)

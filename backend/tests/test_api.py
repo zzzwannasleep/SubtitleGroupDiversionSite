@@ -4,6 +4,7 @@ from rest_framework.test import APIClient
 
 from apps.common.torrent import bencode
 from apps.releases.models import Category, Release, Tag
+from apps.tracker_sync.models import XbtFileMirror, XbtUserMirror
 from apps.users.models import User
 
 
@@ -49,22 +50,23 @@ class ApiFlowTests(TestCase):
             email="user@example.com",
         )
 
-    def create_release(self):
+    def create_release(self, *, status: str = "published", execute_on_commit: bool = False):
         self.client.force_login(self.uploader)
         torrent = SimpleUploadedFile("example.torrent", build_torrent_bytes(), content_type="application/x-bittorrent")
-        response = self.client.post(
-            "/api/releases/",
-            {
-                "title": "测试资源",
-                "subtitle": "WEB-DL 1080p",
-                "description": "资源说明",
-                "categorySlug": self.category.slug,
-                "tagSlugs": [self.tag.slug],
-                "status": "published",
-                "torrentFile": torrent,
-            },
-            format="multipart",
-        )
+        payload = {
+            "title": "测试资源",
+            "subtitle": "WEB-DL 1080p",
+            "description": "资源说明",
+            "categorySlug": self.category.slug,
+            "tagSlugs": [self.tag.slug],
+            "status": status,
+            "torrentFile": torrent,
+        }
+        if execute_on_commit:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post("/api/releases/", payload, format="multipart")
+        else:
+            response = self.client.post("/api/releases/", payload, format="multipart")
         self.assertEqual(response.status_code, 201, response.json())
         self.client.logout()
         return Release.objects.get(pk=response.json()["data"]["id"])
@@ -116,3 +118,70 @@ class ApiFlowTests(TestCase):
         client = APIClient()
         response = client.get(f"/api/releases/{release.id}/download/?passkey={self.user.passkey}")
         self.assertEqual(response.status_code, 403, response.json())
+
+    def test_draft_release_only_syncs_to_xbt_after_publish(self):
+        release = self.create_release(status="draft", execute_on_commit=True)
+        info_hash = bytes.fromhex(release.infohash)
+        self.assertFalse(XbtFileMirror.objects.filter(info_hash=info_hash).exists())
+
+        self.client.force_login(self.uploader)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.patch(
+                f"/api/releases/{release.id}/",
+                {"status": "published"},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertTrue(XbtFileMirror.objects.filter(info_hash=info_hash, flags=0).exists())
+
+    def test_hidden_release_marks_xbt_whitelist_record_deleted(self):
+        release = self.create_release(execute_on_commit=True)
+        info_hash = bytes.fromhex(release.infohash)
+        self.assertTrue(XbtFileMirror.objects.filter(info_hash=info_hash, flags=0).exists())
+
+        self.client.force_login(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/releases/{release.id}/visibility/",
+                {"status": "hidden"},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(XbtFileMirror.objects.get(info_hash=info_hash).flags, 1)
+
+    def test_reset_passkey_updates_xbt_user_mirror(self):
+        self.client.force_login(self.user)
+        old_passkey = self.user.passkey
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post("/api/me/reset-passkey/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.passkey, old_passkey)
+        self.assertEqual(XbtUserMirror.objects.get(uid=self.user.id).torrent_pass, self.user.passkey)
+
+    def test_invalid_torrent_returns_unified_business_error(self):
+        self.client.force_login(self.uploader)
+        torrent = SimpleUploadedFile("broken.torrent", b"not-a-valid-torrent", content_type="application/x-bittorrent")
+        response = self.client.post(
+            "/api/releases/",
+            {
+                "title": "坏种子",
+                "subtitle": "WEB-DL 1080p",
+                "description": "资源说明",
+                "categorySlug": self.category.slug,
+                "tagSlugs": [self.tag.slug],
+                "status": "published",
+                "torrentFile": torrent,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 400, response.json())
+        self.assertEqual(
+            response.json(),
+            {
+                "success": False,
+                "code": "business_error",
+                "message": "无效的 torrent 文件。",
+            },
+        )

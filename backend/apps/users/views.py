@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 
 from apps.announcements.models import Announcement
+from apps.audit.services import AuditService
 from apps.common.permissions import IsActiveAuthenticated, IsAdminRole
 from apps.common.responses import success_response
 from apps.releases.models import Release
@@ -110,4 +111,12 @@ class AdminTrackerSyncUserView(APIView):
     def post(self, request, user_id: int):
         user = get_object_or_404(User, pk=user_id)
         log = TrackerSyncService.sync_user(user)
+        AuditService.log(
+            request.user,
+            "手动同步用户到 XBT",
+            "用户",
+            user.username,
+            detail=f"同步结果：{log.status}",
+            payload={"user_id": user.id, "tracker_sync_log_id": log.id},
+        )
         return success_response({"logId": log.id, "status": log.status, "message": log.message})

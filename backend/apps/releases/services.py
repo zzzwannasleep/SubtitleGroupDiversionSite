@@ -101,7 +101,7 @@ class ReleaseService:
             detail="上传 torrent 并写入文件列表。",
             payload={"release_id": release.id},
         )
-        TrackerSyncService.sync_release(release)
+        transaction.on_commit(lambda: TrackerSyncService.sync_release_by_id(release.id))
         return release
 
     @classmethod
@@ -135,10 +135,11 @@ class ReleaseService:
             detail="资源元数据已更新。",
             payload={"release_id": release.id},
         )
-        TrackerSyncService.sync_release(release)
+        transaction.on_commit(lambda: TrackerSyncService.sync_release_by_id(release.id))
         return release
 
     @classmethod
+    @transaction.atomic
     def set_visibility(cls, *, actor, release: Release, status: str):
         release.status = status
         if status == ReleaseStatus.PUBLISHED and not release.published_at:
@@ -152,5 +153,5 @@ class ReleaseService:
             detail=f"资源状态切换为 {status}。",
             payload={"release_id": release.id},
         )
-        TrackerSyncService.sync_release(release)
+        transaction.on_commit(lambda: TrackerSyncService.sync_release_by_id(release.id))
         return release

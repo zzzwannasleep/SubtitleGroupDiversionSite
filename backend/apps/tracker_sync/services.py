@@ -18,6 +18,10 @@ logger = logging.getLogger("apps.tracker_sync")
 
 class TrackerSyncService:
     @staticmethod
+    def _xbt_database_alias() -> str:
+        return settings.XBT_SYNC_DATABASE_ALIAS
+
+    @staticmethod
     def create_log(scope: str, target_name: str, status: str, message: str, user=None, release=None):
         return TrackerSyncLog.objects.create(
             scope=scope,
@@ -27,6 +31,18 @@ class TrackerSyncService:
             user=user,
             release=release,
         )
+
+    @classmethod
+    def sync_user_by_id(cls, user_id: int):
+        user = User.objects.filter(pk=user_id).first()
+        if not user:
+            return cls.create_log(
+                TrackerSyncScope.USER,
+                f"用户#{user_id}",
+                TrackerSyncStatus.WARNING,
+                "用户不存在，跳过 XBT 同步。",
+            )
+        return cls.sync_user(user)
 
     @classmethod
     def sync_user(cls, user: User):
@@ -40,7 +56,7 @@ class TrackerSyncService:
             )
 
         try:
-            XbtUserMirror.objects.update_or_create(
+            XbtUserMirror.objects.using(cls._xbt_database_alias()).update_or_create(
                 uid=user.id,
                 defaults={
                     "torrent_pass": user.passkey,
@@ -55,7 +71,7 @@ class TrackerSyncService:
                 user=user,
             )
         except Exception as exc:
-            logger.exception("failed to sync tracker user %s", user.id)
+            logger.exception("failed to sync tracker user %s via %s", user.id, cls._xbt_database_alias())
             return cls.create_log(
                 TrackerSyncScope.USER,
                 user.username,
@@ -65,7 +81,23 @@ class TrackerSyncService:
             )
 
     @classmethod
+    def sync_release_by_id(cls, release_id: int):
+        from apps.releases.models import Release
+
+        release = Release.objects.filter(pk=release_id).first()
+        if not release:
+            return cls.create_log(
+                TrackerSyncScope.RELEASE,
+                f"资源#{release_id}",
+                TrackerSyncStatus.WARNING,
+                "资源不存在，跳过 XBT 同步。",
+            )
+        return cls.sync_release(release)
+
+    @classmethod
     def sync_release(cls, release):
+        from apps.releases.models import ReleaseStatus
+
         if not settings.XBT_SYNC_ENABLED:
             return cls.create_log(
                 TrackerSyncScope.RELEASE,
@@ -76,25 +108,47 @@ class TrackerSyncService:
             )
 
         try:
+            if not release.infohash:
+                raise ValueError("资源缺少 infohash。")
+
+            mirrors = XbtFileMirror.objects.using(cls._xbt_database_alias())
+            info_hash = bytes.fromhex(release.infohash)
             now = int(time.time())
-            record, created = XbtFileMirror.objects.get_or_create(
-                info_hash=bytes.fromhex(release.infohash),
-                defaults={"ctime": now, "mtime": now},
+            if release.status == ReleaseStatus.PUBLISHED:
+                record, created = mirrors.get_or_create(
+                    info_hash=info_hash,
+                    defaults={"ctime": now, "mtime": now},
+                )
+                update_fields = ["flags", "mtime"]
+                record.flags = 0
+                record.mtime = now
+                if created or not record.ctime:
+                    record.ctime = now
+                    update_fields.append("ctime")
+                record.save(update_fields=update_fields)
+                return cls.create_log(
+                    TrackerSyncScope.RELEASE,
+                    release.title,
+                    TrackerSyncStatus.SUCCESS,
+                    "资源白名单状态已同步到 XBT。",
+                    release=release,
+                )
+
+            updated = mirrors.filter(info_hash=info_hash).update(flags=1, mtime=now)
+            message = (
+                "资源已从 XBT 白名单中移除。"
+                if updated
+                else "资源当前未发布且不在 XBT 白名单中，跳过写入。"
             )
-            record.flags = 0 if release.status == "published" else 1
-            record.mtime = now
-            if created:
-                record.ctime = now
-            record.save(update_fields=["flags", "mtime", "ctime"])
             return cls.create_log(
                 TrackerSyncScope.RELEASE,
                 release.title,
                 TrackerSyncStatus.SUCCESS,
-                "资源白名单状态已同步到 XBT。",
+                message,
                 release=release,
             )
         except Exception as exc:
-            logger.exception("failed to sync tracker release %s", release.id)
+            logger.exception("failed to sync tracker release %s via %s", release.id, cls._xbt_database_alias())
             return cls.create_log(
                 TrackerSyncScope.RELEASE,
                 release.title,
@@ -108,7 +162,7 @@ class TrackerSyncService:
         user_failures = 0
         release_failures = 0
         warnings = 0
-        for user in User.objects.all():
+        for user in User.objects.order_by("id").iterator():
             log = cls.sync_user(user)
             if log.status == TrackerSyncStatus.FAILED:
                 user_failures += 1
@@ -116,7 +170,7 @@ class TrackerSyncService:
                 warnings += 1
         from apps.releases.models import Release
 
-        for release in Release.objects.all():
+        for release in Release.objects.order_by("id").iterator():
             log = cls.sync_release(release)
             if log.status == TrackerSyncStatus.FAILED:
                 release_failures += 1
