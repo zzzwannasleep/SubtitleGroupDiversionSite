@@ -3,12 +3,15 @@ import { computed, onMounted, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
+import AppConfirmDialog from '@/components/app/AppConfirmDialog.vue';
 import AppError from '@/components/app/AppError.vue';
+import AppForbidden from '@/components/app/AppForbidden.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
 import AppNotFound from '@/components/app/AppNotFound.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import AppStatusBadge from '@/components/app/AppStatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
+import { isApiError } from '@/services/api';
 import { downloadRelease, getReleaseById, toggleReleaseStatus } from '@/services/releases';
 import { useAuthStore } from '@/stores/auth';
 import type { Release } from '@/types/release';
@@ -18,11 +21,13 @@ import { canEditRelease } from '@/utils/permissions';
 const route = useRoute();
 const authStore = useAuthStore();
 
-const loading = ref(true);
-const failed = ref(false);
+const state = ref<'loading' | 'ready' | 'forbidden' | 'not-found' | 'error'>('loading');
 const release = ref<Release | null>(null);
 const feedback = ref('');
 const errorMessage = ref('');
+const pageErrorMessage = ref('');
+const pendingVisibilityAction = ref(false);
+const visibilityDialogOpen = ref(false);
 
 const canEdit = computed(() => canEditRelease(authStore.currentUser, release.value));
 const canHide = computed(() => authStore.currentUser?.role === 'admin');
@@ -33,15 +38,26 @@ const isVisibleToCurrentUser = computed(() => {
 });
 
 async function loadRelease() {
-  loading.value = true;
-  failed.value = false;
+  state.value = 'loading';
+  pageErrorMessage.value = '';
 
   try {
     release.value = await getReleaseById(Number(route.params.id));
-  } catch {
-    failed.value = true;
+    state.value = release.value ? 'ready' : 'not-found';
+  } catch (error) {
+    if (isApiError(error) && error.status === 403) {
+      state.value = 'forbidden';
+      return;
+    }
+
+    if (isApiError(error) && error.status === 404) {
+      state.value = 'not-found';
+      return;
+    }
+
+    pageErrorMessage.value = error instanceof Error ? error.message : '资源详情加载失败';
+    state.value = 'error';
   } finally {
-    loading.value = false;
   }
 }
 
@@ -50,13 +66,17 @@ async function toggleVisibility() {
 
   errorMessage.value = '';
   feedback.value = '';
+  pendingVisibilityAction.value = true;
 
   try {
     const nextStatus = release.value.status === 'hidden' ? 'published' : 'hidden';
     release.value = await toggleReleaseStatus(release.value.id, nextStatus);
     feedback.value = nextStatus === 'hidden' ? '资源已隐藏，仅管理员可见。' : '资源已恢复为前台可见。';
+    visibilityDialogOpen.value = false;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '更新资源状态失败';
+  } finally {
+    pendingVisibilityAction.value = false;
   }
 }
 
@@ -71,15 +91,20 @@ onMounted(loadRelease);
 </script>
 
 <template>
-  <AppLoading v-if="loading" />
-  <AppError v-else-if="failed" title="资源详情加载失败" />
-  <AppNotFound v-else-if="!release || !isVisibleToCurrentUser" />
+  <AppLoading v-if="state === 'loading'" />
+  <AppForbidden v-else-if="state === 'forbidden'" />
+  <AppError v-else-if="state === 'error'" title="资源详情加载失败" :description="pageErrorMessage">
+    <template #actions>
+      <UiButton variant="primary" @click="loadRelease">重试</UiButton>
+    </template>
+  </AppError>
+  <AppNotFound v-else-if="state === 'not-found' || !release || !isVisibleToCurrentUser" />
   <template v-else>
     <AppPageHeader :title="release.title" :description="release.subtitle">
       <template #actions>
         <UiButton variant="primary" @click="handleDownload">下载种子</UiButton>
         <UiButton v-if="canEdit" :to="`/my/releases/${release.id}/edit`" variant="secondary">编辑</UiButton>
-        <UiButton v-if="canHide" variant="ghost" @click="toggleVisibility">
+        <UiButton v-if="canHide" variant="ghost" :disabled="pendingVisibilityAction" @click="visibilityDialogOpen = true">
           {{ release.status === 'hidden' ? '恢复前台可见' : '隐藏资源' }}
         </UiButton>
       </template>
@@ -149,5 +174,22 @@ onMounted(loadRelease);
         </AppCard>
       </div>
     </div>
+
+    <AppConfirmDialog
+      :open="visibilityDialogOpen"
+      :title="release.status === 'hidden' ? '确认恢复该资源' : '确认隐藏该资源'"
+      :description="
+        release.status === 'hidden'
+          ? '恢复后，这个资源会重新回到前台列表、分类页和标签页中。'
+          : '隐藏后，这个资源会从前台浏览入口移除，仅管理员仍可查看和恢复。'
+      "
+      :confirm-label="release.status === 'hidden' ? '确认恢复' : '确认隐藏'"
+      :tone="release.status === 'hidden' ? 'primary' : 'warning'"
+      :pending="pendingVisibilityAction"
+      @close="visibilityDialogOpen = false"
+      @confirm="toggleVisibility"
+    >
+      <p>这个操作不会删除资源文件和审计记录，只调整前台访问可见性。</p>
+    </AppConfirmDialog>
   </template>
 </template>
