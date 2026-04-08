@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import AdminMetricCard from '@/components/admin/AdminMetricCard.vue';
 import AppCard from '@/components/app/AppCard.vue';
+import AppError from '@/components/app/AppError.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import { getAdminDashboard } from '@/services/admin';
@@ -10,22 +11,34 @@ import type { Release } from '@/types/release';
 import { formatDateTime } from '@/utils/format';
 
 const loading = ref(true);
+const failed = ref(false);
 const stats = ref<AdminDashboardStats | null>(null);
 const latestUsers = ref<AdminUser[]>([]);
 const latestReleases = ref<Release[]>([]);
 
-onMounted(async () => {
-  const data = await getAdminDashboard();
-  stats.value = data.stats;
-  latestUsers.value = data.latestUsers;
-  latestReleases.value = data.latestReleases;
-  loading.value = false;
-});
+async function loadData() {
+  loading.value = true;
+  failed.value = false;
+
+  try {
+    const data = await getAdminDashboard();
+    stats.value = data.stats;
+    latestUsers.value = data.latestUsers;
+    latestReleases.value = data.latestReleases;
+  } catch {
+    failed.value = true;
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadData);
 </script>
 
 <template>
   <AppPageHeader title="后台首页" description="与前台同属一套设计系统，但通过深色侧边栏强化管理层级。" />
   <AppLoading v-if="loading" />
+  <AppError v-else-if="failed" title="后台首页加载失败" description="请稍后重试，或检查管理端统计接口。" />
   <template v-else-if="stats">
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <AdminMetricCard label="用户数" :value="stats.userCount" hint="包含已禁用用户" />
@@ -65,4 +78,3 @@ onMounted(async () => {
     </div>
   </template>
 </template>
-

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
+import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import AppStatusBadge from '@/components/app/AppStatusBadge.vue';
@@ -60,13 +61,8 @@ async function handleChangePassword() {
 <template>
   <AppPageHeader title="我的账户" description="展示角色、登录状态、passkey 与账户相关操作。" />
 
-  <div v-if="feedback" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-    {{ feedback }}
-  </div>
-
-  <div v-if="errorMessage" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-    {{ errorMessage }}
-  </div>
+  <AppAlert v-if="feedback" variant="success" :title="feedback" />
+  <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
   <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
     <AppCard title="基础信息">

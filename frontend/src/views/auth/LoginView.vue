@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
+import AppAlert from '@/components/app/AppAlert.vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppCard from '@/components/app/AppCard.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -38,9 +39,7 @@ async function handleSubmit() {
         <UiInput v-model="form.password" type="password" placeholder="请输入密码" />
         <p class="app-field-help">登录成功后会自动跳回你刚才尝试访问的页面。</p>
       </div>
-      <div v-if="authStore.errorMessage" class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-        {{ authStore.errorMessage }}
-      </div>
+      <AppAlert v-if="authStore.errorMessage" variant="error" :title="authStore.errorMessage" />
       <UiButton type="submit" block variant="primary" :disabled="authStore.isLoading">
         {{ authStore.isLoading ? '登录中...' : '登录' }}
       </UiButton>

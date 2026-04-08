@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { TriangleAlert } from 'lucide-vue-next';
+import AppStateBlock from '@/components/app/AppStateBlock.vue';
+
 defineProps<{
   title?: string;
   description?: string;
@@ -6,12 +9,16 @@ defineProps<{
 </script>
 
 <template>
-  <div class="app-surface border-red-200 px-6 py-10 text-center">
-    <p class="text-lg font-semibold text-slate-900">{{ title ?? '加载失败' }}</p>
-    <p class="mt-2 text-sm text-slate-500">{{ description ?? '稍后重试，或检查服务端状态。' }}</p>
-    <div v-if="$slots.actions" class="mt-4 flex justify-center gap-2">
+  <AppStateBlock
+    :title="title ?? '加载失败'"
+    :description="description ?? '稍后重试，或检查服务端状态。'"
+    tone="danger"
+  >
+    <template #icon>
+      <TriangleAlert class="h-6 w-6" />
+    </template>
+    <template v-if="$slots.actions" #actions>
       <slot name="actions" />
-    </div>
-  </div>
+    </template>
+  </AppStateBlock>
 </template>
-

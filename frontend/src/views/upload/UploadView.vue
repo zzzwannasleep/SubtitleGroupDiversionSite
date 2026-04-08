@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
+import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
@@ -111,13 +112,8 @@ onMounted(loadOptions);
 
   <AppLoading v-if="loading" />
   <template v-else>
-    <div v-if="feedback" class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-      {{ feedback }}
-    </div>
-
-    <div v-if="errorMessage" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      {{ errorMessage }}
-    </div>
+    <AppAlert v-if="feedback" variant="success" :title="feedback" />
+    <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
     <AppCard title="发布表单" description="MVP 先保留最短路径：标题、分类、标签、简介和 torrent 文件。">
       <div class="space-y-5">

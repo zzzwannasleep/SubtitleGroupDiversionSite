@@ -1,14 +1,12 @@
-<template>
-  <div class="app-surface p-8">
-    <div class="animate-pulse space-y-4">
-      <div class="h-6 w-40 rounded bg-slate-200" />
-      <div class="h-4 w-full rounded bg-slate-100" />
-      <div class="h-4 w-3/4 rounded bg-slate-100" />
-      <div class="grid gap-3 md:grid-cols-2">
-        <div class="h-24 rounded-xl bg-slate-100" />
-        <div class="h-24 rounded-xl bg-slate-100" />
-      </div>
-    </div>
-  </div>
-</template>
+<script setup lang="ts">
+import { LoaderCircle } from 'lucide-vue-next';
+import AppStateBlock from '@/components/app/AppStateBlock.vue';
+</script>
 
+<template>
+  <AppStateBlock title="正在加载" description="页面数据加载中，请稍候。" tone="info">
+    <template #icon>
+      <LoaderCircle class="h-6 w-6 animate-spin" />
+    </template>
+  </AppStateBlock>
+</template>

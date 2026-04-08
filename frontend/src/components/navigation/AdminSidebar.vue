@@ -1,19 +1,30 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import {
+  Blocks,
+  FolderOpen,
+  LayoutDashboard,
+  Logs,
+  Megaphone,
+  RefreshCw,
+  Settings,
+  Tags,
+  Users,
+} from 'lucide-vue-next';
 import { RouterLink, useRoute } from 'vue-router';
 
 const route = useRoute();
 
 const navItems = computed(() => [
-  { label: '仪表盘', to: '/admin' },
-  { label: '用户管理', to: '/admin/users' },
-  { label: '资源管理', to: '/admin/releases' },
-  { label: '分类管理', to: '/admin/categories' },
-  { label: '标签管理', to: '/admin/tags' },
-  { label: '公告管理', to: '/admin/announcements' },
-  { label: 'XBT 同步', to: '/admin/tracker-sync' },
-  { label: '审计日志', to: '/admin/audit-logs' },
-  { label: '系统设置', to: '/admin/settings' },
+  { label: '仪表盘', to: '/admin', icon: LayoutDashboard },
+  { label: '用户管理', to: '/admin/users', icon: Users },
+  { label: '资源管理', to: '/admin/releases', icon: FolderOpen },
+  { label: '分类管理', to: '/admin/categories', icon: Blocks },
+  { label: '标签管理', to: '/admin/tags', icon: Tags },
+  { label: '公告管理', to: '/admin/announcements', icon: Megaphone },
+  { label: 'XBT 同步', to: '/admin/tracker-sync', icon: RefreshCw },
+  { label: '审计日志', to: '/admin/audit-logs', icon: Logs },
+  { label: '系统设置', to: '/admin/settings', icon: Settings },
 ]);
 
 function isActive(path: string) {
@@ -33,13 +44,13 @@ function isActive(path: string) {
         :key="item.to"
         :to="item.to"
         :class="[
-          'block rounded-md px-3 py-2 text-sm transition',
+          'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition',
           isActive(item.to) ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-900 hover:text-white',
         ]"
       >
+        <component :is="item.icon" class="h-4 w-4" />
         {{ item.label }}
       </RouterLink>
     </nav>
   </aside>
 </template>
-

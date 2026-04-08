@@ -548,18 +548,18 @@ MVP 至少保证：
 
 ## 13. MVP 样式范围
 
-MVP 只需要先统一这些：
+截至 `2026-04-08` 已完成：
 
-- 背景
-- 导航栏
-- 卡片
-- 按钮
-- 输入框
-- 选择器
-- 表格
-- 标签
-- 弹窗
-- 空状态 / 错误状态 / 加载状态
+- [x] 背景
+- [x] 导航栏
+- [x] 卡片
+- [x] 按钮
+- [x] 输入框
+- [x] 选择器
+- [x] 表格
+- [x] 标签
+- [ ] 弹窗
+- [x] 空状态 / 错误状态 / 加载状态
 
 暂时不必做：
 
@@ -572,12 +572,19 @@ MVP 只需要先统一这些：
 
 建议把样式系统最终落成以下内容：
 
-- `tailwind.config`
-- `src/styles/tokens.css`
-- `src/styles/base.css`
-- `src/components/ui/`
-- `src/components/app/`
-- 一份组件展示页或 Storybook（可二期）
+- [x] `tailwind.config`
+- [x] `src/styles/tokens.css`
+- [x] `src/styles/base.css`
+- [x] `src/components/ui/`
+- [x] `src/components/app/`
+- [ ] 一份组件展示页或 Storybook（可二期）
+
+当前已补齐：
+
+- [x] 统一状态组件：`AppLoading`、`AppEmpty`、`AppError`、`AppForbidden`、`AppNotFound`
+- [x] 统一页内反馈组件：`AppAlert`
+- [x] 统一状态徽标与语义标签：`AppStatusBadge`
+- [x] 前台/后台导航的统一 Lucide 图标与浅色主题视觉
 
 ## 15. 当前结论
 

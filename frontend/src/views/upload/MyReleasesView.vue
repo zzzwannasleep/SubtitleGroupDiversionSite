@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppEmpty from '@/components/app/AppEmpty.vue';
+import AppError from '@/components/app/AppError.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -12,18 +13,30 @@ import type { Release } from '@/types/release';
 
 const authStore = useAuthStore();
 const loading = ref(true);
+const failed = ref(false);
 const releases = ref<Release[]>([]);
 
-onMounted(async () => {
+async function loadReleases() {
   if (!authStore.currentUser) return;
-  releases.value = await listMyReleases(authStore.currentUser.id);
-  loading.value = false;
-});
+  loading.value = true;
+  failed.value = false;
+
+  try {
+    releases.value = await listMyReleases(authStore.currentUser.id);
+  } catch {
+    failed.value = true;
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadReleases);
 </script>
 
 <template>
   <AppPageHeader title="我的发布" description="上传者和管理员都在前台查看自己的资源，不误入后台。" />
   <AppLoading v-if="loading" />
+  <AppError v-else-if="failed" title="我的发布加载失败" description="请稍后再试，或检查资源接口状态。" />
   <AppCard v-else title="我发布的资源" :description="`共 ${releases.length} 条。`">
     <AppEmpty v-if="!releases.length" title="暂时没有已发布资源" description="发布成功后会出现在这里。" />
     <ReleaseListTable v-else :releases="releases" show-status>
@@ -34,4 +47,3 @@ onMounted(async () => {
     </ReleaseListTable>
   </AppCard>
 </template>
-

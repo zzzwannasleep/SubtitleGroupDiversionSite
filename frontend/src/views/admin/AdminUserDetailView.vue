@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
 import AppNotFound from '@/components/app/AppNotFound.vue';
@@ -42,9 +43,7 @@ async function handleResetPasskey() {
   <AppNotFound v-else-if="!user" />
   <template v-else>
     <AppPageHeader :title="user.displayName" description="用户详情页聚合角色、状态、passkey 与运维操作。" />
-    <div v-if="feedback" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-      {{ feedback }}
-    </div>
+    <AppAlert v-if="feedback" variant="info" :title="feedback" />
     <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <AppCard title="基础信息">
         <dl class="grid gap-4 sm:grid-cols-2">
@@ -93,4 +92,3 @@ async function handleResetPasskey() {
     </div>
   </template>
 </template>
-

@@ -1,7 +1,12 @@
-<template>
-  <div class="app-surface px-6 py-10 text-center">
-    <p class="text-lg font-semibold text-slate-900">没有访问权限</p>
-    <p class="mt-2 text-sm text-slate-500">当前账号不具备该页面或该操作的权限。</p>
-  </div>
-</template>
+<script setup lang="ts">
+import { ShieldX } from 'lucide-vue-next';
+import AppStateBlock from '@/components/app/AppStateBlock.vue';
+</script>
 
+<template>
+  <AppStateBlock title="没有访问权限" description="当前账号不具备该页面或该操作的权限。" tone="warning">
+    <template #icon>
+      <ShieldX class="h-6 w-6" />
+    </template>
+  </AppStateBlock>
+</template>

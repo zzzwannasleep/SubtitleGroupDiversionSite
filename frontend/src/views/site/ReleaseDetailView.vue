@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
+import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppError from '@/components/app/AppError.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
@@ -84,13 +85,8 @@ onMounted(loadRelease);
       </template>
     </AppPageHeader>
 
-    <div v-if="feedback" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-      {{ feedback }}
-    </div>
-
-    <div v-if="errorMessage" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      {{ errorMessage }}
-    </div>
+    <AppAlert v-if="feedback" variant="info" :title="feedback" />
+    <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
     <div class="grid gap-6 xl:grid-cols-[2fr_1fr]">
       <div class="space-y-6">

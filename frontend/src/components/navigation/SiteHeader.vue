@@ -6,6 +6,7 @@ import { Menu, Shield, Upload, X } from 'lucide-vue-next';
 import UiButton from '@/components/ui/UiButton.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
+import { roleLabels } from '@/utils/labels';
 
 const authStore = useAuthStore();
 const uiStore = useUiStore();
@@ -13,6 +14,11 @@ const route = useRoute();
 const router = useRouter();
 const { currentUser } = storeToRefs(authStore);
 const { isMobileMenuOpen } = storeToRefs(uiStore);
+
+const roleLabel = computed(() => {
+  const role = currentUser.value?.role;
+  return role ? roleLabels[role] : '';
+});
 
 const navItems = computed(() => {
   const items = [
@@ -82,7 +88,7 @@ watch(
 
       <div class="hidden items-center gap-2 lg:flex">
         <div class="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
-          {{ currentUser?.displayName }} / {{ currentUser?.role }}
+          {{ currentUser?.displayName }} / {{ roleLabel }}
         </div>
         <UiButton v-if="currentUser?.role === 'admin'" to="/admin" variant="ghost" size="sm">
           <Shield class="mr-1 h-4 w-4" />
@@ -108,7 +114,7 @@ watch(
     <div v-if="isMobileMenuOpen" class="border-t border-slate-200 bg-white lg:hidden">
       <div class="app-container space-y-2 py-4">
         <div class="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          {{ currentUser?.displayName }} / {{ currentUser?.role }}
+          {{ currentUser?.displayName }} / {{ roleLabel }}
         </div>
         <nav class="grid gap-2">
           <RouterLink
@@ -128,4 +134,3 @@ watch(
     </div>
   </header>
 </template>
-

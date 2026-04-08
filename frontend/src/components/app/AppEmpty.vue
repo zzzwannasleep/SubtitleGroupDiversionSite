@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Inbox } from 'lucide-vue-next';
+import AppStateBlock from '@/components/app/AppStateBlock.vue';
+
 defineProps<{
   title?: string;
   description?: string;
@@ -6,12 +9,15 @@ defineProps<{
 </script>
 
 <template>
-  <div class="app-surface px-6 py-10 text-center">
-    <p class="text-lg font-semibold text-slate-900">{{ title ?? '暂无内容' }}</p>
-    <p class="mt-2 text-sm text-slate-500">{{ description ?? '当前条件下还没有可展示的数据。' }}</p>
-    <div v-if="$slots.actions" class="mt-4 flex justify-center gap-2">
+  <AppStateBlock
+    :title="title ?? '暂无内容'"
+    :description="description ?? '当前条件下还没有可展示的数据。'"
+  >
+    <template #icon>
+      <Inbox class="h-6 w-6" />
+    </template>
+    <template v-if="$slots.actions" #actions>
       <slot name="actions" />
-    </div>
-  </div>
+    </template>
+  </AppStateBlock>
 </template>
-

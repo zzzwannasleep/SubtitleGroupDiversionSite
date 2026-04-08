@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
+import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
+import AppEmpty from '@/components/app/AppEmpty.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import AppStatusBadge from '@/components/app/AppStatusBadge.vue';
@@ -75,13 +77,8 @@ onMounted(loadUsers);
     </template>
   </AppPageHeader>
 
-  <div v-if="feedback" class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-    {{ feedback }}
-  </div>
-
-  <div v-if="errorMessage" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-    {{ errorMessage }}
-  </div>
+  <AppAlert v-if="feedback" variant="success" :title="feedback" />
+  <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
   <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
     <AppCard title="用户列表" description="管理员可以按账号、显示名、邮箱和角色搜索。">
@@ -90,6 +87,7 @@ onMounted(loadUsers);
         <UiButton variant="primary" :disabled="loading" @click="loadUsers">搜索</UiButton>
       </div>
       <AppLoading v-if="loading" />
+      <AppEmpty v-else-if="!users.length" title="没有匹配的用户" description="请调整搜索词后重试。" />
       <UiTable v-else>
         <thead>
           <tr>

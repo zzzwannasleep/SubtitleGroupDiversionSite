@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppForbidden from '@/components/app/AppForbidden.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
@@ -69,9 +70,7 @@ async function handleSave() {
   <AppForbidden v-else-if="state === 'forbidden'" />
   <template v-else>
     <AppPageHeader title="编辑资源" description="上传者只能编辑自己发布的资源，管理员可编辑任意资源。" />
-    <div v-if="feedback" class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-      {{ feedback }}
-    </div>
+    <AppAlert v-if="feedback" variant="success" :title="feedback" />
     <AppCard title="编辑内容" description="MVP 先覆盖标题、副标题、简介与状态等常改字段。">
       <div class="space-y-5">
         <div>

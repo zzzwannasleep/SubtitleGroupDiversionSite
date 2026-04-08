@@ -1,14 +1,17 @@
 <script setup lang="ts">
+import { watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Menu } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import AdminSidebar from '@/components/navigation/AdminSidebar.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
+import { roleLabels } from '@/utils/labels';
 
 const authStore = useAuthStore();
 const uiStore = useUiStore();
+const route = useRoute();
 const router = useRouter();
 const { currentUser } = storeToRefs(authStore);
 const { isAdminSidebarOpen } = storeToRefs(uiStore);
@@ -17,6 +20,13 @@ async function handleLogout() {
   await authStore.logout();
   await router.push('/login');
 }
+
+watch(
+  () => route.fullPath,
+  () => {
+    uiStore.closeAdminSidebar();
+  },
+);
 </script>
 
 <template>
@@ -52,7 +62,9 @@ async function handleLogout() {
             </button>
             <div>
               <p class="text-sm font-semibold text-slate-900">管理员控制台</p>
-              <p class="text-xs text-slate-500">{{ currentUser?.displayName }}</p>
+              <p class="text-xs text-slate-500">
+                {{ currentUser?.displayName }} / {{ currentUser?.role ? roleLabels[currentUser.role] : '' }}
+              </p>
             </div>
           </div>
 
@@ -71,4 +83,3 @@ async function handleLogout() {
     </div>
   </div>
 </template>
-

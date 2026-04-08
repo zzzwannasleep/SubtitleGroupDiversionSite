@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
+import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
+import AppError from '@/components/app/AppError.vue';
+import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
@@ -8,6 +11,7 @@ import UiTextarea from '@/components/ui/UiTextarea.vue';
 import { getSettings, saveSiteSettings } from '@/services/admin';
 
 const loading = ref(true);
+const failed = ref(false);
 const feedback = ref('');
 const form = reactive({
   siteName: '',
@@ -17,11 +21,21 @@ const form = reactive({
   downloadNotice: '',
 });
 
-onMounted(async () => {
-  const settings = await getSettings();
-  Object.assign(form, settings);
-  loading.value = false;
-});
+async function loadSettings() {
+  loading.value = true;
+  failed.value = false;
+
+  try {
+    const settings = await getSettings();
+    Object.assign(form, settings);
+  } catch {
+    failed.value = true;
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadSettings);
 
 async function handleSave() {
   await saveSiteSettings({ ...form });
@@ -31,10 +45,10 @@ async function handleSave() {
 
 <template>
   <AppPageHeader title="系统设置" description="把站点基础信息、登录提示和下载提示收敛到一页维护。" />
-  <div v-if="feedback" class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-    {{ feedback }}
-  </div>
-  <AppCard v-if="!loading" title="基础设置" description="MVP 先覆盖站点名称、描述、RSS 与下载提示。">
+  <AppAlert v-if="feedback" variant="success" :title="feedback" />
+  <AppLoading v-if="loading" />
+  <AppError v-else-if="failed" title="系统设置加载失败" description="请稍后重试，或检查系统设置接口。" />
+  <AppCard v-else title="基础设置" description="MVP 先覆盖站点名称、描述、RSS 与下载提示。">
     <div class="grid gap-5">
       <div>
         <label class="app-field-label">站点名称</label>
