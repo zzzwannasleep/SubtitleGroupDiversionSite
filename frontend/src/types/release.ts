@@ -75,7 +75,7 @@ export interface ReleaseFormPayload {
   description: string;
   categorySlug: string;
   tagSlugs: string[];
+  torrentFile?: File | null;
   torrentFileName?: string;
   status?: ReleaseStatus;
 }
-

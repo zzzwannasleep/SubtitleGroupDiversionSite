@@ -5,6 +5,7 @@ export type AnnouncementStatus = 'online' | 'draft' | 'offline';
 
 export interface AdminUser extends CurrentUser {
   createdReleaseCount: number;
+  initialPassword?: string;
 }
 
 export interface Announcement {
@@ -74,4 +75,3 @@ export interface ToggleUserStatusPayload {
   userId: number;
   nextStatus: UserStatus;
 }
-

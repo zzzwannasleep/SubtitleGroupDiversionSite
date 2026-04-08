@@ -14,16 +14,46 @@ const passwordForm = reactive({
   nextPassword: '',
 });
 const feedback = ref('');
+const errorMessage = ref('');
+const resettingPasskey = ref(false);
+const savingPassword = ref(false);
 
 async function handleResetPasskey() {
-  await authStore.resetPasskey();
-  feedback.value = 'passkey 已重置，旧 RSS 与旧种子链接需要重新生成。';
+  errorMessage.value = '';
+  feedback.value = '';
+  resettingPasskey.value = true;
+
+  try {
+    await authStore.resetPasskey();
+    feedback.value = 'passkey 已重置，旧 RSS 地址和旧种子都会失效。';
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '重置 passkey 失败';
+  } finally {
+    resettingPasskey.value = false;
+  }
 }
 
-function handleChangePassword() {
-  feedback.value = '这是前端骨架，修改密码入口已预留，等待后端接口接入。';
-  passwordForm.currentPassword = '';
-  passwordForm.nextPassword = '';
+async function handleChangePassword() {
+  if (!passwordForm.currentPassword || !passwordForm.nextPassword) {
+    errorMessage.value = '请填写当前密码和新密码。';
+    feedback.value = '';
+    return;
+  }
+
+  errorMessage.value = '';
+  feedback.value = '';
+  savingPassword.value = true;
+
+  try {
+    await authStore.changePassword(passwordForm.currentPassword, passwordForm.nextPassword);
+    feedback.value = '密码已修改成功。';
+    passwordForm.currentPassword = '';
+    passwordForm.nextPassword = '';
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '修改密码失败';
+  } finally {
+    savingPassword.value = false;
+  }
 }
 </script>
 
@@ -32,6 +62,10 @@ function handleChangePassword() {
 
   <div v-if="feedback" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
     {{ feedback }}
+  </div>
+
+  <div v-if="errorMessage" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {{ errorMessage }}
   </div>
 
   <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -76,7 +110,9 @@ function handleChangePassword() {
           {{ authStore.currentUser?.passkey }}
         </p>
         <template #footer>
-          <UiButton variant="danger" @click="handleResetPasskey">重置 passkey</UiButton>
+          <UiButton variant="danger" :disabled="resettingPasskey" @click="handleResetPasskey">
+            {{ resettingPasskey ? '重置中...' : '重置 passkey' }}
+          </UiButton>
         </template>
       </AppCard>
 
@@ -92,10 +128,11 @@ function handleChangePassword() {
           </div>
         </div>
         <template #footer>
-          <UiButton variant="primary" @click="handleChangePassword">保存修改</UiButton>
+          <UiButton variant="primary" :disabled="savingPassword" @click="handleChangePassword">
+            {{ savingPassword ? '保存中...' : '保存修改' }}
+          </UiButton>
         </template>
       </AppCard>
     </div>
   </div>
 </template>
-

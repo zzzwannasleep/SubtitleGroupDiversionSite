@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import AppCard from '@/components/app/AppCard.vue';
+import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import AppStatusBadge from '@/components/app/AppStatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -12,8 +13,11 @@ import { createUser, listUsers } from '@/services/admin';
 import type { AdminUser } from '@/types/admin';
 
 const users = ref<AdminUser[]>([]);
+const loading = ref(true);
+const creating = ref(false);
 const search = ref('');
 const feedback = ref('');
+const errorMessage = ref('');
 const form = reactive({
   username: '',
   displayName: '',
@@ -22,29 +26,50 @@ const form = reactive({
 });
 
 async function loadUsers() {
-  users.value = await listUsers(search.value);
+  loading.value = true;
+  errorMessage.value = '';
+
+  try {
+    users.value = await listUsers(search.value);
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '加载用户列表失败';
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function handleCreateUser() {
-  const user = await createUser({
-    username: form.username,
-    displayName: form.displayName,
-    email: form.email,
-    role: form.role as 'admin' | 'uploader' | 'user',
-  });
-  feedback.value = `已创建用户：${user.username}`;
-  form.username = '';
-  form.displayName = '';
-  form.email = '';
-  form.role = 'user';
-  await loadUsers();
+  feedback.value = '';
+  errorMessage.value = '';
+  creating.value = true;
+
+  try {
+    const user = await createUser({
+      username: form.username,
+      displayName: form.displayName,
+      email: form.email,
+      role: form.role as 'admin' | 'uploader' | 'user',
+    });
+    feedback.value = user.initialPassword
+      ? `已创建用户 ${user.username}，初始密码：${user.initialPassword}`
+      : `已创建用户：${user.username}`;
+    form.username = '';
+    form.displayName = '';
+    form.email = '';
+    form.role = 'user';
+    await loadUsers();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '创建用户失败';
+  } finally {
+    creating.value = false;
+  }
 }
 
 onMounted(loadUsers);
 </script>
 
 <template>
-  <AppPageHeader title="用户管理" description="后台列表页采用搜索工具条 + 表格卡片模式。">
+  <AppPageHeader title="用户管理" description="支持搜索、建号、状态查看和详情入口。">
     <template #actions>
       <UiButton to="/admin/settings" variant="secondary">系统设置</UiButton>
     </template>
@@ -54,13 +79,18 @@ onMounted(loadUsers);
     {{ feedback }}
   </div>
 
+  <div v-if="errorMessage" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {{ errorMessage }}
+  </div>
+
   <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-    <AppCard title="用户列表" description="支持搜索、状态显示和详情入口。">
+    <AppCard title="用户列表" description="管理员可以按账号、显示名、邮箱和角色搜索。">
       <div class="mb-4 flex gap-3">
         <UiInput v-model="search" placeholder="搜索用户名 / 显示名 / 邮箱 / 角色" />
-        <UiButton variant="primary" @click="loadUsers">搜索</UiButton>
+        <UiButton variant="primary" :disabled="loading" @click="loadUsers">搜索</UiButton>
       </div>
-      <UiTable>
+      <AppLoading v-if="loading" />
+      <UiTable v-else>
         <thead>
           <tr>
             <th>用户</th>
@@ -91,7 +121,7 @@ onMounted(loadUsers);
       </UiTable>
     </AppCard>
 
-    <AppCard title="创建用户" description="延续“管理员建号”的站点模式。">
+    <AppCard title="创建用户" description="创建成功后会返回一次性的初始密码，便于管理员分发。">
       <div class="space-y-4">
         <div>
           <label class="app-field-label">用户名</label>
@@ -118,9 +148,10 @@ onMounted(loadUsers);
         </div>
       </div>
       <template #footer>
-        <UiButton variant="primary" @click="handleCreateUser">创建用户</UiButton>
+        <UiButton variant="primary" :disabled="creating" @click="handleCreateUser">
+          {{ creating ? '创建中...' : '创建用户' }}
+        </UiButton>
       </template>
     </AppCard>
   </div>
 </template>
-

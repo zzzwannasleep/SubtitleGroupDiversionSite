@@ -15,6 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function bootstrap() {
     if (isBootstrapped.value) return;
     isLoading.value = true;
+    errorMessage.value = '';
 
     try {
       currentUser.value = await authService.fetchMe();
@@ -65,6 +66,14 @@ export const useAuthStore = defineStore('auth', () => {
     return currentUser.value;
   }
 
+  async function changePassword(currentPassword: string, nextPassword: string) {
+    if (!currentUser.value) {
+      throw new Error('当前未登录');
+    }
+
+    await authService.changePassword(currentPassword, nextPassword);
+  }
+
   return {
     currentUser,
     isAuthenticated,
@@ -77,6 +86,6 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     resetPasskey,
+    changePassword,
   };
 });
-

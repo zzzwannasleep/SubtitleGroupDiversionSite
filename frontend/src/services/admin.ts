@@ -8,140 +8,108 @@ import type {
   ToggleUserStatusPayload,
 } from '@/types/admin';
 import type { Category, Release, Tag } from '@/types/release';
-import { mockRequest } from './api';
-import {
-  announcements,
-  appendAuditLog,
-  appendTrackerSyncLog,
-  auditLogs,
-  categories,
-  createUserRecord,
-  getDashboardStats,
-  getUserById,
-  releases,
-  resetPasskey,
-  saveAnnouncement,
-  saveCategory,
-  saveSettings,
-  saveTag,
-  siteSettings,
-  tags,
-  toggleUserStatus,
-  users,
-} from './mock-data';
+import { apiRequest, isApiError } from './api';
 
 export async function getAdminDashboard(): Promise<{
   stats: AdminDashboardStats;
   latestUsers: AdminUser[];
   latestReleases: Release[];
 }> {
-  return mockRequest(() => ({
-    stats: getDashboardStats(),
-    latestUsers: users.slice(0, 4),
-    latestReleases: releases.slice(0, 4),
-  }));
+  return apiRequest('/api/admin/dashboard/');
 }
 
 export async function listUsers(query = ''): Promise<AdminUser[]> {
-  return mockRequest(() => {
-    if (!query.trim()) return users;
-    const keyword = query.trim().toLowerCase();
-    return users.filter((item) =>
-      [item.username, item.displayName, item.email, item.role].some((field) => field.toLowerCase().includes(keyword)),
-    );
+  return apiRequest<AdminUser[]>('/api/admin/users/', {
+    query: { q: query.trim() || undefined },
   });
 }
 
 export async function getUserDetail(userId: number): Promise<AdminUser | null> {
-  return mockRequest(() => getUserById(userId) ?? null);
+  try {
+    return await apiRequest<AdminUser>(`/api/admin/users/${userId}/`);
+  } catch (error) {
+    if (isApiError(error) && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function createUser(payload: CreateUserPayload): Promise<AdminUser> {
-  return mockRequest(() => {
-    const user = createUserRecord(payload);
-    appendAuditLog({
-      actorName: '站务总控',
-      action: '创建用户',
-      targetType: '用户',
-      targetName: user.username,
-      detail: `角色：${user.role}`,
-    });
-    return user;
+  return apiRequest<AdminUser>('/api/admin/users/', {
+    method: 'POST',
+    body: payload,
   });
 }
 
 export async function changeUserStatus(payload: ToggleUserStatusPayload): Promise<AdminUser> {
-  return mockRequest(() => {
-    const user = toggleUserStatus(payload.userId, payload.nextStatus);
-    appendAuditLog({
-      actorName: '站务总控',
-      action: payload.nextStatus === 'active' ? '启用用户' : '禁用用户',
-      targetType: '用户',
-      targetName: user.username,
-      detail: `状态切换为 ${payload.nextStatus}`,
-    });
-    appendTrackerSyncLog({
-      scope: 'user',
-      targetName: user.username,
-      status: 'success',
-      message: '用户状态已同步到 XBT',
-    });
-    return user;
+  return apiRequest<AdminUser>(`/api/admin/users/${payload.userId}/status/`, {
+    method: 'POST',
+    body: { nextStatus: payload.nextStatus },
   });
 }
 
 export async function resetUserPasskey(userId: number): Promise<AdminUser> {
-  return mockRequest(() => {
-    const user = resetPasskey(userId);
-    appendAuditLog({
-      actorName: '站务总控',
-      action: '重置 passkey',
-      targetType: '用户',
-      targetName: user.username,
-      detail: '管理员手动触发重置。',
-    });
-    return user;
+  return apiRequest<AdminUser>(`/api/admin/users/${userId}/reset-passkey/`, {
+    method: 'POST',
   });
 }
 
 export async function listAnnouncements(): Promise<Announcement[]> {
-  return mockRequest(() => announcements);
+  return apiRequest<Announcement[]>('/api/admin/announcements/');
 }
 
 export async function listVisibleAnnouncements(): Promise<Announcement[]> {
-  return mockRequest(() => announcements.filter((item) => item.status === 'online'));
+  return apiRequest<Announcement[]>('/api/announcements/visible/');
 }
 
 export async function saveAnnouncementItem(
   payload: Pick<Announcement, 'title' | 'content' | 'status' | 'audience'> & Partial<Announcement>,
 ): Promise<Announcement> {
-  return mockRequest(() => saveAnnouncement(payload));
+  return apiRequest<Announcement>('/api/admin/announcements/', {
+    method: 'POST',
+    body: {
+      title: payload.title,
+      content: payload.content,
+      status: payload.status,
+      audience: payload.audience,
+    },
+  });
 }
 
 export async function listCategoriesAdmin(): Promise<Category[]> {
-  return mockRequest(() => categories);
+  return apiRequest<Category[]>('/api/admin/categories/');
 }
 
 export async function saveCategoryItem(payload: Pick<Category, 'name' | 'slug'> & Partial<Category>): Promise<Category> {
-  return mockRequest(() => saveCategory(payload));
+  return apiRequest<Category>('/api/admin/categories/', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export async function listTagsAdmin(): Promise<Tag[]> {
-  return mockRequest(() => tags);
+  return apiRequest<Tag[]>('/api/admin/tags/');
 }
 
 export async function saveTagItem(payload: Pick<Tag, 'name' | 'slug'> & Partial<Tag>): Promise<Tag> {
-  return mockRequest(() => saveTag(payload));
+  return apiRequest<Tag>('/api/admin/tags/', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export async function listAuditLogs(): Promise<AuditLog[]> {
-  return mockRequest(() => auditLogs);
+  return apiRequest<AuditLog[]>('/api/admin/audit-logs/');
 }
 
 export async function getSettings(): Promise<SiteSettings> {
-  return mockRequest(() => siteSettings);
+  return apiRequest<SiteSettings>('/api/admin/settings/');
 }
 
 export async function saveSiteSettings(payload: SiteSettings): Promise<SiteSettings> {
-  return mockRequest(() => saveSettings(payload));
+  return apiRequest<SiteSettings>('/api/admin/settings/', {
+    method: 'PUT',
+    body: payload,
+  });
 }

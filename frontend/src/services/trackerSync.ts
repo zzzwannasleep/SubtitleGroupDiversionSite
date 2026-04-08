@@ -1,19 +1,12 @@
 import type { TrackerSyncLog } from '@/types/admin';
-import { mockRequest } from './api';
-import { appendTrackerSyncLog, trackerSyncLogs } from './mock-data';
+import { apiRequest } from './api';
 
 export async function listTrackerSyncLogs(): Promise<TrackerSyncLog[]> {
-  return mockRequest(() => trackerSyncLogs);
+  return apiRequest<TrackerSyncLog[]>('/api/admin/tracker-sync/logs/');
 }
 
 export async function runFullTrackerSync(): Promise<TrackerSyncLog> {
-  return mockRequest(() =>
-    appendTrackerSyncLog({
-      scope: 'full',
-      targetName: '全量同步',
-      status: 'success',
-      message: '已按用户状态和资源白名单重新写入 XBT',
-    }),
-  );
+  return apiRequest<TrackerSyncLog>('/api/admin/tracker-sync/full/', {
+    method: 'POST',
+  });
 }
-

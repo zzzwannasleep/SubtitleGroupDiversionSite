@@ -56,7 +56,7 @@ onMounted(loadData);
   </AppPageHeader>
 
   <AppLoading v-if="loading" />
-  <AppError v-else-if="failed" title="首页加载失败" description="请重试或检查 Mock 服务层。" />
+  <AppError v-else-if="failed" title="首页加载失败" description="请重试或检查后端 API 是否可用。" />
   <template v-else>
     <div class="grid gap-6 xl:grid-cols-[2fr_1fr]">
       <AppCard title="最新资源" description="首页直接给出最新发布与快速下载入口。">
@@ -111,4 +111,3 @@ onMounted(loadData);
     </div>
   </template>
 </template>
-

@@ -1,124 +1,126 @@
 import type { CurrentUser } from '@/types/auth';
-import type { DownloadRecord, PagedResult, Release, ReleaseFormPayload, ReleaseQuery } from '@/types/release';
-import { mockRequest } from './api';
-import {
-  categories,
-  createReleaseFromPayload,
-  downloadLogs,
-  releases,
-  tags,
-  updateReleaseData,
-  updateReleaseVisibility,
-} from './mock-data';
+import type { Category, DownloadRecord, PagedResult, Release, ReleaseFormPayload, ReleaseQuery, Tag } from '@/types/release';
+import { apiRequest, buildApiUrl, isApiError } from './api';
 
-function applyQuery(items: Release[], query: ReleaseQuery = {}): PagedResult<Release> {
-  const keyword = query.q?.trim().toLowerCase();
-  const page = query.page ?? 1;
-  const pageSize = query.pageSize ?? 5;
-  let results = [...items];
-
-  if (keyword) {
-    results = results.filter((item) =>
-      [item.title, item.subtitle, item.description].some((field) => field.toLowerCase().includes(keyword)),
-    );
-  }
-
-  if (query.category) {
-    results = results.filter((item) => item.category.slug === query.category);
-  }
-
-  if (query.tag) {
-    results = results.filter((item) => item.tags.some((tag) => tag.slug === query.tag));
-  }
-
-  if (query.ownerId) {
-    results = results.filter((item) => item.createdBy.id === query.ownerId);
-  }
-
-  if (query.status && query.status !== 'all') {
-    results = results.filter((item) => item.status === query.status);
-  }
-
-  if (query.sort === 'downloads') {
-    results.sort((left, right) => right.downloadCount - left.downloadCount);
-  } else if (query.sort === 'completions') {
-    results.sort((left, right) => right.completionCount - left.completionCount);
-  } else {
-    results.sort((left, right) => +new Date(right.publishedAt) - +new Date(left.publishedAt));
-  }
-
-  const start = (page - 1) * pageSize;
-
-  return {
-    count: results.length,
-    page,
-    pageSize,
-    results: results.slice(start, start + pageSize),
-  };
+interface PaginatedReleaseResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  page: number;
+  pageSize: number;
+  results: T[];
 }
 
 export async function listReleases(query: ReleaseQuery = {}): Promise<PagedResult<Release>> {
-  return mockRequest(() => applyQuery(releases.filter((item) => item.status !== 'hidden'), query));
+  return apiRequest<PaginatedReleaseResponse<Release>>('/api/releases/', { query });
 }
 
 export async function listAdminReleases(query: ReleaseQuery = {}): Promise<PagedResult<Release>> {
-  return mockRequest(() => applyQuery(releases, query));
+  return apiRequest<PaginatedReleaseResponse<Release>>('/api/admin/releases/', { query });
 }
 
 export async function getReleaseById(releaseId: number): Promise<Release | null> {
-  return mockRequest(() => releases.find((item) => item.id === releaseId) ?? null);
+  try {
+    return await apiRequest<Release>(`/api/releases/${releaseId}/`);
+  } catch (error) {
+    if (isApiError(error) && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function getHomeData(): Promise<{
   latestReleases: Release[];
-  categories: typeof categories;
-  tags: typeof tags;
+  categories: Category[];
+  tags: Tag[];
 }> {
-  return mockRequest(() => ({
-    latestReleases: releases.filter((item) => item.status === 'published').slice(0, 5),
-    categories,
-    tags,
-  }));
+  return apiRequest('/api/home/');
 }
 
-export async function listCategories() {
-  return mockRequest(() => categories);
+export async function listCategories(): Promise<Category[]> {
+  return apiRequest<Category[]>('/api/categories/');
 }
 
-export async function listTags() {
-  return mockRequest(() => tags);
+export async function listTags(): Promise<Tag[]> {
+  return apiRequest<Tag[]>('/api/tags/');
 }
 
-export async function listMyReleases(userId: number): Promise<Release[]> {
-  return mockRequest(() => releases.filter((item) => item.createdBy.id === userId));
+export async function listMyReleases(_userId: number): Promise<Release[]> {
+  return apiRequest<Release[]>('/api/me/releases/');
 }
 
-export async function listMyDownloads(userId: number): Promise<DownloadRecord[]> {
-  return mockRequest(() => downloadLogs.filter((item) => item.downloaderId === userId));
+export async function listMyDownloads(_userId: number): Promise<DownloadRecord[]> {
+  return apiRequest<DownloadRecord[]>('/api/me/downloads/');
 }
 
-export async function createRelease(payload: ReleaseFormPayload, user: CurrentUser): Promise<Release> {
-  return mockRequest(() =>
-    createReleaseFromPayload({
-      ...payload,
-      createdBy: user,
-      status: payload.status ?? 'published',
-    }),
-  );
+export async function createRelease(payload: ReleaseFormPayload, _user: CurrentUser): Promise<Release> {
+  if (!payload.torrentFile) {
+    throw new Error('请选择要上传的 .torrent 文件');
+  }
+
+  const formData = new FormData();
+  formData.set('title', payload.title);
+  formData.set('subtitle', payload.subtitle);
+  formData.set('description', payload.description);
+  formData.set('categorySlug', payload.categorySlug);
+  formData.set('status', payload.status ?? 'published');
+  formData.set('torrentFile', payload.torrentFile, payload.torrentFile.name);
+
+  for (const tagSlug of payload.tagSlugs) {
+    formData.append('tagSlugs', tagSlug);
+  }
+
+  return apiRequest<Release>('/api/releases/', {
+    method: 'POST',
+    body: formData,
+  });
 }
 
 export async function editRelease(releaseId: number, payload: ReleaseFormPayload): Promise<Release> {
-  return mockRequest(() =>
-    updateReleaseData(releaseId, {
+  if (payload.torrentFile) {
+    const formData = new FormData();
+    formData.set('title', payload.title);
+    formData.set('subtitle', payload.subtitle);
+    formData.set('description', payload.description);
+    formData.set('categorySlug', payload.categorySlug);
+    formData.set('status', payload.status ?? 'published');
+    formData.set('torrentFile', payload.torrentFile, payload.torrentFile.name);
+
+    for (const tagSlug of payload.tagSlugs) {
+      formData.append('tagSlugs', tagSlug);
+    }
+
+    return apiRequest<Release>(`/api/releases/${releaseId}/`, {
+      method: 'PATCH',
+      body: formData,
+    });
+  }
+
+  return apiRequest<Release>(`/api/releases/${releaseId}/`, {
+    method: 'PATCH',
+    body: {
       title: payload.title,
       subtitle: payload.subtitle,
       description: payload.description,
+      categorySlug: payload.categorySlug,
+      tagSlugs: payload.tagSlugs,
       status: payload.status ?? 'published',
-    }),
-  );
+    },
+  });
 }
 
 export async function toggleReleaseStatus(releaseId: number, nextStatus: 'published' | 'hidden'): Promise<Release> {
-  return mockRequest(() => updateReleaseVisibility(releaseId, nextStatus));
+  return apiRequest<Release>(`/api/releases/${releaseId}/visibility/`, {
+    method: 'POST',
+    body: { status: nextStatus },
+  });
 }
 
+export function getReleaseDownloadUrl(releaseId: number) {
+  return buildApiUrl(`/api/releases/${releaseId}/download/`);
+}
+
+export function downloadRelease(releaseId: number) {
+  window.location.assign(getReleaseDownloadUrl(releaseId));
+}
