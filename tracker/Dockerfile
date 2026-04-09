@@ -10,6 +10,7 @@ RUN apt-get update \
         ca-certificates \
         cmake \
         default-libmysqlclient-dev \
+        default-mysql-client \
         g++ \
         git \
         libboost-dev \

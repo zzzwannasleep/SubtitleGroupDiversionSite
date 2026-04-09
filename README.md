@@ -37,7 +37,7 @@
 frontend/   Vue 前端
 backend/    Django 后端
 tracker/    XBT Tracker 镜像构建文件
-deploy/     生产部署骨架、Compose、Nginx、脚本
+deploy/     Docker Compose、Nginx 和部署补充文件
 docs/       设计与部署规范
 ```
 
@@ -69,34 +69,33 @@ python backend/manage.py runserver
 
 ## 生产部署
 
-生产部署骨架在 `deploy/` 目录，目标流程保持为：
+直接使用 `deploy/docker-compose.yml` 就可以部署，不再要求额外的 `.env` 文件或初始化脚本。
 
-1. 复制 `deploy/.env.example` 为 `deploy/.env`
-2. 修改少量必要变量
-3. 生成 XBT 配置
-4. `docker compose pull`
-5. `docker compose up -d`
-
-推荐直接使用：
+1. 打开 `deploy/docker-compose.yml`
+2. 修改顶部这几个配置块里的示例值：
+   - `x-site-env`
+   - `x-db-env`
+   - `x-xbt-env`
+3. 执行：
 
 ```bash
-sh deploy/scripts/init.sh
+docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-初始化脚本会：
+首次启动时会自动完成：
 
-- 检查并创建 `deploy/.env`
-- 生成 `deploy/xbt/xbt_tracker.conf`
-- 拉取镜像
-- 启动容器
-- 导入 XBT 数据表结构
-- 执行 Django 数据库迁移
+- Django 数据库迁移
+- Django 静态文件收集
+- XBT 配置文件生成
+- XBT 数据表结构导入
 
-完成后再执行：
+然后执行：
 
 ```bash
 docker compose -f deploy/docker-compose.yml exec backend python manage.py createsuperuser
 ```
+
+如果你改了 `XBT_TRACKER_PORT`，记得把 `deploy/docker-compose.yml` 里 `xbt.ports` 的端口映射一起改掉。
 
 更多部署细节见：
 
@@ -120,6 +119,8 @@ docker compose -f deploy/docker-compose.yml exec backend python manage.py create
 
 - `main-<short_sha>`
 - `v1.0.0`
+
+默认部署文档走本地 `docker compose build` 路径，GHCR 镜像主要用于 CI 分发与后续扩展。
 
 ## 关键约束
 
