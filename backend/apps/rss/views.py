@@ -1,18 +1,45 @@
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view, inline_serializer
+from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.views import APIView
 
 from apps.common.permissions import IsActiveAuthenticated
 from apps.common.responses import success_response
+from apps.common.schema import success_response_schema
 from apps.common.throttles import RssFeedThrottle
 from apps.releases.models import Category, Release, Tag
 from apps.rss.services import RssService
 
 
 @extend_schema_view(
-    get=extend_schema(summary="获取 RSS 概览和订阅地址", tags=["RSS"]),
+    get=extend_schema(
+        operation_id="rss_overview",
+        summary="获取 RSS 概览和订阅地址",
+        tags=["RSS"],
+        responses=success_response_schema(
+            "RssOverviewResponse",
+            inline_serializer(
+                name="RssOverviewData",
+                fields={
+                    "generalFeed": serializers.URLField(),
+                    "categoryFeeds": inline_serializer(
+                        name="RssCategoryFeedItem",
+                        fields={"label": serializers.CharField(), "url": serializers.URLField()},
+                        many=True,
+                    ),
+                    "tagFeeds": inline_serializer(
+                        name="RssTagFeedItem",
+                        fields={"label": serializers.CharField(), "url": serializers.URLField()},
+                        many=True,
+                    ),
+                    "recentReleaseTitles": serializers.ListField(child=serializers.CharField()),
+                },
+            ),
+        ),
+    ),
 )
 class RssOverviewView(APIView):
     permission_classes = [IsActiveAuthenticated]
@@ -40,9 +67,16 @@ class BaseFeedView(APIView):
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="rss_all_feed",
         summary="获取全部资源 RSS",
         tags=["RSS"],
         parameters=[OpenApiParameter(name="passkey", description="RSS 访问使用的 passkey。", type=str)],
+        responses={
+            (200, "application/rss+xml"): OpenApiResponse(
+                response=OpenApiTypes.STR,
+                description="全部资源 RSS XML 内容。",
+            )
+        },
     ),
 )
 class AllFeedView(BaseFeedView):
@@ -54,9 +88,16 @@ class AllFeedView(BaseFeedView):
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="rss_category_feed",
         summary="获取分类 RSS",
         tags=["RSS"],
         parameters=[OpenApiParameter(name="passkey", description="RSS 访问使用的 passkey。", type=str)],
+        responses={
+            (200, "application/rss+xml"): OpenApiResponse(
+                response=OpenApiTypes.STR,
+                description="分类 RSS XML 内容。",
+            )
+        },
     ),
 )
 class CategoryFeedView(BaseFeedView):
@@ -69,9 +110,16 @@ class CategoryFeedView(BaseFeedView):
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="rss_tag_feed",
         summary="获取标签 RSS",
         tags=["RSS"],
         parameters=[OpenApiParameter(name="passkey", description="RSS 访问使用的 passkey。", type=str)],
+        responses={
+            (200, "application/rss+xml"): OpenApiResponse(
+                response=OpenApiTypes.STR,
+                description="标签 RSS XML 内容。",
+            )
+        },
     ),
 )
 class TagFeedView(BaseFeedView):

@@ -4,6 +4,8 @@ from apps.users.views import (
     AdminDashboardView,
     AdminTrackerSyncUserView,
     AdminUserDetailView,
+    AdminUserDisableView,
+    AdminUserEnableView,
     AdminUserListCreateView,
     AdminUserResetPasskeyView,
     AdminUserStatusView,
@@ -17,6 +19,8 @@ urlpatterns = [
     path("admin/users/", AdminUserListCreateView.as_view(), name="admin-users"),
     path("admin/users/<int:user_id>/", AdminUserDetailView.as_view(), name="admin-user-detail"),
     path("admin/users/<int:user_id>/status/", AdminUserStatusView.as_view(), name="admin-user-status"),
+    path("admin/users/<int:user_id>/disable/", AdminUserDisableView.as_view(), name="admin-user-disable"),
+    path("admin/users/<int:user_id>/enable/", AdminUserEnableView.as_view(), name="admin-user-enable"),
     path(
         "admin/users/<int:user_id>/reset-passkey/",
         AdminUserResetPasskeyView.as_view(),

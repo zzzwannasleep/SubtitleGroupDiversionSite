@@ -12,9 +12,11 @@ class AnnouncementSerializer(serializers.ModelSerializer):
 
 
 class AnnouncementWriteSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+
     class Meta:
         model = Announcement
-        fields = ("title", "content", "status", "audience")
+        fields = ("id", "title", "content", "status", "audience")
 
 
 class SiteSettingSerializer(serializers.ModelSerializer):

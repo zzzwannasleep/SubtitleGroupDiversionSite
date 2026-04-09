@@ -50,6 +50,39 @@ class UserService:
         return user
 
     @staticmethod
+    def update_user(*, actor, user: User, display_name: str | None = None, email: str | None = None, role: str | None = None):
+        changed_fields: list[str] = []
+        changed_payload: dict[str, str] = {}
+
+        if display_name is not None and display_name != user.display_name:
+            user.display_name = display_name
+            changed_fields.append("display_name")
+            changed_payload["display_name"] = display_name
+        if email is not None and email != user.email:
+            user.email = email
+            changed_fields.append("email")
+            changed_payload["email"] = email
+        if role is not None and role != user.role:
+            user.role = role
+            changed_fields.append("role")
+            changed_payload["role"] = role
+
+        if not changed_fields:
+            return user
+
+        with transaction.atomic():
+            user.save(update_fields=changed_fields)
+            AuditService.log(
+                actor,
+                "更新用户",
+                "用户",
+                user.username,
+                detail=f"更新字段：{', '.join(changed_fields)}",
+                payload={"user_id": user.id, "changes": changed_payload},
+            )
+        return user
+
+    @staticmethod
     def reset_passkey(*, actor, user: User):
         with transaction.atomic():
             user.passkey = generate_passkey()

@@ -1,11 +1,13 @@
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from apps.common.permissions import IsActiveAuthenticated
 from apps.common.responses import success_response
+from apps.common.schema import success_response_schema
 from apps.common.throttles import TorrentDownloadThrottle
 from apps.downloads.models import DownloadLog
 from apps.downloads.serializers import DownloadLogSerializer
@@ -15,11 +17,18 @@ from apps.releases.models import Release
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="releases_download_torrent",
         summary="下载个性化 torrent",
         tags=["Downloads"],
         parameters=[
             OpenApiParameter(name="passkey", description="未登录时可通过 passkey 下载个性化 torrent。", type=str),
         ],
+        responses={
+            (200, "application/x-bittorrent"): OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="已注入个人 announce 地址的 torrent 文件。",
+            )
+        },
     ),
 )
 class ReleaseDownloadView(APIView):
@@ -38,7 +47,12 @@ class ReleaseDownloadView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(summary="获取当前用户下载记录", tags=["Downloads"]),
+    get=extend_schema(
+        operation_id="users_download_logs",
+        summary="获取当前用户下载记录",
+        tags=["Downloads"],
+        responses=success_response_schema("DownloadLogListResponse", DownloadLogSerializer(many=True)),
+    ),
 )
 class MyDownloadListView(APIView):
     permission_classes = [IsActiveAuthenticated]

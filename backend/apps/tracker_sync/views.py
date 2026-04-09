@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from apps.audit.services import AuditService
 from apps.common.permissions import IsAdminRole
 from apps.common.responses import success_response
+from apps.common.schema import success_response_schema
 from apps.releases.models import Release
 from apps.tracker_sync.models import TrackerSyncLog, TrackerSyncScope, TrackerSyncStatus
 from apps.tracker_sync.serializers import TrackerSyncLogSerializer
@@ -14,6 +15,7 @@ from apps.tracker_sync.services import TrackerSyncService
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="tracker_sync_logs_list",
         summary="获取 XBT 同步日志",
         tags=["Tracker Sync"],
         parameters=[
@@ -22,6 +24,7 @@ from apps.tracker_sync.services import TrackerSyncService
             OpenApiParameter(name="q", description="按目标名称或说明搜索。", type=str),
             OpenApiParameter(name="limit", description="返回条数，默认 100，最大 200。", type=int),
         ],
+        responses=success_response_schema("TrackerSyncLogListResponse", TrackerSyncLogSerializer(many=True)),
     ),
 )
 class TrackerSyncLogListView(APIView):
@@ -47,7 +50,13 @@ class TrackerSyncLogListView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(summary="执行全量 XBT 同步", tags=["Tracker Sync"]),
+    post=extend_schema(
+        operation_id="tracker_sync_full_run",
+        summary="执行全量 XBT 同步",
+        tags=["Tracker Sync"],
+        request=None,
+        responses=success_response_schema("TrackerSyncFullResponse", TrackerSyncLogSerializer),
+    ),
 )
 class TrackerSyncFullView(APIView):
     permission_classes = [IsAdminRole]
@@ -66,7 +75,13 @@ class TrackerSyncFullView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(summary="同步指定资源到 XBT", tags=["Tracker Sync"]),
+    post=extend_schema(
+        operation_id="tracker_sync_release_run",
+        summary="同步指定资源到 XBT",
+        tags=["Tracker Sync"],
+        request=None,
+        responses=success_response_schema("TrackerSyncReleaseResponse", TrackerSyncLogSerializer),
+    ),
 )
 class TrackerSyncReleaseView(APIView):
     permission_classes = [IsAdminRole]

@@ -1,5 +1,11 @@
+import json
+import os
+import tempfile
+from io import StringIO
+
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
+from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
@@ -30,11 +36,37 @@ class ApiFlowTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         existing_tables = set(connection.introspection.table_names())
-        with connection.schema_editor() as schema_editor:
-            for model in (XbtUserMirror, XbtFileMirror):
-                if model._meta.db_table not in existing_tables:
-                    schema_editor.create_model(model)
-                    existing_tables.add(model._meta.db_table)
+        with connection.cursor() as cursor:
+            if XbtUserMirror._meta.db_table not in existing_tables:
+                cursor.execute(
+                    """
+                    CREATE TABLE xbt_users (
+                        uid INTEGER PRIMARY KEY,
+                        torrent_pass VARCHAR(32) NOT NULL UNIQUE,
+                        can_leech BOOLEAN NOT NULL DEFAULT 1,
+                        downloaded BIGINT NOT NULL DEFAULT 0,
+                        uploaded BIGINT NOT NULL DEFAULT 0,
+                        completed INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+                existing_tables.add(XbtUserMirror._meta.db_table)
+            if XbtFileMirror._meta.db_table not in existing_tables:
+                cursor.execute(
+                    """
+                    CREATE TABLE xbt_torrents (
+                        tid INTEGER PRIMARY KEY AUTOINCREMENT,
+                        info_hash BLOB NOT NULL UNIQUE,
+                        leechers INTEGER NOT NULL DEFAULT 0,
+                        seeders INTEGER NOT NULL DEFAULT 0,
+                        completed INTEGER NOT NULL DEFAULT 0,
+                        flags INTEGER NOT NULL DEFAULT 0,
+                        mtime INTEGER NOT NULL DEFAULT 0,
+                        ctime INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+                existing_tables.add(XbtFileMirror._meta.db_table)
 
     def setUp(self):
         self.client = APIClient()
@@ -251,6 +283,43 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.json()["message"], "参数校验失败。")
         self.assertEqual(response.json()["errors"], {"username": ["该用户名已存在。"]})
 
+    def test_admin_can_update_user_profile_fields(self):
+        self.client.force_login(self.admin)
+        response = self.client.patch(
+            f"/api/admin/users/{self.user.id}/",
+            {
+                "displayName": "更新后的用户",
+                "email": "updated-user@example.com",
+                "role": "uploader",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.display_name, "更新后的用户")
+        self.assertEqual(self.user.email, "updated-user@example.com")
+        self.assertEqual(self.user.role, "uploader")
+        self.assertTrue(AuditLog.objects.filter(action="更新用户", target_name=self.user.username).exists())
+
+    def test_admin_can_disable_and_enable_user_with_explicit_routes(self):
+        self.client.force_login(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            disable = self.client.post(f"/api/admin/users/{self.user.id}/disable/")
+        self.assertEqual(disable.status_code, 200, disable.json())
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.status, "disabled")
+        self.assertFalse(XbtUserMirror.objects.get(uid=self.user.id).can_leech)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            enable = self.client.post(f"/api/admin/users/{self.user.id}/enable/")
+        self.assertEqual(enable.status_code, 200, enable.json())
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.status, "active")
+        self.assertTrue(XbtUserMirror.objects.get(uid=self.user.id).can_leech)
+
     def test_request_logging_redacts_passkey(self):
         self.create_release()
         with self.assertLogs("apps.request", level="INFO") as captured:
@@ -350,3 +419,28 @@ class ApiFlowTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.theme_mode, "light")
         self.assertEqual(self.user.theme_custom_css, ":root { --primary: 16 185 129; }")
+
+    def test_openapi_schema_validates_and_describes_core_contracts(self):
+        fd, schema_path = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        try:
+            call_command(
+                "spectacular",
+                format="openapi-json",
+                file=schema_path,
+                validate=True,
+                fail_on_warn=True,
+                stdout=StringIO(),
+                stderr=StringIO(),
+            )
+
+            with open(schema_path, "r", encoding="utf-8") as handle:
+                schema = json.load(handle)
+        finally:
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+
+        self.assertIn("/api/releases/", schema["paths"])
+        self.assertIn("/api/admin/tracker-sync/full/", schema["paths"])
+        self.assertIn("sessionCookieAuth", schema["components"]["securitySchemes"])
+        self.assertIn("multipart/form-data", schema["paths"]["/api/releases/"]["post"]["requestBody"]["content"])

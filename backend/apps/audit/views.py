@@ -6,10 +6,12 @@ from apps.audit.models import AuditLog
 from apps.audit.serializers import AuditLogSerializer
 from apps.common.permissions import IsAdminRole
 from apps.common.responses import success_response
+from apps.common.schema import success_response_schema
 
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="admin_audit_logs_list",
         summary="获取审计日志",
         tags=["Audit"],
         parameters=[
@@ -17,6 +19,7 @@ from apps.common.responses import success_response
             OpenApiParameter(name="targetType", description="按对象类型筛选。", type=str),
             OpenApiParameter(name="limit", description="返回条数，默认 100，最大 200。", type=int),
         ],
+        responses=success_response_schema("AuditLogListResponse", AuditLogSerializer(many=True)),
     ),
 )
 class AuditLogListView(APIView):

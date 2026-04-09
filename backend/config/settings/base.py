@@ -175,6 +175,15 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": "/api",
+    "ENUM_NAME_OVERRIDES": {
+        "UserRoleEnum": [("admin", "管理员"), ("uploader", "上传者"), ("user", "普通用户")],
+        "UserStatusEnum": [("active", "正常"), ("disabled", "禁用")],
+        "ReleaseStatusEnum": [("draft", "草稿"), ("published", "已发布"), ("hidden", "已隐藏")],
+        "AnnouncementStatusEnum": [("online", "上线"), ("draft", "草稿"), ("offline", "下线")],
+        "AnnouncementAudienceEnum": [("all", "全部"), ("uploader", "上传者"), ("admin", "管理员")],
+        "TrackerSyncScopeEnum": [("user", "用户"), ("release", "资源"), ("full", "全量")],
+        "TrackerSyncStatusEnum": [("success", "成功"), ("warning", "警告"), ("failed", "失败")],
+    },
 }
 
 AUTH_PASSWORD_VALIDATORS = [

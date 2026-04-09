@@ -11,6 +11,7 @@ from apps.announcements.serializers import (
 from apps.audit.services import AuditService
 from apps.common.permissions import IsActiveAuthenticated, IsAdminRole
 from apps.common.responses import success_response
+from apps.common.schema import success_response_schema
 
 
 def allowed_audiences_for_role(role: str):
@@ -22,7 +23,12 @@ def allowed_audiences_for_role(role: str):
 
 
 @extend_schema_view(
-    get=extend_schema(summary="获取当前用户可见公告", tags=["Announcements"]),
+    get=extend_schema(
+        operation_id="announcements_visible_list",
+        summary="获取当前用户可见公告",
+        tags=["Announcements"],
+        responses=success_response_schema("VisibleAnnouncementListResponse", AnnouncementSerializer(many=True)),
+    ),
 )
 class VisibleAnnouncementListView(APIView):
     permission_classes = [IsActiveAuthenticated]
@@ -35,8 +41,19 @@ class VisibleAnnouncementListView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(summary="获取后台公告列表", tags=["Admin Announcements"]),
-    post=extend_schema(summary="创建或更新公告", tags=["Admin Announcements"]),
+    get=extend_schema(
+        operation_id="admin_announcements_list",
+        summary="获取后台公告列表",
+        tags=["Admin Announcements"],
+        responses=success_response_schema("AdminAnnouncementListResponse", AnnouncementSerializer(many=True)),
+    ),
+    post=extend_schema(
+        operation_id="admin_announcements_save",
+        summary="创建或更新公告",
+        tags=["Admin Announcements"],
+        request=AnnouncementWriteSerializer,
+        responses=success_response_schema("AdminAnnouncementSaveResponse", AnnouncementSerializer),
+    ),
 )
 class AdminAnnouncementListCreateView(APIView):
     permission_classes = [IsAdminRole]
@@ -65,8 +82,19 @@ class AdminAnnouncementListCreateView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(summary="获取站点设置", tags=["Admin Settings"]),
-    put=extend_schema(summary="更新站点设置", tags=["Admin Settings"]),
+    get=extend_schema(
+        operation_id="admin_settings_retrieve",
+        summary="获取站点设置",
+        tags=["Admin Settings"],
+        responses=success_response_schema("AdminSiteSettingResponse", SiteSettingSerializer),
+    ),
+    put=extend_schema(
+        operation_id="admin_settings_update",
+        summary="更新站点设置",
+        tags=["Admin Settings"],
+        request=SiteSettingSerializer,
+        responses=success_response_schema("AdminSiteSettingUpdateResponse", SiteSettingSerializer),
+    ),
 )
 class SiteSettingView(APIView):
     permission_classes = [IsAdminRole]
@@ -88,4 +116,3 @@ class SiteSettingView(APIView):
             payload={"site_setting_id": setting.id},
         )
         return success_response(serializer.data, message="站点设置已保存。")
-

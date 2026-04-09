@@ -1,5 +1,7 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.tracker_sync.serializers import TrackerSyncSnapshotSerializer, XbtUserSnapshotSerializer
 from apps.users.models import User, UserRole, UserStatus
 
 
@@ -24,7 +26,8 @@ class CurrentUserSerializer(UserSummarySerializer):
             "joinedAt",
         )
 
-    def get_lastLoginAt(self, obj):
+    @extend_schema_field(serializers.DateTimeField())
+    def get_lastLoginAt(self, obj) -> str:
         # Frontend date formatting assumes a string value, so we fall back to joined time
         # for users who have not logged in yet.
         return (obj.last_login or obj.date_joined).isoformat()
@@ -36,8 +39,16 @@ class AdminUserSerializer(CurrentUserSerializer):
     class Meta(CurrentUserSerializer.Meta):
         fields = CurrentUserSerializer.Meta.fields + ("createdReleaseCount",)
 
-    def get_createdReleaseCount(self, obj):
+    @extend_schema_field(serializers.IntegerField())
+    def get_createdReleaseCount(self, obj) -> int:
         return getattr(obj, "created_release_count", None) or obj.created_releases.count()
+
+
+class AdminUserCreateSerializer(AdminUserSerializer):
+    initialPassword = serializers.CharField()
+
+    class Meta(AdminUserSerializer.Meta):
+        fields = AdminUserSerializer.Meta.fields + ("initialPassword",)
 
 
 class AdminUserDetailSerializer(AdminUserSerializer):
@@ -58,9 +69,11 @@ class AdminUserDetailSerializer(AdminUserSerializer):
             cache[obj.pk] = TrackerSyncService.get_user_sync_snapshot(obj)
         return cache[obj.pk]
 
+    @extend_schema_field(TrackerSyncSnapshotSerializer)
     def get_trackerSync(self, obj):
         return self._get_sync_snapshot(obj)["trackerSync"]
 
+    @extend_schema_field(XbtUserSnapshotSerializer)
     def get_xbtUser(self, obj):
         return self._get_sync_snapshot(obj)["xbtUser"]
 
@@ -77,6 +90,17 @@ class CreateUserSerializer(serializers.Serializer):
         return value
 
 
+class UpdateUserSerializer(serializers.Serializer):
+    displayName = serializers.CharField(max_length=100, required=False)
+    email = serializers.EmailField(required=False)
+    role = serializers.ChoiceField(choices=UserRole.choices, required=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("至少提供一个可更新字段。")
+        return attrs
+
+
 class ChangeUserStatusSerializer(serializers.Serializer):
     nextStatus = serializers.ChoiceField(choices=UserStatus.choices)
 
@@ -88,3 +112,11 @@ class SelfThemeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("mode", "customCss")
+
+
+class AdminDashboardStatsSerializer(serializers.Serializer):
+    userCount = serializers.IntegerField()
+    releaseCount = serializers.IntegerField()
+    activeReleaseCount = serializers.IntegerField()
+    pendingSyncCount = serializers.IntegerField()
+    activeAnnouncementCount = serializers.IntegerField()

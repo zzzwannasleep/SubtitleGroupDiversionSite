@@ -7,12 +7,19 @@ from rest_framework.views import APIView
 from apps.authx.serializers import ChangePasswordSerializer, LoginSerializer
 from apps.common.permissions import IsActiveAuthenticated
 from apps.common.responses import success_response
+from apps.common.schema import success_response_schema
 from apps.common.throttles import LoginRateThrottle
 from apps.users.serializers import CurrentUserSerializer
 
 
 @extend_schema_view(
-    post=extend_schema(summary="登录并建立 Session 会话", tags=["Auth"]),
+    post=extend_schema(
+        operation_id="auth_login",
+        summary="登录并建立 Session 会话",
+        tags=["Auth"],
+        request=LoginSerializer,
+        responses=success_response_schema("AuthLoginResponse", CurrentUserSerializer),
+    ),
 )
 class LoginView(APIView):
     authentication_classes = []
@@ -36,7 +43,13 @@ class LoginView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(summary="退出当前会话", tags=["Auth"]),
+    post=extend_schema(
+        operation_id="auth_logout",
+        summary="退出当前会话",
+        tags=["Auth"],
+        request=None,
+        responses=success_response_schema("AuthLogoutResponse"),
+    ),
 )
 class LogoutView(APIView):
     permission_classes = [IsActiveAuthenticated]
@@ -47,7 +60,12 @@ class LogoutView(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(summary="获取当前登录用户信息", tags=["Auth"]),
+    get=extend_schema(
+        operation_id="auth_me",
+        summary="获取当前登录用户信息",
+        tags=["Auth"],
+        responses=success_response_schema("AuthMeResponse", CurrentUserSerializer),
+    ),
 )
 class MeView(APIView):
     permission_classes = [IsActiveAuthenticated]
@@ -57,7 +75,13 @@ class MeView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(summary="修改当前登录用户密码", tags=["Auth"]),
+    post=extend_schema(
+        operation_id="auth_change_password",
+        summary="修改当前登录用户密码",
+        tags=["Auth"],
+        request=ChangePasswordSerializer,
+        responses=success_response_schema("AuthChangePasswordResponse"),
+    ),
 )
 class ChangePasswordView(APIView):
     permission_classes = [IsActiveAuthenticated]

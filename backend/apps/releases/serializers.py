@@ -1,5 +1,7 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.tracker_sync.serializers import TrackerSyncSnapshotSerializer, XbtFileSnapshotSerializer
 from apps.releases.models import Category, Release, ReleaseFile, Tag
 from apps.users.serializers import UserSummarySerializer
 
@@ -63,7 +65,8 @@ class ReleaseSerializer(serializers.ModelSerializer):
             "activePeers",
         )
 
-    def get_publishedAt(self, obj):
+    @extend_schema_field(serializers.DateTimeField())
+    def get_publishedAt(self, obj) -> str:
         # Draft resources still need a stable display/sort timestamp for the current frontend contract.
         return (obj.published_at or obj.created_at).isoformat()
 
@@ -93,11 +96,13 @@ class ReleaseDetailSerializer(ReleaseSerializer):
             cache[obj.pk] = TrackerSyncService.get_release_sync_snapshot(obj)
         return cache[obj.pk]
 
+    @extend_schema_field(TrackerSyncSnapshotSerializer)
     def get_trackerSync(self, obj):
         if not self._can_view_tracker_data(obj):
             return None
         return self._get_sync_snapshot(obj)["trackerSync"]
 
+    @extend_schema_field(XbtFileSnapshotSerializer)
     def get_xbtFile(self, obj):
         if not self._can_view_tracker_data(obj):
             return None
