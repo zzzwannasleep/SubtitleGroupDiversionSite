@@ -1,4 +1,5 @@
 import type { CurrentUser, UserRole, UserStatus } from './auth';
+import type { ReleaseStatus, XbtFileSnapshot } from './release';
 
 export type SyncStatus = 'success' | 'warning' | 'failed';
 export type AnnouncementStatus = 'online' | 'draft' | 'offline';
@@ -25,6 +26,10 @@ export interface AdminUser extends CurrentUser {
   xbtUser?: XbtUserSnapshot | null;
 }
 
+export interface ApiTokenPayload {
+  apiToken: string;
+}
+
 export interface Announcement {
   id: number;
   title: string;
@@ -41,6 +46,69 @@ export interface TrackerSyncLog {
   status: SyncStatus;
   message: string;
   updatedAt: string;
+  userId: number | null;
+  releaseId: number | null;
+  retryable: boolean;
+}
+
+export interface TrackerSyncLogFilters {
+  scope?: TrackerSyncLog['scope'];
+  status?: SyncStatus;
+  userId?: number;
+  releaseId?: number;
+  q?: string;
+  limit?: number;
+}
+
+export interface TrackerSyncOverviewSummary {
+  xbtSyncEnabled: boolean;
+  xbtDatabaseAlias: string;
+  totalLogs: number;
+  successCount: number;
+  warningCount: number;
+  failedCount: number;
+  pendingCount: number;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastFullSyncAt: string | null;
+}
+
+export interface TrackerSyncOverview {
+  summary: TrackerSyncOverviewSummary;
+  latestLogs: TrackerSyncLog[];
+  failedLogs: TrackerSyncLog[];
+}
+
+export interface TrackerSyncUserTarget {
+  id: number;
+  username: string;
+  displayName: string;
+  role: UserRole;
+  status: UserStatus;
+  passkey: string;
+}
+
+export interface TrackerSyncUserDetail {
+  user: TrackerSyncUserTarget;
+  trackerSync: TrackerSyncSnapshot | null;
+  xbtUser: XbtUserSnapshot;
+  recentLogs: TrackerSyncLog[];
+}
+
+export interface TrackerSyncReleaseTarget {
+  id: number;
+  title: string;
+  status: ReleaseStatus;
+  infohash: string;
+  publishedAt: string;
+  createdById: number;
+}
+
+export interface TrackerSyncReleaseDetail {
+  release: TrackerSyncReleaseTarget;
+  trackerSync: TrackerSyncSnapshot | null;
+  xbtFile: XbtFileSnapshot;
+  recentLogs: TrackerSyncLog[];
 }
 
 export interface AuditLog {
@@ -83,6 +151,12 @@ export interface RssOverview {
 
 export interface CreateUserPayload {
   username: string;
+  displayName: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface UpdateUserPayload {
   displayName: string;
   email: string;
   role: UserRole;

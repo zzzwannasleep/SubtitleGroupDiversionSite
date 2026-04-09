@@ -1,6 +1,13 @@
-import type { CurrentUser, LoginPayload } from '@/types/auth';
+import type { LoginPayload, CurrentUser } from '@/types/auth';
+import type { ApiTokenPayload } from '@/types/admin';
 import { apiRequest, isApiError } from './api';
-import { getUserById, getUserByUsername, resetPasskey as resetMockPasskey } from './mock-data';
+import {
+  getCurrentUserApiToken,
+  getUserById,
+  getUserByUsername,
+  resetPasskey as resetMockPasskey,
+  resetUserApiToken,
+} from './mock-data';
 import { mockResolve, useMockApi } from './runtime';
 
 const SESSION_KEY = 'sgds:session-user-id';
@@ -86,6 +93,40 @@ export async function resetPasskey(_userId?: number): Promise<CurrentUser> {
   }
 
   return apiRequest<CurrentUser>('/api/me/reset-passkey/', { method: 'POST' });
+}
+
+export async function getMyApiToken(): Promise<ApiTokenPayload> {
+  if (useMockApi()) {
+    return mockResolve(() => {
+      const sessionId = getStoredSessionId();
+      if (!sessionId) {
+        throw new Error('当前未登录');
+      }
+
+      return {
+        apiToken: getCurrentUserApiToken(sessionId),
+      };
+    });
+  }
+
+  return apiRequest<ApiTokenPayload>('/api/me/api-token/');
+}
+
+export async function resetMyApiToken(): Promise<ApiTokenPayload> {
+  if (useMockApi()) {
+    return mockResolve(() => {
+      const sessionId = getStoredSessionId();
+      if (!sessionId) {
+        throw new Error('当前未登录');
+      }
+
+      return {
+        apiToken: resetUserApiToken(sessionId),
+      };
+    });
+  }
+
+  return apiRequest<ApiTokenPayload>('/api/me/api-token/', { method: 'POST' });
 }
 
 export async function changePassword(currentPassword: string, nextPassword: string): Promise<void> {

@@ -6,11 +6,17 @@ import type {
   AuditLog,
   SiteSettings,
   TrackerSyncLog,
+  TrackerSyncLogFilters,
+  TrackerSyncOverview,
+  TrackerSyncReleaseDetail,
+  TrackerSyncUserDetail,
+  UpdateUserPayload,
 } from '@/types/admin';
 import type { Category, DownloadRecord, Release, Tag } from '@/types/release';
 import type { SiteTheme } from '@/types/theme';
 
 const createPasskey = () => Math.random().toString(36).slice(2).padEnd(32, 'x').slice(0, 32);
+const createApiToken = () => `${createPasskey()}${createPasskey()}`;
 
 export const categories: Category[] = [
   { id: 1, name: '动画', slug: 'anime', sortOrder: 1, isActive: true },
@@ -362,9 +368,39 @@ export const announcements: Announcement[] = [
 ];
 
 export const trackerSyncLogs: TrackerSyncLog[] = [
-  { id: 1, scope: 'full', targetName: '全量同步', status: 'success', message: 'xbt_users 与 xbt_files 已完成比对', updatedAt: '2026-04-08T08:20:00+08:00' },
-  { id: 2, scope: 'release', targetName: '孤独摇滚！TV 01-12 合集', status: 'success', message: '白名单已写入 XBT', updatedAt: '2026-04-08T10:16:00+08:00' },
-  { id: 3, scope: 'user', targetName: 'watcher', status: 'failed', message: '禁用状态同步超时，等待重试', updatedAt: '2026-04-07T22:10:00+08:00' },
+  {
+    id: 1,
+    scope: 'full',
+    targetName: '全量同步',
+    status: 'success',
+    message: 'xbt_users 与 xbt_files 已完成比对',
+    updatedAt: '2026-04-08T08:20:00+08:00',
+    userId: null,
+    releaseId: null,
+    retryable: true,
+  },
+  {
+    id: 2,
+    scope: 'release',
+    targetName: '孤独摇滚！TV 01-12 合集',
+    status: 'success',
+    message: '白名单已写入 XBT',
+    updatedAt: '2026-04-08T10:16:00+08:00',
+    userId: null,
+    releaseId: 101,
+    retryable: true,
+  },
+  {
+    id: 3,
+    scope: 'user',
+    targetName: 'watcher',
+    status: 'failed',
+    message: '禁用状态同步超时，等待重试',
+    updatedAt: '2026-04-07T22:10:00+08:00',
+    userId: 5,
+    releaseId: null,
+    retryable: true,
+  },
 ];
 
 export const auditLogs: AuditLog[] = [
@@ -394,12 +430,103 @@ export const userThemes: Record<number, SiteTheme> = {
   5: defaultTheme(),
 };
 
+export const userApiTokens: Record<number, string> = users.reduce((accumulator, user) => {
+  accumulator[user.id] = createApiToken();
+  return accumulator;
+}, {} as Record<number, string>);
+
 export function getUserById(userId: number): AdminUser | undefined {
   return users.find((item) => item.id === userId);
 }
 
 export function getUserByUsername(username: string): AdminUser | undefined {
   return users.find((item) => item.username.toLowerCase() === username.toLowerCase());
+}
+
+function getReleaseRecordById(releaseId: number): Release | undefined {
+  return releases.find((item) => item.id === releaseId);
+}
+
+function buildTrackerSyncLog(
+  log: Omit<TrackerSyncLog, 'id' | 'updatedAt' | 'retryable'> & Partial<Pick<TrackerSyncLog, 'retryable'>>,
+): TrackerSyncLog {
+  const retryable =
+    log.retryable ??
+    (log.scope === 'full' ||
+      (log.scope === 'user' && log.userId !== null) ||
+      (log.scope === 'release' && log.releaseId !== null));
+
+  return {
+    id: Date.now(),
+    updatedAt: new Date().toISOString(),
+    retryable,
+    ...log,
+  };
+}
+
+function getRecentTrackerLogs(scope: TrackerSyncLog['scope'], targetId?: number, limit = 10): TrackerSyncLog[] {
+  return trackerSyncLogs
+    .filter((item) => {
+      if (item.scope !== scope) return false;
+      if (scope === 'user' && targetId !== undefined) {
+        return item.userId === targetId;
+      }
+      if (scope === 'release' && targetId !== undefined) {
+        return item.releaseId === targetId;
+      }
+      return true;
+    })
+    .slice(0, limit);
+}
+
+function getDefaultXbtUserSnapshot() {
+  return {
+    state: 'missing' as const,
+    canLeech: null,
+    downloaded: null,
+    uploaded: null,
+    completed: null,
+  };
+}
+
+function getDefaultXbtFileSnapshot() {
+  return {
+    state: 'missing' as const,
+    seeders: null,
+    leechers: null,
+    completed: null,
+    createdAt: null,
+    updatedAt: null,
+  };
+}
+
+export function getCurrentUserApiToken(userId: number): string {
+  if (!getUserById(userId)) {
+    throw new Error('用户不存在');
+  }
+
+  if (!userApiTokens[userId]) {
+    userApiTokens[userId] = createApiToken();
+  }
+
+  return userApiTokens[userId];
+}
+
+export function resetUserApiToken(userId: number): string {
+  if (!getUserById(userId)) {
+    throw new Error('用户不存在');
+  }
+
+  userApiTokens[userId] = createApiToken();
+  return userApiTokens[userId];
+}
+
+export function updateUserRecord(userId: number, patch: Partial<UpdateUserPayload>): AdminUser {
+  const user = getUserById(userId);
+  if (!user) throw new Error('用户不存在');
+
+  Object.assign(user, patch);
+  return user;
 }
 
 export function resetPasskey(userId: number): AdminUser {
@@ -411,6 +538,14 @@ export function resetPasskey(userId: number): AdminUser {
     message: 'passkey 已重置并同步到 XBT。',
     updatedAt: new Date().toISOString(),
   };
+  appendTrackerSyncLog({
+    scope: 'user',
+    targetName: user.username,
+    status: 'success',
+    message: user.trackerSync.message,
+    userId: user.id,
+    releaseId: null,
+  });
   return user;
 }
 
@@ -488,9 +623,10 @@ export function updateReleaseData(
 
 export function updateReleaseVisibility(releaseId: number, status: 'published' | 'hidden'): Release {
   const release = updateReleaseData(releaseId, { status });
+  const message = status === 'hidden' ? '资源已从 XBT 白名单中移除。' : '资源白名单状态已同步到 XBT。';
   release.trackerSync = {
     status: 'success',
-    message: status === 'hidden' ? '资源已从 XBT 白名单中移除。' : '资源白名单状态已同步到 XBT。',
+    message,
     updatedAt: new Date().toISOString(),
   };
   release.xbtFile = status === 'hidden'
@@ -510,6 +646,14 @@ export function updateReleaseVisibility(releaseId: number, status: 'published' |
         createdAt: release.xbtFile?.createdAt ?? release.publishedAt,
         updatedAt: new Date().toISOString(),
       };
+  appendTrackerSyncLog({
+    scope: 'release',
+    targetName: release.title,
+    status: 'success',
+    message,
+    userId: null,
+    releaseId: release.id,
+  });
   return release;
 }
 
@@ -551,19 +695,233 @@ export function toggleUserStatus(userId: number, nextStatus: 'active' | 'disable
   const user = getUserById(userId);
   if (!user) throw new Error('用户不存在');
   user.status = nextStatus;
+  applyUserTrackerSnapshot(user, nextStatus === 'active' ? '用户状态已同步到 XBT。' : '用户已在 XBT 中禁用。');
+  return user;
+}
+
+function applyUserTrackerSnapshot(user: AdminUser, message?: string) {
+  const nextMessage = message ?? (user.status === 'active' ? '用户状态与 passkey 已同步到 XBT。' : '用户已在 XBT 中禁用。');
   user.trackerSync = {
     status: 'success',
-    message: nextStatus === 'active' ? '用户状态已同步到 XBT。' : '用户已在 XBT 中禁用。',
+    message: nextMessage,
     updatedAt: new Date().toISOString(),
   };
   user.xbtUser = {
-    state: nextStatus === 'active' ? 'enabled' : 'disabled',
-    canLeech: nextStatus === 'active',
+    state: user.status === 'active' ? 'enabled' : 'disabled',
+    canLeech: user.status === 'active',
     downloaded: user.xbtUser?.downloaded ?? 0,
     uploaded: user.xbtUser?.uploaded ?? 0,
     completed: user.xbtUser?.completed ?? 0,
   };
-  return user;
+
+  return user.trackerSync;
+}
+
+function applyReleaseTrackerSnapshot(release: Release) {
+  const now = new Date().toISOString();
+
+  if (release.status === 'published') {
+    release.trackerSync = {
+      status: 'success',
+      message: '资源白名单状态已同步到 XBT。',
+      updatedAt: now,
+    };
+    release.xbtFile = {
+      state: 'whitelisted',
+      seeders: release.activePeers,
+      leechers: 0,
+      completed: release.completionCount,
+      createdAt: release.xbtFile?.createdAt ?? release.publishedAt,
+      updatedAt: now,
+    };
+    return release.trackerSync;
+  }
+
+  if (release.status === 'hidden') {
+    release.trackerSync = {
+      status: 'success',
+      message: '资源已从 XBT 白名单中移除。',
+      updatedAt: now,
+    };
+    release.xbtFile = {
+      state: 'deleted',
+      seeders: 0,
+      leechers: 0,
+      completed: release.completionCount,
+      createdAt: release.xbtFile?.createdAt ?? release.publishedAt,
+      updatedAt: now,
+    };
+    return release.trackerSync;
+  }
+
+  release.trackerSync = {
+    status: 'warning',
+    message: '资源当前未发布且不在 XBT 白名单中，已跳过写入。',
+    updatedAt: now,
+  };
+  release.xbtFile = {
+    ...getDefaultXbtFileSnapshot(),
+  };
+  return release.trackerSync;
+}
+
+export function runUserTrackerSync(userId: number): TrackerSyncLog {
+  const user = getUserById(userId);
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+
+  const snapshot = applyUserTrackerSnapshot(user);
+  return appendTrackerSyncLog({
+    scope: 'user',
+    targetName: user.username,
+    status: snapshot.status,
+    message: snapshot.message,
+    userId: user.id,
+    releaseId: null,
+  });
+}
+
+export function runReleaseTrackerSync(releaseId: number): TrackerSyncLog {
+  const release = getReleaseRecordById(releaseId);
+  if (!release) {
+    throw new Error('资源不存在');
+  }
+
+  const snapshot = applyReleaseTrackerSnapshot(release);
+  return appendTrackerSyncLog({
+    scope: 'release',
+    targetName: release.title,
+    status: snapshot.status,
+    message: snapshot.message,
+    userId: null,
+    releaseId: release.id,
+  });
+}
+
+export function runFullTrackerSyncLog(): TrackerSyncLog {
+  users.forEach((user) => applyUserTrackerSnapshot(user));
+  releases.forEach((release) => applyReleaseTrackerSnapshot(release));
+
+  return appendTrackerSyncLog({
+    scope: 'full',
+    targetName: '全量同步',
+    status: 'success',
+    message: '已按用户状态和资源白名单重新写入 XBT',
+    userId: null,
+    releaseId: null,
+  });
+}
+
+export function retryTrackerSyncLogById(logId: number): TrackerSyncLog {
+  const sourceLog = trackerSyncLogs.find((item) => item.id === logId);
+  if (!sourceLog) {
+    throw new Error('同步日志不存在');
+  }
+
+  if (sourceLog.scope === 'full') {
+    return runFullTrackerSyncLog();
+  }
+
+  if (sourceLog.scope === 'user' && sourceLog.userId !== null) {
+    return runUserTrackerSync(sourceLog.userId);
+  }
+
+  if (sourceLog.scope === 'release' && sourceLog.releaseId !== null) {
+    return runReleaseTrackerSync(sourceLog.releaseId);
+  }
+
+  return appendTrackerSyncLog({
+    scope: sourceLog.scope,
+    targetName: sourceLog.targetName,
+    status: 'warning',
+    message: '原始同步日志缺少关联目标，无法重试。',
+    userId: sourceLog.userId,
+    releaseId: sourceLog.releaseId,
+  });
+}
+
+export function listTrackerSyncLogRecords(filters: TrackerSyncLogFilters = {}): TrackerSyncLog[] {
+  const keyword = filters.q?.trim().toLowerCase() ?? '';
+  const limit = Math.min(Math.max(filters.limit ?? 100, 1), 200);
+
+  return trackerSyncLogs
+    .filter((item) => {
+      if (filters.scope && item.scope !== filters.scope) return false;
+      if (filters.status && item.status !== filters.status) return false;
+      if (filters.userId !== undefined && item.userId !== filters.userId) return false;
+      if (filters.releaseId !== undefined && item.releaseId !== filters.releaseId) return false;
+      if (keyword) {
+        return [item.targetName, item.message].some((field) => field.toLowerCase().includes(keyword));
+      }
+      return true;
+    })
+    .slice(0, limit);
+}
+
+export function getTrackerSyncOverview(): TrackerSyncOverview {
+  const successLogs = trackerSyncLogs.filter((item) => item.status === 'success');
+  const warningLogs = trackerSyncLogs.filter((item) => item.status === 'warning');
+  const failedLogs = trackerSyncLogs.filter((item) => item.status === 'failed');
+
+  return {
+    summary: {
+      xbtSyncEnabled: true,
+      xbtDatabaseAlias: 'default',
+      totalLogs: trackerSyncLogs.length,
+      successCount: successLogs.length,
+      warningCount: warningLogs.length,
+      failedCount: failedLogs.length,
+      pendingCount: warningLogs.length + failedLogs.length,
+      lastSuccessAt: successLogs[0]?.updatedAt ?? null,
+      lastFailureAt: failedLogs[0]?.updatedAt ?? null,
+      lastFullSyncAt: trackerSyncLogs.find((item) => item.scope === 'full')?.updatedAt ?? null,
+    },
+    latestLogs: trackerSyncLogs.slice(0, 20),
+    failedLogs: failedLogs.slice(0, 10),
+  };
+}
+
+export function getTrackerSyncUserDetail(userId: number): TrackerSyncUserDetail | null {
+  const user = getUserById(userId);
+  if (!user) {
+    return null;
+  }
+
+  return {
+    user: {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role,
+      status: user.status,
+      passkey: user.passkey,
+    },
+    trackerSync: user.trackerSync ?? null,
+    xbtUser: user.xbtUser ?? getDefaultXbtUserSnapshot(),
+    recentLogs: getRecentTrackerLogs('user', user.id),
+  };
+}
+
+export function getTrackerSyncReleaseDetail(releaseId: number): TrackerSyncReleaseDetail | null {
+  const release = getReleaseRecordById(releaseId);
+  if (!release) {
+    return null;
+  }
+
+  return {
+    release: {
+      id: release.id,
+      title: release.title,
+      status: release.status,
+      infohash: release.infohash,
+      publishedAt: release.publishedAt,
+      createdById: release.createdBy.id,
+    },
+    trackerSync: release.trackerSync ?? null,
+    xbtFile: release.xbtFile ?? getDefaultXbtFileSnapshot(),
+    recentLogs: getRecentTrackerLogs('release', release.id),
+  };
 }
 
 export function saveCategory(payload: Pick<Category, 'name' | 'slug'> & Partial<Category>): Category {
@@ -626,8 +984,10 @@ export function appendAuditLog(action: Omit<AuditLog, 'id' | 'createdAt'>): Audi
   return item;
 }
 
-export function appendTrackerSyncLog(log: Omit<TrackerSyncLog, 'id' | 'updatedAt'>): TrackerSyncLog {
-  const item: TrackerSyncLog = { id: Date.now(), updatedAt: new Date().toISOString(), ...log };
+export function appendTrackerSyncLog(
+  log: Omit<TrackerSyncLog, 'id' | 'updatedAt' | 'retryable'> & Partial<Pick<TrackerSyncLog, 'retryable'>>,
+): TrackerSyncLog {
+  const item = buildTrackerSyncLog(log);
   trackerSyncLogs.unshift(item);
   return item;
 }

@@ -6,6 +6,7 @@ import type {
   CreateUserPayload,
   SiteSettings,
   ToggleUserStatusPayload,
+  UpdateUserPayload,
 } from '@/types/admin';
 import type { CurrentUser, UserRole, UserStatus } from '@/types/auth';
 import type { Category, Release, Tag } from '@/types/release';
@@ -28,6 +29,7 @@ import {
   siteSettings,
   tags,
   toggleUserStatus,
+  updateUserRecord,
   users,
 } from './mock-data';
 import { mockResolve, useMockApi } from './runtime';
@@ -99,6 +101,31 @@ export async function getUserDetail(userId: number): Promise<AdminUser | null> {
   }
 }
 
+export async function updateUser(
+  userId: number,
+  payload: Partial<UpdateUserPayload>,
+  method: 'PUT' | 'PATCH' = 'PATCH',
+): Promise<AdminUser> {
+  if (useMockApi()) {
+    return mockResolve(() => {
+      const user = updateUserRecord(userId, payload);
+      appendAuditLog({
+        actorName: '站务总控',
+        action: '更新用户',
+        targetType: '用户',
+        targetName: user.username,
+        detail: `已更新字段：${Object.keys(payload).join('、') || '基础资料'}`,
+      });
+      return user;
+    });
+  }
+
+  return apiRequest<AdminUser>(`/api/admin/users/${userId}/`, {
+    method,
+    body: payload,
+  });
+}
+
 export async function createUser(payload: CreateUserPayload): Promise<AdminUser> {
   if (useMockApi()) {
     return mockResolve(() => {
@@ -136,6 +163,8 @@ export async function changeUserStatus(payload: ToggleUserStatusPayload): Promis
         targetName: user.username,
         status: 'success',
         message: '用户状态已同步到 XBT',
+        userId: user.id,
+        releaseId: null,
       });
       return user;
     });
