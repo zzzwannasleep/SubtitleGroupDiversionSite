@@ -58,7 +58,8 @@ class XbtUserMirror(models.Model):
 
 
 class XbtFileMirror(models.Model):
-    info_hash = models.BinaryField(max_length=20, primary_key=True)
+    tid = models.AutoField(primary_key=True)
+    info_hash = models.BinaryField(max_length=20, unique=True)
     leechers = models.PositiveIntegerField(default=0)
     seeders = models.PositiveIntegerField(default=0)
     completed = models.PositiveIntegerField(default=0)
@@ -67,6 +68,6 @@ class XbtFileMirror(models.Model):
     ctime = models.PositiveIntegerField(default=0)
 
     class Meta:
-        db_table = "xbt_files"
+        db_table = "xbt_torrents"
         # XBT owns the real table schema. Django only maps and updates rows.
         managed = False

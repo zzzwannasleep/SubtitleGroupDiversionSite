@@ -18,6 +18,7 @@ mysql_host = ${DB_HOST}
 mysql_user = ${DB_USER}
 mysql_password = ${DB_PASSWORD}
 mysql_database = ${DB_NAME}
+mysql_table_prefix = xbt_
 announce_interval = 1800
 anonymous_connect = 0
 anonymous_announce = 0
@@ -38,8 +39,8 @@ read_config_interval = 60
 read_db_interval = 60
 scrape_interval = 0
 table_announce_log = xbt_announce_log
-table_files = xbt_files
-table_files_users = xbt_files_users
+table_files = xbt_torrents
+table_files_users = xbt_peers
 table_scrape_log = xbt_scrape_log
 table_users = xbt_users
 write_db_interval = 15
@@ -67,16 +68,25 @@ ensure_schema() {
       -Nse "SHOW TABLES LIKE 'xbt_users';"
   )
 
-  XBT_FILES_EXISTS=$(
+  XBT_TORRENTS_EXISTS=$(
     MYSQL_PWD="$DB_PASSWORD" mysql \
       -h "$DB_HOST" \
       -P "$DB_PORT" \
       -u"$DB_USER" \
       "$DB_NAME" \
-      -Nse "SHOW TABLES LIKE 'xbt_files';"
+      -Nse "SHOW TABLES LIKE 'xbt_torrents';"
   )
 
-  if [ -z "$XBT_USERS_EXISTS" ] || [ -z "$XBT_FILES_EXISTS" ]; then
+  XBT_PEERS_EXISTS=$(
+    MYSQL_PWD="$DB_PASSWORD" mysql \
+      -h "$DB_HOST" \
+      -P "$DB_PORT" \
+      -u"$DB_USER" \
+      "$DB_NAME" \
+      -Nse "SHOW TABLES LIKE 'xbt_peers';"
+  )
+
+  if [ -z "$XBT_USERS_EXISTS" ] || [ -z "$XBT_TORRENTS_EXISTS" ] || [ -z "$XBT_PEERS_EXISTS" ]; then
     echo "Importing XBT schema into ${DB_NAME}..."
     MYSQL_PWD="$DB_PASSWORD" mysql \
       -h "$DB_HOST" \
