@@ -51,6 +51,13 @@ npm ci
 npm run dev
 ```
 
+说明：
+
+- 前端现在默认直连真实 API 进行联调。
+- 本地 `vite` 开发环境已通过代理把 `/api`、`/rss`、`/media` 转发到 `http://localhost:8000`。
+- 如需临时回退到前端 mock，可显式设置 `VITE_DATA_SOURCE=mock`。
+- 如需指定其它后端地址，可设置 `VITE_API_BASE_URL`。
+
 ### 后端
 
 ```bash

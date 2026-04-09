@@ -4,7 +4,7 @@ export function getDataSourceMode() {
   if (mode === 'api') return 'api';
   if (mode === 'mock') return 'mock';
 
-  return import.meta.env.VITE_API_BASE_URL ? 'api' : 'mock';
+  return 'api';
 }
 
 export function useMockApi() {
