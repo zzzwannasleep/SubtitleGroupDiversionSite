@@ -23,6 +23,7 @@ services:
         condition: service_healthy
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS},127.0.0.1,localhost
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
       REDIS_URL: redis://redis:6379/0

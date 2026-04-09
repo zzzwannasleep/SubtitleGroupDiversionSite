@@ -99,6 +99,7 @@ services:
         condition: service_healthy
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.prod
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS},127.0.0.1,localhost
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
       REDIS_URL: redis://redis:6379/0
@@ -219,7 +220,7 @@ HTTP_PORT=80
 环境变量怎么填：
 
 - `DJANGO_SECRET_KEY`：填一串足够长的随机字符串。
-- `DJANGO_ALLOWED_HOSTS`：填你的站点域名，多个域名用逗号分隔。
+- `DJANGO_ALLOWED_HOSTS`：填你的站点域名，多个域名用逗号分隔。Compose 会自动补上 `127.0.0.1,localhost` 供健康检查使用。
 - `SITE_BASE_URL`：填站点公网地址，例如 `https://example.com`。
 - `TRACKER_ANNOUNCE_BASE_URL`：填 Tracker 公网地址，例如 `http://example.com:2710`。
 - `MYSQL_DATABASE`：MySQL 数据库名。

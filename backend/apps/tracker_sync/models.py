@@ -53,7 +53,8 @@ class XbtUserMirror(models.Model):
 
     class Meta:
         db_table = "xbt_users"
-        managed = True
+        # XBT owns the real table schema. Django only maps and updates rows.
+        managed = False
 
 
 class XbtFileMirror(models.Model):
@@ -67,4 +68,5 @@ class XbtFileMirror(models.Model):
 
     class Meta:
         db_table = "xbt_files"
-        managed = True
+        # XBT owns the real table schema. Django only maps and updates rows.
+        managed = False

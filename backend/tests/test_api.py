@@ -1,5 +1,6 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
+from django.db import connection
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -25,8 +26,20 @@ def build_torrent_bytes(*, private: bool = True) -> bytes:
 
 @override_settings(MEDIA_ROOT="test-media")
 class ApiFlowTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        existing_tables = set(connection.introspection.table_names())
+        with connection.schema_editor() as schema_editor:
+            for model in (XbtUserMirror, XbtFileMirror):
+                if model._meta.db_table not in existing_tables:
+                    schema_editor.create_model(model)
+                    existing_tables.add(model._meta.db_table)
+
     def setUp(self):
         self.client = APIClient()
+        XbtFileMirror.objects.all().delete()
+        XbtUserMirror.objects.all().delete()
         self.category = Category.objects.create(name="动画", slug="anime", sort_order=1, is_active=True)
         self.tag = Tag.objects.create(name="1080p", slug="1080p")
         self.admin = User.objects.create_user(
