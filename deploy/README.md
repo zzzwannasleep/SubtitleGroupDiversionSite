@@ -1,8 +1,8 @@
 # Deploy
 
-1. 复制 `deploy/.env.example` 为 `deploy/.env`
-2. 按注释填写环境变量
-3. 直接启动：
+`deploy/docker-compose.yml` 里的镜像已经固定为 `latest`，不需要再填镜像名或 tag。
+
+你只需要准备 `deploy/.env`，然后启动：
 
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
@@ -31,4 +31,4 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend 
 
 - 默认直接从 GHCR 拉取镜像，不需要本地构建。
 - `backend` 和 `nginx` 共享 `/media` 与 `/static` 卷，容器更新后上传文件和静态文件仍会保留。
-- 默认镜像 tag 指向当前已发布的 `main-f1de957`。如果后面要切其他版本，可在 `deploy/.env` 里加 `APP_IMAGE_TAG=...` 覆盖。
+- 默认直接拉取 `latest`。
