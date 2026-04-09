@@ -65,6 +65,25 @@ async function parseResponseBody(response: Response) {
   return response.text();
 }
 
+function isHtmlErrorDocument(payload: string) {
+  return /^\s*<!doctype html/i.test(payload) || /^\s*<html[\s>]/i.test(payload);
+}
+
+function getFallbackErrorMessage(response: Response, payload: unknown) {
+  if (typeof payload === 'string') {
+    const normalized = payload.trim();
+    if (normalized && !isHtmlErrorDocument(normalized)) {
+      return normalized;
+    }
+  }
+
+  if (response.status >= 500) {
+    return `服务暂时不可用（HTTP ${response.status}）。`;
+  }
+
+  return `请求失败（HTTP ${response.status}）。`;
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   let body: BodyInit | null | undefined = null;
@@ -96,14 +115,14 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (typeof payload === 'object' && payload && 'message' in payload) {
       const errorPayload = payload as Partial<ApiEnvelope<unknown>>;
       throw new ApiError(
-        String(errorPayload.message ?? '请求失败。'),
+        String(errorPayload.message ?? `请求失败（HTTP ${response.status}）。`),
         response.status,
         String(errorPayload.code ?? 'request_error'),
         errorPayload.errors,
       );
     }
 
-    throw new ApiError(typeof payload === 'string' && payload ? payload : '请求失败。', response.status);
+    throw new ApiError(getFallbackErrorMessage(response, payload), response.status);
   }
 
   if (typeof payload !== 'object' || !payload || !('success' in payload)) {

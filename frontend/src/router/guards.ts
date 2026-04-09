@@ -8,7 +8,15 @@ export function registerRouterGuards(router: Router) {
     const authStore = useAuthStore(pinia);
 
     if (!authStore.isBootstrapped) {
-      await authStore.bootstrap();
+      try {
+        await authStore.bootstrap();
+      } catch (error) {
+        console.error('Auth bootstrap failed during navigation:', error);
+
+        if (to.name !== 'error') {
+          return { name: 'error' };
+        }
+      }
     }
 
     if (to.meta.guestOnly && authStore.isAuthenticated) {
@@ -34,4 +42,3 @@ export function registerRouterGuards(router: Router) {
     document.title = title;
   });
 }
-

@@ -17,9 +17,8 @@ async function bootstrap() {
   const themeStore = useThemeStore(pinia);
   const authStore = useAuthStore(pinia);
 
-  await themeStore.initialize();
-
   try {
+    await themeStore.initialize();
     await authStore.bootstrap();
   } catch (error) {
     console.error('Frontend bootstrap failed:', error);

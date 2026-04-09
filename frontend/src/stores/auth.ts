@@ -9,37 +9,49 @@ export const useAuthStore = defineStore('auth', () => {
   const isBootstrapped = ref(false);
   const isLoading = ref(false);
   const errorMessage = ref('');
+  let bootstrapPromise: Promise<void> | null = null;
 
   const isAuthenticated = computed(() => !!currentUser.value);
   const role = computed(() => currentUser.value?.role ?? null);
 
+  async function syncCurrentUser(user: CurrentUser | null) {
+    currentUser.value = user;
+    const themeStore = useThemeStore();
+
+    if (user) {
+      await themeStore.loadTheme();
+      return;
+    }
+
+    themeStore.resetTheme();
+  }
+
   async function bootstrap() {
     if (isBootstrapped.value) return;
+    if (bootstrapPromise) return bootstrapPromise;
+
     isLoading.value = true;
     errorMessage.value = '';
 
-    try {
-      currentUser.value = await authService.fetchMe();
-      const themeStore = useThemeStore();
-      if (currentUser.value) {
-        await themeStore.loadTheme();
-      } else {
-        themeStore.resetTheme();
+    bootstrapPromise = (async () => {
+      try {
+        await syncCurrentUser(await authService.fetchMe());
+      } catch (error) {
+        await syncCurrentUser(null);
+        errorMessage.value = error instanceof Error ? error.message : '登录状态初始化失败，请稍后重试。';
+        console.error('Auth bootstrap failed:', error);
+      } finally {
+        isLoading.value = false;
+        isBootstrapped.value = true;
+        bootstrapPromise = null;
       }
-    } finally {
-      isLoading.value = false;
-      isBootstrapped.value = true;
-    }
+    })();
+
+    return bootstrapPromise;
   }
 
   async function fetchMe() {
-    currentUser.value = await authService.fetchMe();
-    const themeStore = useThemeStore();
-    if (currentUser.value) {
-      await themeStore.loadTheme();
-    } else {
-      themeStore.resetTheme();
-    }
+    await syncCurrentUser(await authService.fetchMe());
     return currentUser.value;
   }
 

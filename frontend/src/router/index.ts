@@ -15,4 +15,14 @@ const router = createRouter({
 
 registerRouterGuards(router);
 
+router.onError((error, to) => {
+  console.error('Router navigation failed:', error);
+
+  if (to.name !== 'error') {
+    void router.replace({ name: 'error' }).catch((redirectError) => {
+      console.error('Failed to redirect to error page:', redirectError);
+    });
+  }
+});
+
 export default router;
