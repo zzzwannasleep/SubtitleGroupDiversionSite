@@ -119,7 +119,7 @@ services:
       - app_net
 
   mysql:
-    image: mysql:8
+    image: mysql:8.0
     restart: unless-stopped
     env_file:
       - ./.env
