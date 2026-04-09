@@ -1,27 +1,9 @@
 name: subtitle-group-diversion-site
 
-# Edit the values in the blocks below before the first deployment.
-x-site-env: &site-env
-  DJANGO_SECRET_KEY: change-me-before-production
-  DJANGO_ALLOWED_HOSTS: example.com
-  SITE_BASE_URL: https://example.com
-  TRACKER_ANNOUNCE_BASE_URL: http://example.com:2710
-  LOG_LEVEL: INFO
-
-x-db-env: &db-env
-  MYSQL_DATABASE: subtitle_group
-  MYSQL_USER: subtitle
-  MYSQL_PASSWORD: change-me
-  MYSQL_ROOT_PASSWORD: change-root-password
-
-x-xbt-env: &xbt-env
-  XBT_TRACKER_PORT: "2710"
-
 services:
   frontend:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend:${APP_IMAGE_TAG:-main-f1de957}
+    pull_policy: always
     restart: unless-stopped
     expose:
       - "80"
@@ -29,17 +11,17 @@ services:
       - app_net
 
   backend:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
+    image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:${APP_IMAGE_TAG:-main-f1de957}
+    pull_policy: always
     restart: unless-stopped
+    env_file:
+      - ./.env
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      <<: [*site-env, *db-env]
       DJANGO_SETTINGS_MODULE: config.settings.prod
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
@@ -63,12 +45,12 @@ services:
   mysql:
     image: mysql:8
     restart: unless-stopped
+    env_file:
+      - ./.env
     command:
       - --default-authentication-plugin=mysql_native_password
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
-    environment:
-      <<: *db-env
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -95,20 +77,19 @@ services:
       - app_net
 
   xbt:
-    build:
-      context: ..
-      dockerfile: tracker/Dockerfile
+    image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/xbt:${APP_IMAGE_TAG:-main-f1de957}
+    pull_policy: always
     restart: unless-stopped
+    env_file:
+      - ./.env
     depends_on:
       mysql:
         condition: service_healthy
     environment:
-      <<: [*db-env, *xbt-env]
       MYSQL_HOST: mysql
       MYSQL_PORT: "3306"
-    # If you change XBT_TRACKER_PORT above, update the host port mapping here too.
     ports:
-      - "2710:2710"
+      - "${XBT_TRACKER_PORT:-2710}:${XBT_TRACKER_PORT:-2710}"
     networks:
       - app_net
 
@@ -121,7 +102,7 @@ services:
       frontend:
         condition: service_started
     ports:
-      - "80:80"
+      - "${HTTP_PORT:-80}:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - backend_static:/var/www/static:ro

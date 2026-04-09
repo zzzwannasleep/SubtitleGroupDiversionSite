@@ -69,17 +69,14 @@ python backend/manage.py runserver
 
 ## 生产部署
 
-直接使用 `deploy/docker-compose.yml` 就可以部署，不再要求额外的 `.env` 文件或初始化脚本。
+直接部署只需要改环境变量，不需要手动填写镜像名。
 
-1. 打开 `deploy/docker-compose.yml`
-2. 修改顶部这几个配置块里的示例值：
-   - `x-site-env`
-   - `x-db-env`
-   - `x-xbt-env`
+1. 复制 `deploy/.env.example` 为 `deploy/.env`
+2. 按下面规则填写 `deploy/.env`
 3. 执行：
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d --build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 ```
 
 首次启动时会自动完成：
@@ -92,10 +89,32 @@ docker compose -f deploy/docker-compose.yml up -d --build
 然后执行：
 
 ```bash
-docker compose -f deploy/docker-compose.yml exec backend python manage.py createsuperuser
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend python manage.py createsuperuser
 ```
 
-如果你改了 `XBT_TRACKER_PORT`，记得把 `deploy/docker-compose.yml` 里 `xbt.ports` 的端口映射一起改掉。
+`deploy/docker-compose.yml` 里的镜像地址已经预填好：
+
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend`
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend`
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/xbt`
+
+`deploy/.env` 需要填写的值：
+
+- `DJANGO_SECRET_KEY`：随便生成一串足够长的随机字符串，不要用示例值。
+- `DJANGO_ALLOWED_HOSTS`：站点域名，多个域名用逗号分隔，例如 `example.com,www.example.com`。
+- `SITE_BASE_URL`：站点公网地址，例如 `https://example.com`。
+- `TRACKER_ANNOUNCE_BASE_URL`：Tracker 的公网地址，例如 `http://example.com:2710`。
+- `MYSQL_DATABASE`：MySQL 数据库名。
+- `MYSQL_USER`：MySQL 应用用户名。
+- `MYSQL_PASSWORD`：MySQL 应用密码。
+- `MYSQL_ROOT_PASSWORD`：MySQL root 密码。
+
+可选项：
+
+- `XBT_TRACKER_PORT`：默认 `2710`。
+- `HTTP_PORT`：Nginx 对外端口，默认 `80`。
+- `LOG_LEVEL`：默认 `INFO`。
+- `APP_IMAGE_TAG`：默认已经指向现成可用的 `main-f1de957`，一般不用改。
 
 更多部署细节见：
 
@@ -117,10 +136,9 @@ docker compose -f deploy/docker-compose.yml exec backend python manage.py create
 
 工作流会在 `main` 和 `v*` tag 上构建并推送到 `ghcr.io`，同时支持手动触发。默认标签策略：
 
+- `latest`（推送到 `main` 时）
 - `main-<short_sha>`
 - `v1.0.0`
-
-默认部署文档走本地 `docker compose build` 路径，GHCR 镜像主要用于 CI 分发与后续扩展。
 
 ## 关键约束
 

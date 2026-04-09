@@ -23,15 +23,15 @@ jobs:
       matrix:
         include:
           - component: frontend
-            image: ghcr.io/${{ github.repository }}/frontend
+            image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend
             context: ./frontend
             file: ./frontend/Dockerfile
           - component: backend
-            image: ghcr.io/${{ github.repository }}/backend
+            image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend
             context: ./backend
             file: ./backend/Dockerfile
           - component: xbt
-            image: ghcr.io/${{ github.repository }}/xbt
+            image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/xbt
             context: .
             file: ./tracker/Dockerfile
 
@@ -59,6 +59,7 @@ jobs:
         with:
           images: ${{ matrix.image }}
           tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=main-,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=tag
 
