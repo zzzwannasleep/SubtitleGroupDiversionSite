@@ -14,6 +14,38 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
+            name='XbtFileMirror',
+            fields=[
+                ('tid', models.AutoField(primary_key=True, serialize=False)),
+                ('info_hash', models.BinaryField(max_length=20, unique=True)),
+                ('leechers', models.PositiveIntegerField(default=0)),
+                ('seeders', models.PositiveIntegerField(default=0)),
+                ('completed', models.PositiveIntegerField(default=0)),
+                ('flags', models.PositiveIntegerField(default=0)),
+                ('mtime', models.PositiveIntegerField(default=0)),
+                ('ctime', models.PositiveIntegerField(default=0)),
+            ],
+            options={
+                'db_table': 'xbt_torrents',
+                'managed': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='XbtUserMirror',
+            fields=[
+                ('uid', models.PositiveBigIntegerField(primary_key=True, serialize=False)),
+                ('torrent_pass', models.CharField(max_length=32, unique=True)),
+                ('can_leech', models.BooleanField(default=True)),
+                ('downloaded', models.BigIntegerField(default=0)),
+                ('uploaded', models.BigIntegerField(default=0)),
+                ('completed', models.PositiveIntegerField(default=0)),
+            ],
+            options={
+                'db_table': 'xbt_users',
+                'managed': False,
+            },
+        ),
+        migrations.CreateModel(
             name='TrackerSyncLog',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
