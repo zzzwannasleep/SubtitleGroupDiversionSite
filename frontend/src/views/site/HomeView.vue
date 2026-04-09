@@ -145,7 +145,6 @@ onMounted(loadData);
       <div class="grid gap-8 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-6 lg:grid-cols-[1.3fr_0.7fr] lg:p-8">
         <div class="space-y-6">
           <div class="space-y-3">
-            <p class="text-sm font-semibold uppercase tracking-[0.22em] text-blue-700">Front Desk</p>
             <div class="space-y-4">
               <h2 class="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
                 在同一个入口完成资源浏览、下载和订阅。
@@ -256,14 +255,6 @@ onMounted(loadData);
           <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
             RSS 页面会把通用地址、分类地址和标签地址集中展示，并保持“一键复制”作为主操作。
           </div>
-        </AppCard>
-
-        <AppCard title="页面原则" description="遵循简单、统一、权限清晰的前台设计。">
-          <ul class="space-y-2 text-sm leading-7 text-slate-600">
-            <li>只在首屏展示最必要的信息，不把首页做成信息密集型面板。</li>
-            <li>上传者入口保留在前台，不和管理员后台混在一起。</li>
-            <li>浏览到下载的主路径尽量控制在三次点击以内。</li>
-          </ul>
         </AppCard>
       </div>
     </div>

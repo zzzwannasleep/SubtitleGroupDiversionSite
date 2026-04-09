@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { CircleCheckBig, CircleDashed, FileUp, ShieldAlert } from 'lucide-vue-next';
+import { CircleCheckBig, CircleDashed, FileUp } from 'lucide-vue-next';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
@@ -157,11 +157,6 @@ onMounted(loadOptions);
 
   <AppLoading v-if="loading" />
   <template v-else>
-    <AppAlert
-      variant="warning"
-      title="请确认上传的是 private torrent"
-      description="前端只做最小提示，真正的 private 标记、文件解析和入库校验以后端结果为准。"
-    />
     <AppAlert v-if="feedback" variant="success" :title="feedback" />
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
@@ -300,18 +295,6 @@ onMounted(loadOptions);
             <li>发布后资源会进入前台浏览路径，草稿则只保留在“我的发布”中。</li>
             <li>上传者页面仍属于前台，不混入后台管理区，避免权限感知混乱。</li>
           </ul>
-        </AppCard>
-
-        <AppCard title="风险提示" description="前端做体验提醒，真正的权限和文件校验以后端为准。">
-          <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
-            <div class="flex items-start gap-3">
-              <ShieldAlert class="mt-0.5 h-5 w-5 shrink-0" />
-              <div>
-                <p>如果 torrent 没有正确带 private 标记，后端应拒绝入库并返回明确错误。</p>
-                <p class="mt-2">即使前端显示了可提交按钮，最终权限裁决仍以后端为准。</p>
-              </div>
-            </div>
-          </div>
         </AppCard>
       </div>
     </div>

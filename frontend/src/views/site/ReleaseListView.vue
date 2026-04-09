@@ -174,24 +174,6 @@ watch(() => route.fullPath, syncFromRoute, { immediate: true });
     </template>
   </AppAlert>
 
-  <div class="grid gap-4 md:grid-cols-3">
-    <div class="app-surface p-4">
-      <p class="text-sm text-slate-500">结果总数</p>
-      <p class="mt-3 text-2xl font-semibold text-slate-900">{{ count }}</p>
-      <p class="mt-2 text-xs text-slate-500">筛选后会立即同步到 URL，方便回到当前结果集。</p>
-    </div>
-    <div class="app-surface p-4">
-      <p class="text-sm text-slate-500">当前页码</p>
-      <p class="mt-3 text-2xl font-semibold text-slate-900">{{ filters.page }} / {{ pageCount }}</p>
-      <p class="mt-2 text-xs text-slate-500">每页保留较少条目，提升扫读效率。</p>
-    </div>
-    <div class="app-surface p-4">
-      <p class="text-sm text-slate-500">排序方式</p>
-      <p class="mt-3 text-2xl font-semibold text-slate-900">{{ sortLabels[filters.sort] }}</p>
-      <p class="mt-2 text-xs text-slate-500">列表默认优先展示最新发布的资源。</p>
-    </div>
-  </div>
-
   <div v-if="activeFilters.length" class="flex flex-wrap gap-2">
     <button
       v-for="item in activeFilters"
