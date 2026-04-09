@@ -88,3 +88,4 @@ class SiteSettingView(APIView):
             payload={"site_setting_id": setting.id},
         )
         return success_response(serializer.data, message="站点设置已保存。")
+

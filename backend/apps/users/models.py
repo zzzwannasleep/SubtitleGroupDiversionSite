@@ -20,6 +20,8 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.USER)
     status = models.CharField(max_length=20, choices=UserStatus.choices, default=UserStatus.ACTIVE)
     passkey = models.CharField(max_length=32, unique=True, default=generate_passkey)
+    theme_mode = models.CharField(max_length=20, default="system")
+    theme_custom_css = models.TextField(blank=True, default="")
 
     class Meta:
         db_table = "users"

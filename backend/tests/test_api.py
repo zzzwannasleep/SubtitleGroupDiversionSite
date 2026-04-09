@@ -318,3 +318,35 @@ class ApiFlowTests(TestCase):
         self.assertEqual(data["trackerSync"]["status"], "success")
         self.assertEqual(data["xbtFile"]["state"], "whitelisted")
         self.assertIsNotNone(data["xbtFile"]["updatedAt"])
+
+    def test_user_can_get_own_theme(self):
+        self.user.theme_mode = "dark"
+        self.user.theme_custom_css = "body { color: red; }"
+        self.user.save(update_fields=["theme_mode", "theme_custom_css"])
+
+        self.client.force_login(self.user)
+        response = self.client.get("/api/me/theme/")
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(
+            response.json()["data"],
+            {
+                "mode": "dark",
+                "customCss": "body { color: red; }",
+            },
+        )
+
+    def test_user_can_update_own_theme(self):
+        self.client.force_login(self.user)
+        response = self.client.put(
+            "/api/me/theme/",
+            {
+                "mode": "light",
+                "customCss": ":root { --primary: 16 185 129; }",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.theme_mode, "light")
+        self.assertEqual(self.user.theme_custom_css, ":root { --primary: 16 185 129; }")

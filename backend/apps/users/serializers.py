@@ -79,3 +79,12 @@ class CreateUserSerializer(serializers.Serializer):
 
 class ChangeUserStatusSerializer(serializers.Serializer):
     nextStatus = serializers.ChoiceField(choices=UserStatus.choices)
+
+
+class SelfThemeSerializer(serializers.ModelSerializer):
+    mode = serializers.ChoiceField(source="theme_mode", choices=["system", "light", "dark"])
+    customCss = serializers.CharField(source="theme_custom_css", allow_blank=True, required=False)
+
+    class Meta:
+        model = User
+        fields = ("mode", "customCss")

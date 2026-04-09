@@ -12,7 +12,13 @@ from apps.releases.serializers import ReleaseSerializer
 from apps.tracker_sync.models import TrackerSyncLog
 from apps.tracker_sync.services import TrackerSyncService
 from apps.users.models import User, UserRole, UserStatus
-from apps.users.serializers import AdminUserDetailSerializer, AdminUserSerializer, ChangeUserStatusSerializer, CreateUserSerializer
+from apps.users.serializers import (
+    AdminUserDetailSerializer,
+    AdminUserSerializer,
+    ChangeUserStatusSerializer,
+    CreateUserSerializer,
+    SelfThemeSerializer,
+)
 from apps.users.services import UserService
 
 
@@ -135,6 +141,23 @@ class SelfPasskeyResetView(APIView):
     def post(self, request):
         user = UserService.reset_passkey(actor=request.user, user=request.user)
         return success_response(AdminUserSerializer(user).data, message="passkey 已重置。")
+
+
+@extend_schema_view(
+    get=extend_schema(summary="获取当前用户主题", tags=["Users"]),
+    put=extend_schema(summary="更新当前用户主题", tags=["Users"]),
+)
+class SelfThemeView(APIView):
+    permission_classes = [IsActiveAuthenticated]
+
+    def get(self, request):
+        return success_response(SelfThemeSerializer(request.user).data)
+
+    def put(self, request):
+        serializer = SelfThemeSerializer(request.user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(serializer.data, message="主题已保存。")
 
 
 @extend_schema_view(

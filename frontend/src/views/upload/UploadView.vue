@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { CircleCheckBig, CircleDashed, FileUp } from 'lucide-vue-next';
+import { FileUp } from 'lucide-vue-next';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
@@ -44,28 +44,6 @@ const validationMessage = computed(() => {
 const canSubmit = computed(() => !validationMessage.value);
 const selectedCategory = computed(() => categories.value.find((item) => item.slug === form.categorySlug) ?? null);
 const selectedTags = computed(() => tags.value.filter((item) => form.tagSlugs.includes(item.slug)));
-const checklist = computed(() => [
-  {
-    label: '标题',
-    done: Boolean(form.title.trim()),
-    hint: '标题要能让成员直接看懂资源内容。',
-  },
-  {
-    label: '分类',
-    done: Boolean(form.categorySlug),
-    hint: '分类决定资源出现在首页和筛选页的路径。',
-  },
-  {
-    label: '简介',
-    done: Boolean(form.description.trim()),
-    hint: '尽量说明版本、字幕、片源和注意事项。',
-  },
-  {
-    label: 'torrent 文件',
-    done: Boolean(form.torrentFile || form.torrentFileName),
-    hint: '必须是 private torrent，后端会继续校验。',
-  },
-]);
 
 async function loadOptions() {
   loading.value = true;
@@ -149,19 +127,15 @@ onMounted(loadOptions);
 </script>
 
 <template>
-  <AppPageHeader title="上传资源" description="上传页只保留最必要字段，让发布路径短、校验明确、误操作更少。">
-    <template #actions>
-      <UiButton to="/my/releases" variant="secondary">我的发布</UiButton>
-    </template>
-  </AppPageHeader>
+  <AppPageHeader title="上传资源" description="上传页只保留最必要字段，让发布路径更短、校验更明确。" />
 
   <AppLoading v-if="loading" />
   <template v-else>
     <AppAlert v-if="feedback" variant="success" :title="feedback" />
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
-    <div class="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-      <AppCard title="发布表单" description="字段尽量少，但保持信息足够完整，便于首页、列表和详情页直接展示。">
+    <div class="mx-auto max-w-5xl">
+      <AppCard title="发布表单" description="保留真正会影响浏览和下载的信息，把发布动作尽量压缩到一屏内。">
         <div class="space-y-6">
           <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div class="flex items-start gap-3">
@@ -171,7 +145,7 @@ onMounted(loadOptions);
               <div class="space-y-1">
                 <h3 class="text-base font-semibold text-slate-900">最短发布路径</h3>
                 <p class="text-sm leading-6 text-slate-500">
-                  填写资源信息，上传 torrent，最后在底部决定“立即发布”或“保存草稿”。
+                  填写资源信息，上传 torrent，最后在底部选择“发布资源”或“保存草稿”。
                 </p>
               </div>
             </div>
@@ -199,7 +173,7 @@ onMounted(loadOptions);
                   placeholder="请选择分类"
                 />
                 <p class="app-field-help">
-                  {{ selectedCategory ? `当前将发布到「${selectedCategory.name}」分类。` : '请选择一个分类。' }}
+                  {{ selectedCategory ? `当前将发布到“${selectedCategory.name}”分类。` : '请选择一个分类。' }}
                 </p>
               </div>
 
@@ -243,12 +217,9 @@ onMounted(loadOptions);
 
             <div>
               <label class="app-field-label">简介</label>
-              <UiTextarea
-                v-model="form.description"
-                placeholder="简要说明版本、字幕、片源和注意事项"
-              />
+              <UiTextarea v-model="form.description" placeholder="简要说明版本、字幕、片源和注意事项" />
               <p class="app-field-help">
-                {{ validationMessage || '提交前请确认标题、分类、简介和 torrent 文件已经填写完整。' }}
+                {{ validationMessage || '提交前请确认标题、分类、简介和 torrent 文件已填写完整。' }}
               </p>
             </div>
           </div>
@@ -256,7 +227,7 @@ onMounted(loadOptions);
 
         <template #footer>
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="text-sm text-slate-500">一个区块里只保留一个主按钮，草稿作为次级动作。</p>
+            <p class="text-sm text-slate-500">一个区域里只保留真正需要的动作，草稿作为次级操作。</p>
             <div class="flex flex-wrap items-center gap-2">
               <UiButton variant="primary" :disabled="submitting || !canSubmit" @click="submit('published')">
                 {{ submitting ? '提交中...' : '发布资源' }}
@@ -268,35 +239,6 @@ onMounted(loadOptions);
           </div>
         </template>
       </AppCard>
-
-      <div class="space-y-6">
-        <AppCard title="发布前检查" description="用统一的检查块减少漏填字段和误操作。">
-          <div class="space-y-3">
-            <div
-              v-for="item in checklist"
-              :key="item.label"
-              class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-            >
-              <component
-                :is="item.done ? CircleCheckBig : CircleDashed"
-                :class="item.done ? 'mt-0.5 h-5 w-5 text-green-600' : 'mt-0.5 h-5 w-5 text-slate-400'"
-              />
-              <div class="min-w-0">
-                <p class="font-medium text-slate-900">{{ item.label }}</p>
-                <p class="mt-1 text-sm leading-6 text-slate-500">{{ item.hint }}</p>
-              </div>
-            </div>
-          </div>
-        </AppCard>
-
-        <AppCard title="说明与约束" description="优先保证简单易用，不为了高级感增加额外工作流。">
-          <ul class="space-y-2 text-sm leading-7 text-slate-600">
-            <li>上传页首屏核心字段保持精简，不额外堆叠复杂步骤器。</li>
-            <li>发布后资源会进入前台浏览路径，草稿则只保留在“我的发布”中。</li>
-            <li>上传者页面仍属于前台，不混入后台管理区，避免权限感知混乱。</li>
-          </ul>
-        </AppCard>
-      </div>
     </div>
   </template>
 </template>

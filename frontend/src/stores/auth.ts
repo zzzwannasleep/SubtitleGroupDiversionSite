@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { CurrentUser, LoginPayload } from '@/types/auth';
 import * as authService from '@/services/auth';
+import { useThemeStore } from './theme';
 
 export const useAuthStore = defineStore('auth', () => {
   const currentUser = ref<CurrentUser | null>(null);
@@ -19,6 +20,12 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       currentUser.value = await authService.fetchMe();
+      const themeStore = useThemeStore();
+      if (currentUser.value) {
+        await themeStore.loadTheme();
+      } else {
+        themeStore.resetTheme();
+      }
     } finally {
       isLoading.value = false;
       isBootstrapped.value = true;
@@ -27,6 +34,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchMe() {
     currentUser.value = await authService.fetchMe();
+    const themeStore = useThemeStore();
+    if (currentUser.value) {
+      await themeStore.loadTheme();
+    } else {
+      themeStore.resetTheme();
+    }
     return currentUser.value;
   }
 
@@ -36,6 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       currentUser.value = await authService.login(payload);
+      await useThemeStore().loadTheme();
       return currentUser.value;
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : '登录失败';
@@ -52,6 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await authService.logout();
       currentUser.value = null;
+      useThemeStore().resetTheme();
     } finally {
       isLoading.value = false;
     }

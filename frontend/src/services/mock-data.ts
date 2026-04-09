@@ -8,6 +8,7 @@ import type {
   TrackerSyncLog,
 } from '@/types/admin';
 import type { Category, DownloadRecord, Release, Tag } from '@/types/release';
+import type { SiteTheme } from '@/types/theme';
 
 const createPasskey = () => Math.random().toString(36).slice(2).padEnd(32, 'x').slice(0, 32);
 
@@ -380,6 +381,19 @@ export const siteSettings: SiteSettings = {
   downloadNotice: '种子文件包含个人身份信息，请勿外传。',
 };
 
+const defaultTheme = (): SiteTheme => ({
+  mode: 'system',
+  customCss: '',
+});
+
+export const userThemes: Record<number, SiteTheme> = {
+  1: defaultTheme(),
+  2: defaultTheme(),
+  3: defaultTheme(),
+  4: defaultTheme(),
+  5: defaultTheme(),
+};
+
 export function getUserById(userId: number): AdminUser | undefined {
   return users.find((item) => item.id === userId);
 }
@@ -591,6 +605,19 @@ export function saveAnnouncement(payload: Pick<Announcement, 'title' | 'content'
 export function saveSettings(payload: SiteSettings): SiteSettings {
   Object.assign(siteSettings, payload);
   return siteSettings;
+}
+
+export function getThemeRecord(userId: number): SiteTheme {
+  if (!userThemes[userId]) {
+    userThemes[userId] = defaultTheme();
+  }
+
+  return userThemes[userId];
+}
+
+export function saveThemeRecord(userId: number, payload: SiteTheme): SiteTheme {
+  Object.assign(getThemeRecord(userId), payload);
+  return getThemeRecord(userId);
 }
 
 export function appendAuditLog(action: Omit<AuditLog, 'id' | 'createdAt'>): AuditLog {
