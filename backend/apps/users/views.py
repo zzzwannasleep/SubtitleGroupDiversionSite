@@ -21,6 +21,7 @@ from apps.users.serializers import (
     AdminUserSerializer,
     ChangeUserStatusSerializer,
     CreateUserSerializer,
+    SelfApiTokenSerializer,
     SelfThemeSerializer,
     UpdateUserSerializer,
 )
@@ -294,6 +295,35 @@ class SelfThemeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return success_response(serializer.data, message="主题已保存。")
+
+
+@extend_schema_view(
+    get=extend_schema(
+        operation_id="users_api_token_retrieve",
+        summary="获取当前用户 API token",
+        tags=["Users"],
+        responses=success_response_schema("UserApiTokenResponse", SelfApiTokenSerializer),
+    ),
+    post=extend_schema(
+        operation_id="users_api_token_reset",
+        summary="重置当前用户 API token",
+        tags=["Users"],
+        request=None,
+        responses=success_response_schema("UserApiTokenResetResponse", SelfApiTokenSerializer),
+    ),
+)
+class SelfApiTokenView(APIView):
+    permission_classes = [IsActiveAuthenticated]
+
+    def get(self, request):
+        return success_response(SelfApiTokenSerializer({"apiToken": request.user.api_token}).data)
+
+    def post(self, request):
+        user = UserService.reset_api_token(actor=request.user, user=request.user)
+        return success_response(
+            SelfApiTokenSerializer({"apiToken": user.api_token}).data,
+            message="API token 已重置。",
+        )
 
 
 @extend_schema_view(

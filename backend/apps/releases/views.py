@@ -239,6 +239,24 @@ class ReleaseVisibilityView(APIView):
 
 
 @extend_schema_view(
+    post=extend_schema(
+        operation_id="admin_releases_hide",
+        summary="隐藏资源（兼容旧接口）",
+        tags=["Admin Releases"],
+        request=None,
+        responses=success_response_schema("ReleaseHideResponse", ReleaseSerializer),
+    ),
+)
+class ReleaseHideView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, release_id: int):
+        release = get_object_or_404(ReleaseService.base_queryset(), pk=release_id)
+        release = ReleaseService.set_visibility(actor=request.user, release=release, status="hidden")
+        return success_response(ReleaseSerializer(release).data, message="资源已隐藏。")
+
+
+@extend_schema_view(
     get=extend_schema(
         operation_id="users_releases_list",
         summary="获取我的发布",

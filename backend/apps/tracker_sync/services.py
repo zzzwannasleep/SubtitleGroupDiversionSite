@@ -3,8 +3,10 @@ import time
 from datetime import datetime, timezone as dt_timezone
 
 from django.conf import settings
+from django.db import connections
 
 from apps.tracker_sync.models import (
+    XbtFileCompatMirror,
     TrackerSyncLog,
     TrackerSyncScope,
     TrackerSyncStatus,
@@ -25,6 +27,23 @@ class TrackerSyncService:
     @staticmethod
     def _xbt_database_alias() -> str:
         return settings.XBT_SYNC_DATABASE_ALIAS
+
+    @classmethod
+    def _xbt_file_model(cls):
+        alias = cls._xbt_database_alias()
+        table_candidates = (XbtFileMirror, XbtFileCompatMirror)
+        try:
+            connection = connections[alias]
+            with connection.cursor() as cursor:
+                available_tables = set(connection.introspection.table_names(cursor))
+        except Exception:
+            logger.exception("failed to inspect xbt file tables via %s", alias)
+            return XbtFileMirror
+
+        for model in table_candidates:
+            if model._meta.db_table in available_tables:
+                return model
+        return XbtFileMirror
 
     @staticmethod
     def create_log(scope: str, target_name: str, status: str, message: str, user=None, release=None):
@@ -184,7 +203,8 @@ class TrackerSyncService:
             "updatedAt": None,
         }
         try:
-            mirror = XbtFileMirror.objects.using(cls._xbt_database_alias()).filter(info_hash=bytes.fromhex(release.infohash)).first()
+            file_model = cls._xbt_file_model()
+            mirror = file_model.objects.using(cls._xbt_database_alias()).filter(info_hash=bytes.fromhex(release.infohash)).first()
             if mirror:
                 xbt_state = {
                     "state": "whitelisted" if mirror.flags == 0 else "deleted",
@@ -306,7 +326,8 @@ class TrackerSyncService:
             if not release.infohash:
                 raise ValueError("资源缺少 infohash。")
 
-            mirrors = XbtFileMirror.objects.using(cls._xbt_database_alias())
+            file_model = cls._xbt_file_model()
+            mirrors = file_model.objects.using(cls._xbt_database_alias())
             info_hash = bytes.fromhex(release.infohash)
             now = int(time.time())
             if release.status == ReleaseStatus.PUBLISHED:

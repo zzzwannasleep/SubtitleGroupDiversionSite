@@ -53,11 +53,15 @@ class BaseFeedView(APIView):
     permission_classes = []
     throttle_classes = [RssFeedThrottle]
 
-    def get_user(self, request):
-        passkey = request.query_params.get("passkey", "")
-        user = RssService.resolve_passkey_user(passkey)
+    def get_user(self, request, *, token: str | None = None):
+        access_token = (
+            (token or "").strip()
+            or (request.query_params.get("token") or "").strip()
+            or (request.query_params.get("passkey") or "").strip()
+        )
+        user = RssService.resolve_access_user(access_token)
         if not user:
-            raise PermissionDenied("passkey 无效或账户已禁用。")
+            raise PermissionDenied("token 或 passkey 无效，或账户已禁用。")
         return user
 
     def render_feed(self, title, queryset, passkey):
@@ -88,6 +92,26 @@ class AllFeedView(BaseFeedView):
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="rss_all_feed_token_path",
+        summary="通过 token 路径获取全部资源 RSS",
+        tags=["RSS"],
+        responses={
+            (200, "application/rss+xml"): OpenApiResponse(
+                response=OpenApiTypes.STR,
+                description="全部资源 RSS XML 内容。",
+            )
+        },
+    ),
+)
+class AllFeedTokenPathView(BaseFeedView):
+    def get(self, request, token: str):
+        user = self.get_user(request, token=token)
+        queryset = Release.objects.filter(status="published").order_by("-published_at", "-id")
+        return self.render_feed("全部资源 RSS", queryset, user.passkey)
+
+
+@extend_schema_view(
+    get=extend_schema(
         operation_id="rss_category_feed",
         summary="获取分类 RSS",
         tags=["RSS"],
@@ -110,6 +134,27 @@ class CategoryFeedView(BaseFeedView):
 
 @extend_schema_view(
     get=extend_schema(
+        operation_id="rss_category_feed_token_path",
+        summary="通过 token 路径获取分类 RSS",
+        tags=["RSS"],
+        responses={
+            (200, "application/rss+xml"): OpenApiResponse(
+                response=OpenApiTypes.STR,
+                description="分类 RSS XML 内容。",
+            )
+        },
+    ),
+)
+class CategoryFeedTokenPathView(BaseFeedView):
+    def get(self, request, token: str, slug: str):
+        user = self.get_user(request, token=token)
+        category = get_object_or_404(Category, slug=slug, is_active=True)
+        queryset = Release.objects.filter(status="published", category=category).order_by("-published_at", "-id")
+        return self.render_feed(f"{category.name} RSS", queryset, user.passkey)
+
+
+@extend_schema_view(
+    get=extend_schema(
         operation_id="rss_tag_feed",
         summary="获取标签 RSS",
         tags=["RSS"],
@@ -125,6 +170,27 @@ class CategoryFeedView(BaseFeedView):
 class TagFeedView(BaseFeedView):
     def get(self, request, slug: str):
         user = self.get_user(request)
+        tag = get_object_or_404(Tag, slug=slug)
+        queryset = Release.objects.filter(status="published", tags=tag).order_by("-published_at", "-id").distinct()
+        return self.render_feed(f"{tag.name} RSS", queryset, user.passkey)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        operation_id="rss_tag_feed_token_path",
+        summary="通过 token 路径获取标签 RSS",
+        tags=["RSS"],
+        responses={
+            (200, "application/rss+xml"): OpenApiResponse(
+                response=OpenApiTypes.STR,
+                description="标签 RSS XML 内容。",
+            )
+        },
+    ),
+)
+class TagFeedTokenPathView(BaseFeedView):
+    def get(self, request, token: str, slug: str):
+        user = self.get_user(request, token=token)
         tag = get_object_or_404(Tag, slug=slug)
         queryset = Release.objects.filter(status="published", tags=tag).order_by("-published_at", "-id").distinct()
         return self.render_feed(f"{tag.name} RSS", queryset, user.passkey)

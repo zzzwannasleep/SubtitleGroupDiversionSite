@@ -114,6 +114,10 @@ class SelfThemeSerializer(serializers.ModelSerializer):
         fields = ("mode", "customCss")
 
 
+class SelfApiTokenSerializer(serializers.Serializer):
+    apiToken = serializers.CharField()
+
+
 class AdminDashboardStatsSerializer(serializers.Serializer):
     userCount = serializers.IntegerField()
     releaseCount = serializers.IntegerField()

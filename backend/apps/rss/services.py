@@ -9,8 +9,12 @@ from apps.users.models import User, UserStatus
 
 class RssService:
     @staticmethod
-    def resolve_passkey_user(passkey: str):
-        return User.objects.filter(passkey=passkey, status=UserStatus.ACTIVE).first()
+    def resolve_access_user(token_or_passkey: str):
+        return User.objects.filter(passkey=token_or_passkey, status=UserStatus.ACTIVE).first()
+
+    @classmethod
+    def resolve_passkey_user(cls, passkey: str):
+        return cls.resolve_access_user(passkey)
 
     @staticmethod
     def get_rss_base_url():

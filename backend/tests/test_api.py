@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from io import StringIO
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
@@ -16,7 +17,7 @@ from apps.common.torrent import bdecode, bencode
 from apps.releases.models import Category, Release, Tag
 from apps.tracker_sync.models import TrackerSyncLog
 from apps.tracker_sync.services import TrackerSyncService
-from apps.tracker_sync.models import XbtFileMirror, XbtUserMirror
+from apps.tracker_sync.models import XbtFileCompatMirror, XbtFileMirror, XbtUserMirror
 from apps.users.models import User
 
 
@@ -68,10 +69,27 @@ class ApiFlowTests(TestCase):
                     """
                 )
                 existing_tables.add(XbtFileMirror._meta.db_table)
+            if XbtFileCompatMirror._meta.db_table not in existing_tables:
+                cursor.execute(
+                    """
+                    CREATE TABLE xbt_files (
+                        tid INTEGER PRIMARY KEY AUTOINCREMENT,
+                        info_hash BLOB NOT NULL UNIQUE,
+                        leechers INTEGER NOT NULL DEFAULT 0,
+                        seeders INTEGER NOT NULL DEFAULT 0,
+                        completed INTEGER NOT NULL DEFAULT 0,
+                        flags INTEGER NOT NULL DEFAULT 0,
+                        mtime INTEGER NOT NULL DEFAULT 0,
+                        ctime INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+                existing_tables.add(XbtFileCompatMirror._meta.db_table)
 
     def setUp(self):
         self.client = APIClient()
         XbtFileMirror.objects.all().delete()
+        XbtFileCompatMirror.objects.all().delete()
         XbtUserMirror.objects.all().delete()
         self.category = Category.objects.create(name="动画", slug="anime", sort_order=1, is_active=True)
         self.tag = Tag.objects.create(name="1080p", slug="1080p")
@@ -131,6 +149,22 @@ class ApiFlowTests(TestCase):
         me = self.client.get("/api/auth/me/")
         self.assertEqual(me.status_code, 200, me.json())
         self.assertEqual(me.json()["data"]["username"], "admin")
+
+    def test_can_fetch_me_with_api_token_authorization_header(self):
+        response = self.client.get(
+            "/api/auth/me/",
+            HTTP_AUTHORIZATION=f"Token {self.user.api_token}",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["data"]["username"], "user")
+
+    def test_admin_endpoint_accepts_x_api_key_header(self):
+        response = self.client.get(
+            "/api/admin/tracker-sync/overview/",
+            HTTP_X_API_KEY=self.admin.api_token,
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertTrue(response.json()["data"]["summary"]["xbtSyncEnabled"])
 
     def test_login_throttle_returns_unified_error(self):
         original_rates = LoginRateThrottle.THROTTLE_RATES
@@ -195,6 +229,22 @@ class ApiFlowTests(TestCase):
         self.assertIn(release.title, body)
         self.assertIn(self.user.passkey, body)
 
+    def test_rss_feed_accepts_token_query_alias(self):
+        release = self.create_release()
+        response = self.client.get(f"/rss/all?token={self.user.passkey}")
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn(release.title, body)
+        self.assertIn(self.user.passkey, body)
+
+    def test_rss_feed_accepts_token_path_route(self):
+        release = self.create_release()
+        response = self.client.get(f"/rss/{self.user.passkey}/category/{self.category.slug}")
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn(release.title, body)
+        self.assertIn(self.user.passkey, body)
+
     def test_disabled_user_cannot_download_with_passkey(self):
         release = self.create_release()
         self.user.status = "disabled"
@@ -231,6 +281,19 @@ class ApiFlowTests(TestCase):
                 format="json",
             )
         self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(XbtFileMirror.objects.get(info_hash=info_hash).flags, 1)
+
+    def test_hide_alias_marks_release_hidden(self):
+        release = self.create_release(execute_on_commit=True)
+        info_hash = bytes.fromhex(release.infohash)
+
+        self.client.force_login(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(f"/api/releases/{release.id}/hide/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        release.refresh_from_db()
+        self.assertEqual(release.status, "hidden")
         self.assertEqual(XbtFileMirror.objects.get(info_hash=info_hash).flags, 1)
 
     def test_reset_passkey_updates_xbt_user_mirror(self):
@@ -335,6 +398,15 @@ class ApiFlowTests(TestCase):
         self.assertIn("passkey=%2A%2A%2A", combined)
         self.assertIn("actor=passkey:user", combined)
         self.assertNotIn(self.user.passkey, combined)
+
+    def test_request_logging_identifies_api_token_actor_without_exposing_secret(self):
+        with self.assertLogs("apps.request", level="INFO") as captured:
+            response = self.client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Token {self.user.api_token}")
+        self.assertEqual(response.status_code, 200)
+
+        combined = "\n".join(captured.output)
+        self.assertIn("actor=api-token:user", combined)
+        self.assertNotIn(self.user.api_token, combined)
 
     def test_admin_user_filters_match_role_and_status(self):
         self.client.force_login(self.admin)
@@ -519,6 +591,24 @@ class ApiFlowTests(TestCase):
         self.assertEqual(data["recentLogs"][0]["releaseId"], release.id)
         self.assertTrue(data["recentLogs"][0]["retryable"])
 
+    def test_release_sync_can_write_to_xbt_files_compatible_table(self):
+        release = self.create_release(status="published")
+        info_hash = bytes.fromhex(release.infohash)
+
+        with patch.object(TrackerSyncService, "_xbt_file_model", return_value=XbtFileCompatMirror):
+            log = TrackerSyncService.sync_release(release)
+
+        self.assertEqual(log.status, "success")
+        self.assertTrue(XbtFileCompatMirror.objects.filter(info_hash=info_hash, flags=0).exists())
+
+        release.status = "hidden"
+        release.save(update_fields=["status"])
+        with patch.object(TrackerSyncService, "_xbt_file_model", return_value=XbtFileCompatMirror):
+            log = TrackerSyncService.sync_release(release)
+
+        self.assertEqual(log.status, "success")
+        self.assertTrue(XbtFileCompatMirror.objects.filter(info_hash=info_hash, flags=1).exists())
+
     def test_admin_can_retry_tracker_sync_log_for_release(self):
         release = self.create_release(execute_on_commit=True)
         info_hash = bytes.fromhex(release.infohash)
@@ -614,6 +704,21 @@ class ApiFlowTests(TestCase):
         self.assertEqual(self.user.theme_mode, "light")
         self.assertEqual(self.user.theme_custom_css, ":root { --primary: 16 185 129; }")
 
+    def test_user_can_get_and_reset_own_api_token(self):
+        old_token = self.user.api_token
+        self.client.force_login(self.user)
+
+        get_response = self.client.get("/api/me/api-token/")
+        self.assertEqual(get_response.status_code, 200, get_response.json())
+        self.assertEqual(get_response.json()["data"]["apiToken"], old_token)
+
+        reset_response = self.client.post("/api/me/api-token/")
+        self.assertEqual(reset_response.status_code, 200, reset_response.json())
+
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.api_token, old_token)
+        self.assertEqual(reset_response.json()["data"]["apiToken"], self.user.api_token)
+
     def test_openapi_schema_validates_and_describes_core_contracts(self):
         fd, schema_path = tempfile.mkstemp(suffix=".json")
         os.close(fd)
@@ -641,4 +746,23 @@ class ApiFlowTests(TestCase):
         self.assertIn("get", schema["paths"]["/api/admin/tracker-sync/releases/{release_id}/"])
         self.assertIn("/api/admin/tracker-sync/logs/{log_id}/retry/", schema["paths"])
         self.assertIn("sessionCookieAuth", schema["components"]["securitySchemes"])
+        self.assertIn("userApiTokenAuth", schema["components"]["securitySchemes"])
+        self.assertIn("userApiKeyAuth", schema["components"]["securitySchemes"])
         self.assertIn("multipart/form-data", schema["paths"]["/api/releases/"]["post"]["requestBody"]["content"])
+
+    def test_redoc_route_is_available(self):
+        response = self.client.get("/api/docs/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<redoc ", response.content.decode("utf-8"))
+
+    def test_regular_user_cannot_access_admin_tracker_sync_overview(self):
+        self.client.force_login(self.user)
+        response = self.client.get("/api/admin/tracker-sync/overview/")
+        self.assertEqual(response.status_code, 403, response.json())
+        self.assertEqual(response.json()["code"], "permission_denied")
+
+    def test_uploader_cannot_access_admin_user_list(self):
+        self.client.force_login(self.uploader)
+        response = self.client.get("/api/admin/users/")
+        self.assertEqual(response.status_code, 403, response.json())
+        self.assertEqual(response.json()["code"], "permission_denied")

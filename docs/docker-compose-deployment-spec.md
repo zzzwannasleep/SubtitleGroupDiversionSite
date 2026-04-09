@@ -184,12 +184,12 @@ deploy/
 - `mysql_data`
 - `redis_data`（可选，但建议保留）
 - `torrent_storage`
-- `nginx_logs`（如需要文件备份）
 
 说明：
 
 - 应用日志仍以 stdout/stderr 为主
 - 卷主要用于数据库、数据文件和必要配置
+- `nginx` 访问/错误日志推荐直接输出到 Docker 标准日志，而不是单独挂日志卷
 
 ## 8. 最小环境变量集合
 
@@ -295,6 +295,13 @@ Compose 中适合放：
 - 启动日志可见
 - 错误日志可见
 - 配置错误可见
+
+推荐补充：
+
+- Compose 层配置统一日志轮转，例如 `json-file + max-size/max-file`
+- `backend` 通过 `LOG_LEVEL` 控制基础级别
+- `nginx` 明确将 `access_log` 指向 stdout、`error_log` 指向 stderr
+- `xbt` 在入口脚本中输出配置渲染、等待数据库和启动日志
 
 ## 12. 初始化流程
 

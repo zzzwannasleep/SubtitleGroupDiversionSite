@@ -153,6 +153,8 @@ SESSION_CACHE_ALIAS = "default"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.common.authentication.UserApiTokenAuthentication",
+        "apps.common.authentication.UserApiKeyAuthentication",
         "apps.common.authentication.CsrfExemptSessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [

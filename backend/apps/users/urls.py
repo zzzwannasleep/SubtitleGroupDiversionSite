@@ -9,6 +9,7 @@ from apps.users.views import (
     AdminUserListCreateView,
     AdminUserResetPasskeyView,
     AdminUserStatusView,
+    SelfApiTokenView,
     SelfPasskeyResetView,
     SelfThemeView,
 )
@@ -28,5 +29,6 @@ urlpatterns = [
     ),
     path("admin/tracker-sync/users/<int:user_id>/", AdminTrackerSyncUserView.as_view(), name="admin-tracker-sync-user"),
     path("me/reset-passkey/", SelfPasskeyResetView.as_view(), name="me-reset-passkey"),
+    path("me/api-token/", SelfApiTokenView.as_view(), name="me-api-token"),
     path("me/theme/", SelfThemeView.as_view(), name="me-theme"),
 ]

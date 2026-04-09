@@ -3,7 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 
 def healthcheck(_request):
@@ -24,4 +24,5 @@ urlpatterns = [
     path("rss/", include("apps.rss.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/docs/", SpectacularRedocView.as_view(url_name="schema"), name="redoc-ui"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -9,9 +9,15 @@ DB_USER="${XBT_DB_USER:-${MYSQL_USER:-}}"
 DB_PASSWORD="${XBT_DB_PASSWORD:-${MYSQL_PASSWORD:-}}"
 TRACKER_PORT="${XBT_TRACKER_PORT:-2710}"
 SCHEMA_FILE="${XBT_SCHEMA_FILE:-/usr/local/share/xbt/xbt_tracker.sql}"
+XBT_DEBUG="${XBT_DEBUG:-0}"
+XBT_LOG_ACCESS="${XBT_LOG_ACCESS:-0}"
+XBT_LOG_ANNOUNCE="${XBT_LOG_ANNOUNCE:-0}"
+XBT_LOG_SCRAPE="${XBT_LOG_SCRAPE:-0}"
 
 render_config() {
   mkdir -p "$(dirname "$CONFIG_FILE")"
+
+  echo "Rendering XBT config to ${CONFIG_FILE} (port=${TRACKER_PORT}, debug=${XBT_DEBUG})..."
 
   cat > "$CONFIG_FILE" <<EOF
 mysql_host = ${DB_HOST}
@@ -25,15 +31,15 @@ anonymous_announce = 0
 anonymous_scrape = 0
 auto_register = 0
 daemon = 0
-debug = 0
+debug = ${XBT_DEBUG}
 full_scrape = 0
 gzip_debug = 1
 gzip_scrape = 1
 listen_ipa = *
 listen_port = ${TRACKER_PORT}
-log_access = 0
-log_announce = 0
-log_scrape = 0
+log_access = ${XBT_LOG_ACCESS}
+log_announce = ${XBT_LOG_ANNOUNCE}
+log_scrape = ${XBT_LOG_SCRAPE}
 pid_file = /tmp/xbt_tracker.pid
 read_config_interval = 60
 read_db_interval = 60
@@ -113,4 +119,5 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 cd "$(dirname "$CONFIG_FILE")"
+echo "Starting XBT tracker with config ${CONFIG_FILE}..."
 exec /usr/local/bin/xbt_tracker

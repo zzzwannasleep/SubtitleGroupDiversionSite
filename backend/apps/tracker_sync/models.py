@@ -71,3 +71,20 @@ class XbtFileMirror(models.Model):
         db_table = "xbt_torrents"
         # XBT owns the real table schema. Django only maps and updates rows.
         managed = False
+
+
+class XbtFileCompatMirror(models.Model):
+    tid = models.AutoField(primary_key=True)
+    info_hash = models.BinaryField(max_length=20, unique=True)
+    leechers = models.PositiveIntegerField(default=0)
+    seeders = models.PositiveIntegerField(default=0)
+    completed = models.PositiveIntegerField(default=0)
+    flags = models.PositiveIntegerField(default=0)
+    mtime = models.PositiveIntegerField(default=0)
+    ctime = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "xbt_files"
+        # Some XBT distributions and docs expose the whitelist table as xbt_files.
+        # Keep an unmanaged mirror so the sync service can work with either layout.
+        managed = False

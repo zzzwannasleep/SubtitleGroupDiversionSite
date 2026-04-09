@@ -1486,6 +1486,8 @@ Docker 部署后，日志的最低要求不是“做得多漂亮”，而是：
 - [x] `POST /auth/logout`
 - [x] `POST /auth/change-password`
 - [x] `GET /auth/me`
+- [x] `GET /me/api-token`
+- [x] `POST /me/api-token`
 - [x] `POST /me/reset-passkey/`
 - [x] `GET /me/theme/`
 - [x] `PUT /me/theme/`
@@ -1574,6 +1576,25 @@ Docker 部署后，日志的最低要求不是“做得多漂亮”，而是：
 
 - `/api/schema/` 提供 OpenAPI Schema
 - `/api/swagger/` 提供 Swagger UI 页面
+
+### 12.8 本轮补齐的兼容接口
+
+以下接口或访问形式已在当前仓库中补齐：
+
+- [x] `GET /rss/all?token=xxx`
+- [x] `GET /rss/category/{slug}?token=xxx`
+- [x] `GET /rss/tag/{slug}?token=xxx`
+- [x] `GET /rss/{token}/all`
+- [x] `GET /rss/{token}/category/{slug}`
+- [x] `GET /rss/{token}/tag/{slug}`
+- [x] `POST /releases/{id}/hide`
+- [x] `GET /api/docs/`
+
+说明：
+
+- 资源隐藏能力当前同时支持 `[x] POST /releases/{id}/visibility/` 与兼容旧草案的 `[x] POST /releases/{id}/hide`
+- RSS 已兼容 `token` 查询参数与 `token` 路径访问形式；当前 `token` 仍复用用户 `passkey`，独立 RSS token 表仍属于后续增强项
+- `/api/docs/` 已提供可选 ReDoc 入口，当前仓库同时提供 `/api/schema/`、`/api/swagger/` 与 `/api/docs/`
 
 ## 13. MVP 开发范围
 
@@ -1724,14 +1745,14 @@ MVP 上线前必须打通以下闭环：
 - [x] 配置 Nginx 反代
 - [ ] 配置 HTTPS
 - [x] 配置 Django 标准输出日志
-- [ ] 配置 Nginx access/error 标准输出日志
-- [ ] 配置 `XBT` 日志输出到 Docker 标准日志
+- [x] 配置 Nginx access/error 标准输出日志
+- [x] 配置 `XBT` 日志输出到 Docker 标准日志
 - [ ] 验证 `mysql` / `redis` 容器日志可通过 `docker logs` 查看
-- [ ] 配置容器日志前缀与基础级别
+- [x] 配置容器日志前缀与基础级别
 - [ ] 配置日志与错误监控
 - [ ] 验证 `docker compose up -d` 能按文档拉起整套服务
 - [ ] 验证 `docker compose pull && docker compose up -d` 可完成更新
-- [ ] 配置备份策略
+- [x] 配置备份策略
 
 ### 14.10 测试与验收
 
@@ -1742,7 +1763,8 @@ MVP 上线前必须打通以下闭环：
 - [x] 编写 `XBT` 同步测试
 - [x] 编写 XBT 同步概览与重试接口测试
 - [x] 编写 `passkey` 重置测试
-- [ ] 编写后台权限测试
+- [x] 编写后台权限测试
+- [x] 编写 API token / API Key 认证测试
 - [x] 编写 API Schema / Swagger 页面测试
 - [ ] 验证所有容器在 Docker 中都有可读日志输出
 - [ ] 做一次完整上线前走查

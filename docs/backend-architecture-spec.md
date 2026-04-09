@@ -398,6 +398,12 @@ MVP 不建议：
 - [x] `/admin/tracker-sync/full`
 - [x] `/admin/tracker-sync/logs/{id}/retry`
 
+补充状态（截至 `2026-04-09`）：
+
+- [x] RSS token 访问接口已兼容落地，当前 `token` 仍复用用户 `passkey`
+- [x] 内部脚本使用的 Token 认证 / API Key 认证已落地，支持 `Authorization: Token <api_token>`、`Authorization: Bearer <api_token>` 与 `X-API-Key: <api_token>`
+- [x] 可选的 `/api/docs/`（ReDoc）入口已落地，当前同时提供 `/api/schema/`、`/api/swagger/` 与 `/api/docs/`
+
 ### 9.3 返回格式建议
 
 建议 API 响应尽量统一。

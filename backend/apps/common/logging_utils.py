@@ -35,6 +35,23 @@ def get_request_ip(request) -> str:
 
 
 def get_request_actor(request) -> str:
+    authorization = (request.META.get("HTTP_AUTHORIZATION") or "").strip()
+    api_key = (request.META.get("HTTP_X_API_KEY") or "").strip()
+    token = ""
+    if authorization:
+        parts = authorization.split(None, 1)
+        if len(parts) == 2 and parts[0].lower() in {"token", "bearer"}:
+            token = parts[1].strip()
+    if not token and api_key:
+        token = api_key
+    if token:
+        from apps.users.models import User
+
+        username = User.objects.filter(api_token=token).values_list("username", flat=True).first()
+        if username:
+            return f"api-token:{username}"
+        return f"api-token:{fingerprint_secret(token)}"
+
     user = getattr(request, "user", None)
     if getattr(user, "is_authenticated", False):
         return getattr(user, "username", "authenticated")

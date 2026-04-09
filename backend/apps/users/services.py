@@ -97,3 +97,18 @@ class UserService:
             )
             transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
         return user
+
+    @staticmethod
+    def reset_api_token(*, actor, user: User):
+        with transaction.atomic():
+            user.api_token = generate_passkey()
+            user.save(update_fields=["api_token"])
+            AuditService.log(
+                actor,
+                "重置 API token",
+                "用户",
+                user.username,
+                detail="API token 已重置，旧内部脚本凭证失效。",
+                payload={"user_id": user.id},
+            )
+        return user
