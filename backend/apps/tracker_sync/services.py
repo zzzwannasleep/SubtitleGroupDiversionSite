@@ -18,6 +18,10 @@ logger = logging.getLogger("apps.tracker_sync")
 
 
 class TrackerSyncService:
+    OVERVIEW_LOG_LIMIT = 20
+    OVERVIEW_FAILED_LOG_LIMIT = 10
+    DETAIL_LOG_LIMIT = 10
+
     @staticmethod
     def _xbt_database_alias() -> str:
         return settings.XBT_SYNC_DATABASE_ALIAS
@@ -48,6 +52,69 @@ class TrackerSyncService:
             "message": log.message,
             "updatedAt": log.updated_at.isoformat(),
         }
+
+    @classmethod
+    def _recent_logs(cls, *, scope: str, user=None, release=None, limit: int | None = None):
+        logs = TrackerSyncLog.objects.filter(scope=scope)
+        if user is not None:
+            logs = logs.filter(user=user)
+        if release is not None:
+            logs = logs.filter(release=release)
+        return list(logs[: limit or cls.DETAIL_LOG_LIMIT])
+
+    @classmethod
+    def build_overview(cls):
+        logs = TrackerSyncLog.objects.all()
+        success_logs = logs.filter(status=TrackerSyncStatus.SUCCESS)
+        warning_logs = logs.filter(status=TrackerSyncStatus.WARNING)
+        failed_logs = logs.filter(status=TrackerSyncStatus.FAILED)
+        last_full_log = logs.filter(scope=TrackerSyncScope.FULL).order_by("-updated_at", "-id").first()
+
+        return {
+            "summary": {
+                "xbtSyncEnabled": settings.XBT_SYNC_ENABLED,
+                "xbtDatabaseAlias": cls._xbt_database_alias(),
+                "totalLogs": logs.count(),
+                "successCount": success_logs.count(),
+                "warningCount": warning_logs.count(),
+                "failedCount": failed_logs.count(),
+                "pendingCount": warning_logs.count() + failed_logs.count(),
+                "lastSuccessAt": success_logs.values_list("updated_at", flat=True).first(),
+                "lastFailureAt": failed_logs.values_list("updated_at", flat=True).first(),
+                "lastFullSyncAt": last_full_log.updated_at if last_full_log else None,
+            },
+            "latestLogs": logs[: cls.OVERVIEW_LOG_LIMIT],
+            "failedLogs": failed_logs[: cls.OVERVIEW_FAILED_LOG_LIMIT],
+        }
+
+    @classmethod
+    def retry_log(cls, log: TrackerSyncLog):
+        if log.scope == TrackerSyncScope.FULL:
+            return cls.sync_all()
+        if log.scope == TrackerSyncScope.USER:
+            if log.user_id is None:
+                return cls.create_log(
+                    TrackerSyncScope.USER,
+                    log.target_name,
+                    TrackerSyncStatus.WARNING,
+                    "原始同步记录缺少用户关联，无法重试。",
+                )
+            return cls.sync_user_by_id(log.user_id)
+        if log.scope == TrackerSyncScope.RELEASE:
+            if log.release_id is None:
+                return cls.create_log(
+                    TrackerSyncScope.RELEASE,
+                    log.target_name,
+                    TrackerSyncStatus.WARNING,
+                    "原始同步记录缺少资源关联，无法重试。",
+                )
+            return cls.sync_release_by_id(log.release_id)
+        return cls.create_log(
+            log.scope,
+            log.target_name,
+            TrackerSyncStatus.WARNING,
+            "不支持的同步范围，无法重试。",
+        )
 
     @classmethod
     def get_user_sync_snapshot(cls, user: User):
@@ -82,6 +149,23 @@ class TrackerSyncService:
         return {
             "trackerSync": cls._serialize_log(latest_log),
             "xbtUser": xbt_state,
+        }
+
+    @classmethod
+    def build_user_detail(cls, user: User):
+        snapshot = cls.get_user_sync_snapshot(user)
+        return {
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "displayName": user.display_name,
+                "role": user.role,
+                "status": user.status,
+                "passkey": user.passkey,
+            },
+            "trackerSync": snapshot["trackerSync"],
+            "xbtUser": snapshot["xbtUser"],
+            "recentLogs": cls._recent_logs(scope=TrackerSyncScope.USER, user=user),
         }
 
     @classmethod
@@ -124,6 +208,23 @@ class TrackerSyncService:
         return {
             "trackerSync": cls._serialize_log(latest_log),
             "xbtFile": xbt_state,
+        }
+
+    @classmethod
+    def build_release_detail(cls, release):
+        snapshot = cls.get_release_sync_snapshot(release)
+        return {
+            "release": {
+                "id": release.id,
+                "title": release.title,
+                "status": release.status,
+                "infohash": release.infohash,
+                "publishedAt": release.published_at or release.created_at,
+                "createdById": release.created_by_id,
+            },
+            "trackerSync": snapshot["trackerSync"],
+            "xbtFile": snapshot["xbtFile"],
+            "recentLogs": cls._recent_logs(scope=TrackerSyncScope.RELEASE, release=release),
         }
 
     @classmethod

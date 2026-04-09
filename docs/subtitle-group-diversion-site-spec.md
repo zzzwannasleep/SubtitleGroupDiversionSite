@@ -1475,26 +1475,47 @@ Docker 部署后，日志的最低要求不是“做得多漂亮”，而是：
 
 ## 12. 接口草案
 
+说明：
+
+- 以下接口截至 `2026-04-09` 已在当前仓库中落地
+- 主站业务接口实际以 `/api` 为统一前缀；RSS Feed 保持 `/rss` 前缀
+
 ### 12.1 认证接口
 
-- `POST /auth/login`
-- `POST /auth/logout`
-- `POST /auth/change-password`
+- [x] `POST /auth/login`
+- [x] `POST /auth/logout`
+- [x] `POST /auth/change-password`
+- [x] `GET /auth/me`
+- [x] `POST /me/reset-passkey/`
+- [x] `GET /me/theme/`
+- [x] `PUT /me/theme/`
 
 ### 12.2 资源接口
 
-- `GET /releases`
-- `GET /releases/{id}`
-- `POST /releases` (`uploader` / `admin`)
-- `PUT /releases/{id}` (`owner` / `admin`)
-- `POST /releases/{id}/hide` (`admin`)
-- `GET /releases/{id}/download`
+- [x] `GET /home/`
+- [x] `GET /categories/`
+- [x] `GET /tags/`
+- [x] `GET /releases/`
+- [x] `GET /releases/{id}/`
+- [x] `POST /releases/` (`uploader` / `admin`)
+- [x] `PUT /releases/{id}/` (`owner` / `admin`)
+- [x] `PATCH /releases/{id}/` (`owner` / `admin`)
+- [x] `POST /releases/{id}/visibility/` (`admin`)
+- [x] `GET /releases/{id}/download/`
+- [x] `GET /me/releases/`
+- [x] `GET /me/downloads/`
+- [x] `GET /admin/releases/`
+- [x] `GET /admin/categories/`
+- [x] `POST /admin/categories/`
+- [x] `GET /admin/tags/`
+- [x] `POST /admin/tags/`
 
 ### 12.3 RSS 接口
 
-- `GET /rss/all`
-- `GET /rss/category/{slug}`
-- `GET /rss/tag/{slug}`
+- [x] `GET /api/rss/overview/`
+- [x] `GET /rss/all`
+- [x] `GET /rss/category/{slug}`
+- [x] `GET /rss/tag/{slug}`
 
 说明：
 
@@ -1503,11 +1524,16 @@ Docker 部署后，日志的最低要求不是“做得多漂亮”，而是：
 
 ### 12.4 用户管理接口
 
-- `GET /admin/users`
-- `POST /admin/users`
-- `PUT /admin/users/{id}`
-- `POST /admin/users/{id}/disable`
-- `POST /admin/users/{id}/reset-passkey`
+- [x] `GET /admin/dashboard/`
+- [x] `GET /admin/users/`
+- [x] `POST /admin/users/`
+- [x] `GET /admin/users/{id}/`
+- [x] `PUT /admin/users/{id}/`
+- [x] `PATCH /admin/users/{id}/`
+- [x] `POST /admin/users/{id}/status/`
+- [x] `POST /admin/users/{id}/disable/`
+- [x] `POST /admin/users/{id}/enable/`
+- [x] `POST /admin/users/{id}/reset-passkey/`
 
 ### 12.5 XBT 集成接口
 
@@ -1515,10 +1541,14 @@ Docker 部署后，日志的最低要求不是“做得多漂亮”，而是：
 
 主站需要的接口更偏向“同步与管理”：
 
-- `POST /admin/tracker-sync/users/{id}`
-- `POST /admin/tracker-sync/releases/{id}`
-- `POST /admin/tracker-sync/full`
-- `POST /admin/tracker-sync/users/{id}/disable`
+- [x] `GET /admin/tracker-sync/overview/`
+- [x] `GET /admin/tracker-sync/logs/`
+- [x] `GET /admin/tracker-sync/users/{id}/`
+- [x] `POST /admin/tracker-sync/users/{id}/`
+- [x] `GET /admin/tracker-sync/releases/{id}/`
+- [x] `POST /admin/tracker-sync/releases/{id}/`
+- [x] `POST /admin/tracker-sync/full/`
+- [x] `POST /admin/tracker-sync/logs/{id}/retry/`
 
 说明：
 
@@ -1526,10 +1556,19 @@ Docker 部署后，日志的最低要求不是“做得多漂亮”，而是：
 - 用于把允许下载的 torrent / `infohash` 同步到 `XBT`
 - 可以做成后台手动触发，也可以在保存后自动触发
 
-### 12.6 API 文档接口
+### 12.6 公告、审计与系统设置接口
 
-- `GET /api/schema/`
-- `GET /api/swagger/`
+- [x] `GET /announcements/visible/`
+- [x] `GET /admin/announcements/`
+- [x] `POST /admin/announcements/`
+- [x] `GET /admin/audit-logs/`
+- [x] `GET /admin/settings/`
+- [x] `PUT /admin/settings/`
+
+### 12.7 API 文档接口
+
+- [x] `GET /api/schema/`
+- [x] `GET /api/swagger/`
 
 说明：
 
@@ -1564,9 +1603,10 @@ MVP 上线前必须打通以下闭环：
 
 说明：
 
-- 截至 `2026-04-08`，本轮同时标记已完成的后端能力与前端页面骨架进度
+- 截至 `2026-04-09`，已回填当前仓库中已完成的后端能力、前端页面骨架与 API 文档/测试进度
 - 当前前端页面、权限、布局与导航已在 `frontend/` 中落地，并通过本地构建验证
 - 前端当前仍基于 `Mock` 服务层，真实 `Django/DRF` 接口接入待后续继续推进
+- 本轮额外确认并回填：后台用户更新接口、显式启用/禁用接口、XBT 同步概览与按日志重试接口、Swagger / OpenAPI 契约与校验测试
 
 ### 14.1 产品与设计
 
@@ -1626,7 +1666,7 @@ MVP 上线前必须打通以下闭环：
 - [x] 实现标签 RSS
 - [x] 实现 RSS Token / `passkey` 鉴权（当前为 `passkey`）
 - [x] 实现 RSS 页面与复制入口
-- [ ] 实现 RSS 访问限流
+- [x] 实现 RSS 访问限流
 
 ### 14.6 下载模块
 
@@ -1646,11 +1686,14 @@ MVP 上线前必须打通以下闭环：
 - [x] 实现资源发布后自动同步到 `XBT`
 - [x] 实现 `passkey` 重置后的 `XBT` 同步
 - [x] 实现同步失败日志与手动重试入口
+- [x] 实现 XBT 同步概览接口
+- [x] 实现按同步日志重试接口
 
 ### 14.8 后台管理
 
 - [x] 实现用户列表接口
 - [x] 实现用户详情接口
+- [x] 实现用户基础信息更新接口
 - [x] 实现资源管理接口
 - [x] 实现分类管理接口
 - [x] 实现标签管理接口
@@ -1663,22 +1706,22 @@ MVP 上线前必须打通以下闭环：
 - [x] 初始化 `frontend` 与 `backend` 目录
 - [ ] 配置开发环境
 - [x] 配置数据库迁移
-- [ ] 配置 Redis
+- [x] 配置 Redis
 - [x] 配置文件存储目录
-- [ ] 配置环境变量模板
-- [ ] 提供尽量开箱即用的 `.env.example`
+- [x] 配置环境变量模板
+- [x] 提供尽量开箱即用的 `.env.example`
 - [ ] 控制 MVP 必填环境变量数量
-- [ ] 编写 `docker-compose.yml`
-- [ ] 编写 GitHub Actions 镜像构建工作流
-- [ ] 配置镜像推送到 `ghcr.io`
-- [ ] 约定 `frontend` / `backend` 镜像标签策略
-- [ ] 编写前端 Dockerfile
-- [ ] 编写后端 Dockerfile
-- [ ] 编写 `XBT` 容器与配置文件
+- [x] 编写 `docker-compose.yml`
+- [x] 编写 GitHub Actions 镜像构建工作流
+- [x] 配置镜像推送到 `ghcr.io`
+- [x] 约定 `frontend` / `backend` 镜像标签策略
+- [x] 编写前端 Dockerfile
+- [x] 编写后端 Dockerfile
+- [x] 编写 `XBT` 容器与配置文件
 - [x] 配置 `Django REST Framework`
 - [x] 配置 `drf-spectacular`
 - [x] 配置 Swagger UI 路由
-- [ ] 配置 Nginx 反代
+- [x] 配置 Nginx 反代
 - [ ] 配置 HTTPS
 - [x] 配置 Django 标准输出日志
 - [ ] 配置 Nginx access/error 标准输出日志
@@ -1696,10 +1739,11 @@ MVP 上线前必须打通以下闭环：
 - [x] 编写资源上传测试
 - [x] 编写 RSS 输出测试
 - [x] 编写下载接口测试
-- [ ] 编写 `XBT` 同步测试
-- [ ] 编写 `passkey` 重置测试
+- [x] 编写 `XBT` 同步测试
+- [x] 编写 XBT 同步概览与重试接口测试
+- [x] 编写 `passkey` 重置测试
 - [ ] 编写后台权限测试
-- [ ] 编写 API Schema / Swagger 页面测试
+- [x] 编写 API Schema / Swagger 页面测试
 - [ ] 验证所有容器在 Docker 中都有可读日志输出
 - [ ] 做一次完整上线前走查
 

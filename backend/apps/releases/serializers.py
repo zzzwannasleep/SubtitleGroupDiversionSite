@@ -131,10 +131,12 @@ class ReleaseWriteSerializer(serializers.Serializer):
 class CategoryWriteSerializer(serializers.ModelSerializer):
     name = serializers.CharField(max_length=100)
     slug = serializers.SlugField(max_length=100)
+    sortOrder = serializers.IntegerField(source="sort_order", min_value=1, required=False)
+    isActive = serializers.BooleanField(source="is_active", required=False)
 
     class Meta:
         model = Category
-        fields = ("id", "name", "slug")
+        fields = ("id", "name", "slug", "sortOrder", "isActive")
 
 
 class TagWriteSerializer(serializers.ModelSerializer):

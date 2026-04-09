@@ -14,6 +14,7 @@ from apps.audit.models import AuditLog
 from apps.common.throttles import LoginRateThrottle
 from apps.common.torrent import bdecode, bencode
 from apps.releases.models import Category, Release, Tag
+from apps.tracker_sync.models import TrackerSyncLog
 from apps.tracker_sync.services import TrackerSyncService
 from apps.tracker_sync.models import XbtFileMirror, XbtUserMirror
 from apps.users.models import User
@@ -99,9 +100,13 @@ class ApiFlowTests(TestCase):
             email="user@example.com",
         )
 
-    def create_release(self, *, status: str = "published", execute_on_commit: bool = False):
+    def create_release(self, *, status: str = "published", execute_on_commit: bool = False, torrent_bytes: bytes | None = None):
         self.client.force_login(self.uploader)
-        torrent = SimpleUploadedFile("example.torrent", build_torrent_bytes(), content_type="application/x-bittorrent")
+        torrent = SimpleUploadedFile(
+            "example.torrent",
+            torrent_bytes or build_torrent_bytes(),
+            content_type="application/x-bittorrent",
+        )
         payload = {
             "title": "测试资源",
             "subtitle": "WEB-DL 1080p",
@@ -364,6 +369,63 @@ class ApiFlowTests(TestCase):
             AuditLog.objects.filter(action="创建分类", target_type="分类", target_name="纪录片").exists()
         )
 
+    def test_admin_can_set_category_sort_order_and_visibility(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/api/admin/categories/",
+            {
+                "name": "纪录片",
+                "slug": "documentary",
+                "sortOrder": 9,
+                "isActive": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+
+        category = Category.objects.get(slug="documentary")
+        self.assertEqual(category.sort_order, 9)
+        self.assertFalse(category.is_active)
+        self.assertEqual(
+            response.json()["data"],
+            {
+                "id": category.id,
+                "name": "纪录片",
+                "slug": "documentary",
+                "sortOrder": 9,
+                "isActive": False,
+            },
+        )
+
+        public_categories = self.client.get("/api/categories/")
+        self.assertEqual(public_categories.status_code, 200, public_categories.json())
+        self.assertNotIn("documentary", [item["slug"] for item in public_categories.json()["data"]])
+
+    def test_admin_can_update_category_sort_order_and_visibility(self):
+        category = Category.objects.create(name="纪录片", slug="documentary", sort_order=9, is_active=False)
+
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/api/admin/categories/",
+            {
+                "id": category.id,
+                "name": "纪录片",
+                "slug": "documentary",
+                "sortOrder": 3,
+                "isActive": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+
+        category.refresh_from_db()
+        self.assertEqual(category.sort_order, 3)
+        self.assertTrue(category.is_active)
+
+        public_categories = self.client.get("/api/categories/")
+        self.assertEqual(public_categories.status_code, 200, public_categories.json())
+        self.assertIn("documentary", [item["slug"] for item in public_categories.json()["data"]])
+
     def test_admin_user_detail_includes_tracker_sync_snapshot(self):
         TrackerSyncService.sync_user(self.user)
 
@@ -387,6 +449,138 @@ class ApiFlowTests(TestCase):
         self.assertEqual(data["trackerSync"]["status"], "success")
         self.assertEqual(data["xbtFile"]["state"], "whitelisted")
         self.assertIsNotNone(data["xbtFile"]["updatedAt"])
+
+    def test_admin_can_get_tracker_sync_overview(self):
+        release = self.create_release(execute_on_commit=True)
+        TrackerSyncLog.objects.create(
+            scope="release",
+            target_name=release.title,
+            status="failed",
+            message="manual failure",
+            release=release,
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get("/api/admin/tracker-sync/overview/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertTrue(data["summary"]["xbtSyncEnabled"])
+        self.assertEqual(data["summary"]["failedCount"], 1)
+        self.assertGreaterEqual(data["summary"]["successCount"], 1)
+        self.assertEqual(
+            data["summary"]["pendingCount"],
+            data["summary"]["warningCount"] + data["summary"]["failedCount"],
+        )
+        self.assertTrue(any(item["scope"] == "release" for item in data["latestLogs"]))
+        self.assertEqual(data["failedLogs"][0]["releaseId"], release.id)
+        self.assertTrue(data["failedLogs"][0]["retryable"])
+
+    def test_admin_can_get_tracker_sync_user_detail(self):
+        TrackerSyncService.sync_user(self.user)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/api/admin/tracker-sync/users/{self.user.id}/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["user"]["id"], self.user.id)
+        self.assertEqual(data["user"]["username"], self.user.username)
+        self.assertEqual(data["user"]["displayName"], self.user.display_name)
+        self.assertEqual(data["trackerSync"]["status"], "success")
+        self.assertEqual(data["xbtUser"]["state"], "enabled")
+        self.assertEqual(data["recentLogs"][0]["userId"], self.user.id)
+        self.assertTrue(data["recentLogs"][0]["retryable"])
+
+    def test_admin_can_run_tracker_sync_for_user(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(f"/api/admin/tracker-sync/users/{self.user.id}/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["scope"], "user")
+        self.assertEqual(data["userId"], self.user.id)
+        self.assertTrue(data["retryable"])
+        self.assertEqual(XbtUserMirror.objects.get(uid=self.user.id).torrent_pass, self.user.passkey)
+
+    def test_admin_can_get_tracker_sync_release_detail(self):
+        release = self.create_release(execute_on_commit=True)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/api/admin/tracker-sync/releases/{release.id}/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["release"]["id"], release.id)
+        self.assertEqual(data["release"]["title"], release.title)
+        self.assertEqual(data["release"]["infohash"], release.infohash)
+        self.assertEqual(data["trackerSync"]["status"], "success")
+        self.assertEqual(data["xbtFile"]["state"], "whitelisted")
+        self.assertEqual(data["recentLogs"][0]["releaseId"], release.id)
+        self.assertTrue(data["recentLogs"][0]["retryable"])
+
+    def test_admin_can_retry_tracker_sync_log_for_release(self):
+        release = self.create_release(execute_on_commit=True)
+        info_hash = bytes.fromhex(release.infohash)
+        XbtFileMirror.objects.filter(info_hash=info_hash).delete()
+        failed_log = TrackerSyncLog.objects.create(
+            scope="release",
+            target_name=release.title,
+            status="failed",
+            message="manual failure",
+            release=release,
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.post(f"/api/admin/tracker-sync/logs/{failed_log.id}/retry/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["scope"], "release")
+        self.assertEqual(data["releaseId"], release.id)
+        self.assertTrue(data["retryable"])
+        self.assertTrue(XbtFileMirror.objects.filter(info_hash=info_hash, flags=0).exists())
+
+    def test_tracker_sync_log_list_exposes_retry_metadata(self):
+        release = self.create_release(execute_on_commit=True)
+
+        self.client.force_login(self.admin)
+        response = self.client.get("/api/admin/tracker-sync/logs/?scope=release")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        item = response.json()["data"][0]
+        self.assertEqual(item["scope"], "release")
+        self.assertEqual(item["releaseId"], release.id)
+        self.assertTrue(item["retryable"])
+
+    def test_tracker_sync_log_list_can_filter_by_user_id(self):
+        TrackerSyncService.sync_user(self.user)
+        TrackerSyncService.sync_user(self.uploader)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/api/admin/tracker-sync/logs/?scope=user&userId={self.user.id}")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertTrue(data)
+        self.assertTrue(all(item["userId"] == self.user.id for item in data))
+
+    def test_tracker_sync_log_list_can_filter_by_release_id(self):
+        release = self.create_release(execute_on_commit=True)
+        second_release = self.create_release(
+            status="draft",
+            execute_on_commit=True,
+            torrent_bytes=build_torrent_bytes(private=True).replace(b"Example.S01E01.mkv", b"Example.S01E02.mkv"),
+        )
+
+        self.client.force_login(self.admin)
+        response = self.client.get(f"/api/admin/tracker-sync/logs/?scope=release&releaseId={release.id}")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertTrue(data)
+        self.assertTrue(all(item["releaseId"] == release.id for item in data))
+        self.assertNotIn(second_release.id, [item["releaseId"] for item in data if item["releaseId"] is not None])
 
     def test_user_can_get_own_theme(self):
         self.user.theme_mode = "dark"
@@ -442,5 +636,9 @@ class ApiFlowTests(TestCase):
 
         self.assertIn("/api/releases/", schema["paths"])
         self.assertIn("/api/admin/tracker-sync/full/", schema["paths"])
+        self.assertIn("/api/admin/tracker-sync/overview/", schema["paths"])
+        self.assertIn("get", schema["paths"]["/api/admin/tracker-sync/users/{user_id}/"])
+        self.assertIn("get", schema["paths"]["/api/admin/tracker-sync/releases/{release_id}/"])
+        self.assertIn("/api/admin/tracker-sync/logs/{log_id}/retry/", schema["paths"])
         self.assertIn("sessionCookieAuth", schema["components"]["securitySchemes"])
         self.assertIn("multipart/form-data", schema["paths"]["/api/releases/"]["post"]["requestBody"]["content"])

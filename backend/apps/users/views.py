@@ -1,7 +1,6 @@
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
-from rest_framework import serializers
 from rest_framework.views import APIView
 
 from apps.announcements.models import Announcement
@@ -12,6 +11,7 @@ from apps.common.schema import success_response_schema
 from apps.releases.models import Release
 from apps.releases.serializers import ReleaseSerializer
 from apps.tracker_sync.models import TrackerSyncLog
+from apps.tracker_sync.serializers import TrackerSyncLogSerializer, TrackerSyncUserDetailSerializer
 from apps.tracker_sync.services import TrackerSyncService
 from apps.users.models import User, UserRole, UserStatus
 from apps.users.serializers import (
@@ -297,26 +297,27 @@ class SelfThemeView(APIView):
 
 
 @extend_schema_view(
+    get=extend_schema(
+        operation_id="tracker_sync_user_detail",
+        summary="获取指定用户的 XBT 同步详情",
+        tags=["Tracker Sync"],
+        responses=success_response_schema("TrackerSyncUserDetailResponse", TrackerSyncUserDetailSerializer),
+    ),
     post=extend_schema(
         operation_id="tracker_sync_user_run",
         summary="手动同步指定用户到 XBT",
         tags=["Tracker Sync"],
         request=None,
-        responses=success_response_schema(
-            "TrackerSyncUserActionResponse",
-            inline_serializer(
-                name="TrackerSyncUserActionData",
-                fields={
-                    "logId": serializers.IntegerField(),
-                    "status": serializers.CharField(),
-                    "message": serializers.CharField(),
-                },
-            ),
-        ),
+        responses=success_response_schema("TrackerSyncUserActionResponse", TrackerSyncLogSerializer),
     ),
 )
 class AdminTrackerSyncUserView(APIView):
     permission_classes = [IsAdminRole]
+
+    def get(self, request, user_id: int):
+        user = get_object_or_404(User, pk=user_id)
+        serializer = TrackerSyncUserDetailSerializer(TrackerSyncService.build_user_detail(user))
+        return success_response(serializer.data)
 
     def post(self, request, user_id: int):
         user = get_object_or_404(User, pk=user_id)
@@ -329,4 +330,4 @@ class AdminTrackerSyncUserView(APIView):
             detail=f"同步结果：{log.status}",
             payload={"user_id": user.id, "tracker_sync_log_id": log.id},
         )
-        return success_response({"logId": log.id, "status": log.status, "message": log.message})
+        return success_response(TrackerSyncLogSerializer(log).data)

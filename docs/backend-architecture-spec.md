@@ -358,37 +358,45 @@ MVP 不建议：
 
 ### 9.2 建议接口分组
 
+当前实现状态（截至 `2026-04-09`）：
+
+- 以下分组中的核心接口均已在当前仓库落地
+- 主站业务接口统一挂在 `/api` 前缀下；RSS Feed 使用 `/rss` 前缀
+
 `auth`
 
-- `/auth/login`
-- `/auth/logout`
-- `/auth/change-password`
-- `/auth/me`
+- [x] `/auth/login`
+- [x] `/auth/logout`
+- [x] `/auth/change-password`
+- [x] `/auth/me`
 
 `releases`
 
-- `/releases`
-- `/releases/{id}`
-- `/releases/{id}/download`
+- [x] `/releases`
+- [x] `/releases/{id}`
+- [x] `/releases/{id}/download`
 
 `rss`
 
-- `/rss/all`
-- `/rss/category/{slug}`
-- `/rss/tag/{slug}`
+- [x] `/rss/all`
+- [x] `/rss/category/{slug}`
+- [x] `/rss/tag/{slug}`
 
 `admin-users`
 
-- `/admin/users`
-- `/admin/users/{id}`
-- `/admin/users/{id}/disable`
-- `/admin/users/{id}/reset-passkey`
+- [x] `/admin/users`
+- [x] `/admin/users/{id}`
+- [x] `/admin/users/{id}/disable`
+- [x] `/admin/users/{id}/reset-passkey`
 
 `tracker-sync`
 
-- `/admin/tracker-sync/users/{id}`
-- `/admin/tracker-sync/releases/{id}`
-- `/admin/tracker-sync/full`
+- [x] `/admin/tracker-sync/overview`
+- [x] `/admin/tracker-sync/logs`
+- [x] `/admin/tracker-sync/users/{id}`
+- [x] `/admin/tracker-sync/releases/{id}`
+- [x] `/admin/tracker-sync/full`
+- [x] `/admin/tracker-sync/logs/{id}/retry`
 
 ### 9.3 返回格式建议
 
@@ -760,13 +768,14 @@ backend/
 - 限流
 - 备份与运维完善
 
-### 当前进度（截至 `2026-04-08`）
+### 当前进度（截至 `2026-04-09`）
 
 - [x] 阶段 1：Django 项目初始化、用户模型与角色、登录/登出、`/auth/me`、Swagger UI
 - [x] 阶段 2：分类/标签、资源列表/详情、上传与 torrent 解析、下载日志
 - [x] 阶段 3：RSS、用户管理、公告管理、审计日志
-- [x] 阶段 4：XBT 同步、`passkey` 重置联动、手动全量同步、失败日志与手动重试入口
-- [ ] 阶段 5：日志加固、错误处理加固、限流、备份与运维完善
+- [x] 阶段 4：XBT 同步、`passkey` 重置联动、手动全量同步、失败日志与手动重试入口、同步概览接口
+- [x] 阶段 5（已完成部分）：日志加固、错误处理加固、登录 / RSS / 下载限流、Swagger / OpenAPI 契约校验
+- [ ] 阶段 5（剩余部分）：备份、部署侧日志补强与运维完善
 
 ## 20. 后端验收标准
 
