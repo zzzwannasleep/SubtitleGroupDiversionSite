@@ -93,4 +93,5 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-exec /usr/local/bin/xbt_tracker "--conf-file=$CONFIG_FILE"
+cd "$(dirname "$CONFIG_FILE")"
+exec /usr/local/bin/xbt_tracker
