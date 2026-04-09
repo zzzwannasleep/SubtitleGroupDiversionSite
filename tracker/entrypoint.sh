@@ -58,7 +58,7 @@ wait_for_mysql() {
 }
 
 ensure_schema() {
-  XBT_TABLE_EXISTS=$(
+  XBT_USERS_EXISTS=$(
     MYSQL_PWD="$DB_PASSWORD" mysql \
       -h "$DB_HOST" \
       -P "$DB_PORT" \
@@ -67,7 +67,16 @@ ensure_schema() {
       -Nse "SHOW TABLES LIKE 'xbt_users';"
   )
 
-  if [ -z "$XBT_TABLE_EXISTS" ]; then
+  XBT_FILES_EXISTS=$(
+    MYSQL_PWD="$DB_PASSWORD" mysql \
+      -h "$DB_HOST" \
+      -P "$DB_PORT" \
+      -u"$DB_USER" \
+      "$DB_NAME" \
+      -Nse "SHOW TABLES LIKE 'xbt_files';"
+  )
+
+  if [ -z "$XBT_USERS_EXISTS" ] || [ -z "$XBT_FILES_EXISTS" ]; then
     echo "Importing XBT schema into ${DB_NAME}..."
     MYSQL_PWD="$DB_PASSWORD" mysql \
       -h "$DB_HOST" \
