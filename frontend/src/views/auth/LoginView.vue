@@ -17,7 +17,7 @@ const isMockMode = computed(() => useMockApi());
 const settings = computed(() => siteSettingsStore.settings);
 const brandIconUrl = computed(() => settings.value.siteIconResolvedUrl);
 const brandMonogram = computed(() => buildSiteMonogram(settings.value.siteName));
-const canRegister = computed(() => settings.value.allowPublicRegistration);
+const registerLabel = computed(() => (settings.value.allowPublicRegistration ? '注册' : '邀请码注册'));
 
 const form = reactive({
   username: '',
@@ -83,18 +83,21 @@ function fillDemoUser(username: string) {
           {{ authStore.isLoading ? '登录中...' : '登录' }}
         </UiButton>
         <UiButton
-          v-if="canRegister"
           to="/register"
           block
           variant="secondary"
           :disabled="authStore.isLoading"
         >
-          注册
+          {{ registerLabel }}
         </UiButton>
       </div>
     </div>
 
     <p v-if="settings.loginNotice" class="login-page__notice">{{ settings.loginNotice }}</p>
+
+    <div v-if="!settings.allowPublicRegistration" class="login-page__invite-tip">
+      站点未开启公开注册，新成员需要先取得邀请码再完成注册。
+    </div>
 
     <div v-if="isMockMode" class="login-page__demo">
       <p class="login-page__demo-title">本地预览快捷账号</p>
@@ -226,7 +229,8 @@ function fillDemoUser(username: string) {
 }
 
 .login-page__notice,
-.login-page__demo {
+.login-page__demo,
+.login-page__invite-tip {
   border: 1px solid rgb(255 255 255 / 0.14);
   border-radius: 1.25rem;
   background: rgb(15 23 42 / 0.26);
@@ -235,7 +239,8 @@ function fillDemoUser(username: string) {
   backdrop-filter: blur(18px);
 }
 
-.login-page__notice {
+.login-page__notice,
+.login-page__invite-tip {
   font-size: 0.88rem;
   line-height: 1.8;
 }

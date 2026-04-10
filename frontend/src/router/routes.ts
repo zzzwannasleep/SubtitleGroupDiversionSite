@@ -8,6 +8,7 @@ import AdminAnnouncementsView from '@/views/admin/AdminAnnouncementsView.vue';
 import AdminAuditLogsView from '@/views/admin/AdminAuditLogsView.vue';
 import AdminCategoriesView from '@/views/admin/AdminCategoriesView.vue';
 import AdminDashboardView from '@/views/admin/AdminDashboardView.vue';
+import AdminInviteCodesView from '@/views/admin/AdminInviteCodesView.vue';
 import AdminReleasesView from '@/views/admin/AdminReleasesView.vue';
 import AdminSettingsView from '@/views/admin/AdminSettingsView.vue';
 import AdminTagsView from '@/views/admin/AdminTagsView.vue';
@@ -79,6 +80,7 @@ export const routes: RouteRecordRaw[] = [
     component: AdminLayout,
     children: [
       { path: '', name: 'admin-dashboard', component: AdminDashboardView, meta: { requiresAuth: true, roles: ['admin'], title: '后台首页' } },
+      { path: 'invite-codes', name: 'admin-invite-codes', component: AdminInviteCodesView, meta: { requiresAuth: true, roles: ['admin'], title: '邀请码管理' } },
       { path: 'users', name: 'admin-users', component: AdminUsersView, meta: { requiresAuth: true, roles: ['admin'], title: '用户管理' } },
       { path: 'users/:id', name: 'admin-user-detail', component: AdminUserDetailView, meta: { requiresAuth: true, roles: ['admin'], title: '用户详情' } },
       { path: 'releases', name: 'admin-releases', component: AdminReleasesView, meta: { requiresAuth: true, roles: ['admin'], title: '资源管理' } },

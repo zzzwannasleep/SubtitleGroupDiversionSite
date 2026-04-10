@@ -1,10 +1,11 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.tracker_sync.serializers import TrackerSyncSnapshotSerializer, XbtUserSnapshotSerializer
-from apps.users.models import User, UserRole, UserStatus
+from apps.users.models import InviteCode, User, UserRole, UserStatus
 
 
 class UserSummarySerializer(serializers.ModelSerializer):
@@ -145,3 +146,57 @@ class AdminDashboardStatsSerializer(serializers.Serializer):
     activeReleaseCount = serializers.IntegerField()
     pendingSyncCount = serializers.IntegerField()
     activeAnnouncementCount = serializers.IntegerField()
+
+
+class InviteCodeSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(source="state")
+    isActive = serializers.BooleanField(source="is_active")
+    createdByName = serializers.SerializerMethodField()
+    usedByName = serializers.SerializerMethodField()
+    createdAt = serializers.DateTimeField(source="created_at")
+    usedAt = serializers.DateTimeField(source="used_at", allow_null=True)
+    expiresAt = serializers.DateTimeField(source="expires_at", allow_null=True)
+    canRevoke = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InviteCode
+        fields = (
+            "id",
+            "code",
+            "note",
+            "status",
+            "isActive",
+            "createdByName",
+            "usedByName",
+            "createdAt",
+            "usedAt",
+            "expiresAt",
+            "canRevoke",
+        )
+
+    @extend_schema_field(serializers.CharField())
+    def get_createdByName(self, obj: InviteCode) -> str:
+        if not obj.created_by:
+            return "系统"
+        return obj.created_by.display_name or obj.created_by.username
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_usedByName(self, obj: InviteCode) -> str | None:
+        if not obj.used_by:
+            return None
+        return obj.used_by.display_name or obj.used_by.username
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_canRevoke(self, obj: InviteCode) -> bool:
+        return obj.state == "available"
+
+
+class CreateInviteCodesSerializer(serializers.Serializer):
+    count = serializers.IntegerField(min_value=1, max_value=20, default=1)
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    expiresAt = serializers.DateTimeField(required=False, allow_null=True)
+
+    def validate_expiresAt(self, value):
+        if value and value <= timezone.now():
+            raise serializers.ValidationError("过期时间必须晚于当前时间。")
+        return value

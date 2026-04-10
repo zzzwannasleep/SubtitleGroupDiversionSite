@@ -14,7 +14,7 @@ const router = useRouter();
 const settings = computed(() => siteSettingsStore.settings);
 const brandIconUrl = computed(() => settings.value.siteIconResolvedUrl);
 const brandMonogram = computed(() => buildSiteMonogram(settings.value.siteName));
-const canRegister = computed(() => settings.value.allowPublicRegistration);
+const requiresInvite = computed(() => !settings.value.allowPublicRegistration);
 
 const form = reactive({
   username: '',
@@ -22,6 +22,7 @@ const form = reactive({
   email: '',
   password: '',
   confirmPassword: '',
+  inviteCode: '',
 });
 
 onMounted(() => {
@@ -29,10 +30,6 @@ onMounted(() => {
 });
 
 async function handleSubmit() {
-  if (!canRegister.value) {
-    return;
-  }
-
   try {
     await authStore.register(form);
     await router.push('/');
@@ -57,60 +54,56 @@ async function handleSubmit() {
         </div>
         <div class="min-w-0">
           <h1 class="register-card__title">{{ settings.siteName }}</h1>
-          <p class="register-card__subtitle">创建新账号</p>
+          <p class="register-card__subtitle">{{ requiresInvite ? '使用邀请码创建新账号' : '创建新账号' }}</p>
         </div>
       </div>
 
-      <template v-if="canRegister">
-        <form class="register-card__section register-card__section--form" @submit.prevent="handleSubmit">
-          <div class="space-y-4">
-            <div>
-              <label class="register-card__label">用户名</label>
-              <UiInput v-model="form.username" placeholder="请输入登录用户名" />
-            </div>
+      <form class="register-card__section register-card__section--form" @submit.prevent="handleSubmit">
+        <p v-if="requiresInvite" class="register-card__notice">
+          当前站点采用邀请码注册，请先向管理员索取邀请码后再完成注册。
+        </p>
 
-            <div>
-              <label class="register-card__label">站内名称</label>
-              <UiInput v-model="form.displayName" placeholder="请输入显示名称" />
-            </div>
-
-            <div>
-              <label class="register-card__label">邮箱</label>
-              <UiInput v-model="form.email" type="email" placeholder="请输入邮箱地址" />
-            </div>
-
-            <div>
-              <label class="register-card__label">密码</label>
-              <UiInput v-model="form.password" type="password" placeholder="请输入密码" />
-            </div>
-
-            <div>
-              <label class="register-card__label">确认密码</label>
-              <UiInput v-model="form.confirmPassword" type="password" placeholder="请再次输入密码" />
-            </div>
+        <div class="space-y-4">
+          <div v-if="requiresInvite">
+            <label class="register-card__label">邀请码</label>
+            <UiInput v-model="form.inviteCode" placeholder="例如：ABCD-EFGH-2345" />
           </div>
 
-          <p v-if="authStore.errorMessage" class="register-card__error">{{ authStore.errorMessage }}</p>
-        </form>
+          <div>
+            <label class="register-card__label">用户名</label>
+            <UiInput v-model="form.username" placeholder="请输入登录用户名" />
+          </div>
 
-        <div class="register-card__section register-card__section--actions">
-          <UiButton block variant="primary" :disabled="authStore.isLoading" @click="handleSubmit">
-            {{ authStore.isLoading ? '注册中...' : '注册' }}
-          </UiButton>
-          <UiButton to="/login" block variant="secondary" :disabled="authStore.isLoading">返回登录</UiButton>
-        </div>
-      </template>
+          <div>
+            <label class="register-card__label">站内名称</label>
+            <UiInput v-model="form.displayName" placeholder="请输入显示名称" />
+          </div>
 
-      <template v-else>
-        <div class="register-card__section">
-          <p class="register-card__closed">
-            当前站点未开启自由注册，请联系管理员创建账号。
-          </p>
+          <div>
+            <label class="register-card__label">邮箱</label>
+            <UiInput v-model="form.email" type="email" placeholder="请输入邮箱地址" />
+          </div>
+
+          <div>
+            <label class="register-card__label">密码</label>
+            <UiInput v-model="form.password" type="password" placeholder="请输入密码" />
+          </div>
+
+          <div>
+            <label class="register-card__label">确认密码</label>
+            <UiInput v-model="form.confirmPassword" type="password" placeholder="请再次输入密码" />
+          </div>
         </div>
-        <div class="register-card__section register-card__section--actions">
-          <UiButton to="/login" block variant="primary">返回登录</UiButton>
-        </div>
-      </template>
+
+        <p v-if="authStore.errorMessage" class="register-card__error">{{ authStore.errorMessage }}</p>
+      </form>
+
+      <div class="register-card__section register-card__section--actions">
+        <UiButton block variant="primary" :disabled="authStore.isLoading" @click="handleSubmit">
+          {{ authStore.isLoading ? '提交中...' : requiresInvite ? '使用邀请码注册' : '注册' }}
+        </UiButton>
+        <UiButton to="/login" block variant="secondary" :disabled="authStore.isLoading">返回登录</UiButton>
+      </div>
     </div>
   </div>
 </template>
@@ -202,6 +195,17 @@ async function handleSubmit() {
   color: rgb(191 219 254 / 0.88);
 }
 
+.register-card__notice {
+  margin-bottom: 1rem;
+  border: 1px solid rgb(125 211 252 / 0.28);
+  border-radius: 1rem;
+  background: rgb(8 47 73 / 0.36);
+  padding: 0.85rem 0.95rem;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: rgb(186 230 253);
+}
+
 .register-card__label {
   margin-bottom: 0.55rem;
   display: block;
@@ -231,18 +235,10 @@ async function handleSubmit() {
   background: rgb(255 255 255 / 0.22);
 }
 
-.register-card__error,
-.register-card__closed {
+.register-card__error {
   margin-top: 1rem;
   font-size: 0.9rem;
   line-height: 1.7;
-}
-
-.register-card__error {
   color: rgb(252 165 165);
-}
-
-.register-card__closed {
-  color: rgb(226 232 240 / 0.92);
 }
 </style>

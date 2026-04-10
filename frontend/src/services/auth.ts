@@ -2,6 +2,7 @@ import type { CurrentUser, LoginPayload, RegisterPayload } from '@/types/auth';
 import type { ApiTokenPayload } from '@/types/admin';
 import { apiRequest, isApiError } from './api';
 import {
+  consumeInviteCodeRecord,
   createUserRecord,
   getCurrentUserApiToken,
   getUserById,
@@ -9,6 +10,7 @@ import {
   resetPasskey as resetMockPasskey,
   resetUserApiToken,
   siteSettings,
+  validateInviteCodeRecord,
 } from './mock-data';
 import { mockResolve, useMockApi } from './runtime';
 
@@ -47,15 +49,15 @@ export async function login(payload: LoginPayload): Promise<CurrentUser> {
       const user = getUserByUsername(payload.username.trim());
 
       if (!payload.password.trim()) {
-        throw new Error('请输入密码');
+        throw new Error('请输入密码。');
       }
 
       if (!user) {
-        throw new Error('用户不存在，可使用 admin、uploader、user 体验不同角色');
+        throw new Error('用户不存在，可使用 admin、uploader、user 体验不同角色。');
       }
 
       if (user.status === 'disabled') {
-        throw new Error('该账号已被禁用，请联系管理员处理');
+        throw new Error('该账号已被禁用，请联系管理员处理。');
       }
 
       window.localStorage.setItem(SESSION_KEY, String(user.id));
@@ -75,32 +77,35 @@ export async function login(payload: LoginPayload): Promise<CurrentUser> {
 export async function register(payload: RegisterPayload): Promise<CurrentUser> {
   if (useMockApi()) {
     return mockResolve(() => {
-      if (!siteSettings.allowPublicRegistration) {
-        throw new Error('当前站点未开放自由注册');
-      }
-
       if (!payload.username.trim()) {
-        throw new Error('请输入用户名');
+        throw new Error('请输入用户名。');
       }
 
       if (!payload.displayName.trim()) {
-        throw new Error('请输入显示名称');
+        throw new Error('请输入显示名称。');
       }
 
       if (!payload.email.trim()) {
-        throw new Error('请输入邮箱地址');
+        throw new Error('请输入邮箱地址。');
       }
 
       if (!payload.password.trim()) {
-        throw new Error('请输入密码');
+        throw new Error('请输入密码。');
       }
 
       if (payload.password !== payload.confirmPassword) {
-        throw new Error('两次输入的密码不一致');
+        throw new Error('两次输入的密码不一致。');
+      }
+
+      if (!siteSettings.allowPublicRegistration) {
+        if (!payload.inviteCode?.trim()) {
+          throw new Error('当前站点仅支持邀请码注册，请输入邀请码。');
+        }
+        validateInviteCodeRecord(payload.inviteCode);
       }
 
       if (getUserByUsername(payload.username.trim())) {
-        throw new Error('用户名已存在');
+        throw new Error('用户名已存在。');
       }
 
       const user = createUserRecord({
@@ -110,6 +115,10 @@ export async function register(payload: RegisterPayload): Promise<CurrentUser> {
         role: 'user',
         password: payload.password,
       });
+
+      if (!siteSettings.allowPublicRegistration && payload.inviteCode?.trim()) {
+        consumeInviteCodeRecord(payload.inviteCode, user.displayName);
+      }
 
       window.localStorage.setItem(SESSION_KEY, String(user.id));
       return user;
@@ -124,6 +133,7 @@ export async function register(payload: RegisterPayload): Promise<CurrentUser> {
       email: payload.email.trim(),
       password: payload.password,
       confirmPassword: payload.confirmPassword,
+      inviteCode: payload.inviteCode?.trim() || undefined,
     },
   });
 }
@@ -143,7 +153,7 @@ export async function resetPasskey(_userId?: number): Promise<CurrentUser> {
     return mockResolve(() => {
       const sessionId = getStoredSessionId();
       if (!sessionId) {
-        throw new Error('当前未登录');
+        throw new Error('当前未登录。');
       }
 
       return resetMockPasskey(sessionId);
@@ -158,7 +168,7 @@ export async function getMyApiToken(): Promise<ApiTokenPayload> {
     return mockResolve(() => {
       const sessionId = getStoredSessionId();
       if (!sessionId) {
-        throw new Error('当前未登录');
+        throw new Error('当前未登录。');
       }
 
       return {
@@ -175,7 +185,7 @@ export async function resetMyApiToken(): Promise<ApiTokenPayload> {
     return mockResolve(() => {
       const sessionId = getStoredSessionId();
       if (!sessionId) {
-        throw new Error('当前未登录');
+        throw new Error('当前未登录。');
       }
 
       return {
@@ -191,7 +201,7 @@ export async function changePassword(currentPassword: string, nextPassword: stri
   if (useMockApi()) {
     return mockResolve(() => {
       if (!currentPassword.trim() || !nextPassword.trim()) {
-        throw new Error('请输入完整密码');
+        throw new Error('请输入完整密码。');
       }
     });
   }

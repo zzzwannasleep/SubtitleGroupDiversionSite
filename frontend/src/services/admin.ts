@@ -3,7 +3,9 @@ import type {
   AdminUser,
   Announcement,
   AuditLog,
+  CreateInviteCodesPayload,
   CreateUserPayload,
+  InviteCode,
   SaveSiteSettingsPayload,
   SiteSettings,
   ToggleUserStatusPayload,
@@ -18,10 +20,13 @@ import {
   appendTrackerSyncLog,
   auditLogs,
   categories,
+  createInviteCodeRecords,
   createUserRecord,
   getDashboardStats,
+  inviteCodes,
   getUserById,
   releases,
+  revokeInviteCodeRecord,
   resetPasskey,
   saveAnnouncement,
   saveCategory,
@@ -193,6 +198,55 @@ export async function resetUserPasskey(userId: number): Promise<AdminUser> {
   }
 
   return apiRequest<AdminUser>(`/api/admin/users/${userId}/reset-passkey/`, {
+    method: 'POST',
+  });
+}
+
+export async function listInviteCodes(): Promise<InviteCode[]> {
+  if (useMockApi()) {
+    return mockResolve(() => inviteCodes.map((item) => ({ ...item })));
+  }
+
+  return apiRequest<InviteCode[]>('/api/admin/invite-codes/');
+}
+
+export async function createInviteCodes(payload: CreateInviteCodesPayload): Promise<InviteCode[]> {
+  if (useMockApi()) {
+    return mockResolve(() => {
+      const created = createInviteCodeRecords(payload);
+      appendAuditLog({
+        actorName: '站务总控',
+        action: '生成邀请码',
+        targetType: '邀请码',
+        targetName: `${created.length} 个邀请码`,
+        detail: payload.note?.trim() ? `备注：${payload.note.trim()}` : '未填写备注',
+      });
+      return created;
+    });
+  }
+
+  return apiRequest<InviteCode[]>('/api/admin/invite-codes/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function revokeInviteCode(inviteCodeId: number): Promise<InviteCode> {
+  if (useMockApi()) {
+    return mockResolve(() => {
+      const inviteCode = revokeInviteCodeRecord(inviteCodeId);
+      appendAuditLog({
+        actorName: '站务总控',
+        action: '停用邀请码',
+        targetType: '邀请码',
+        targetName: inviteCode.code,
+        detail: '管理员在后台手动停用了该邀请码。',
+      });
+      return inviteCode;
+    });
+  }
+
+  return apiRequest<InviteCode>(`/api/admin/invite-codes/${inviteCodeId}/revoke/`, {
     method: 'POST',
   });
 }

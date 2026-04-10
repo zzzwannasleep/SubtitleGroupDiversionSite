@@ -5,6 +5,7 @@ export type SyncStatus = 'success' | 'warning' | 'failed';
 export type AnnouncementStatus = 'online' | 'draft' | 'offline';
 export type XbtUserState = 'enabled' | 'disabled' | 'missing' | 'unavailable';
 export type LoginBackgroundType = 'api' | 'file' | 'css';
+export type InviteCodeStatus = 'available' | 'used' | 'expired' | 'revoked';
 
 export interface TrackerSyncSnapshot {
   status: SyncStatus;
@@ -145,6 +146,26 @@ export interface SiteSettings {
   loginBackgroundFileUrl: string;
   loginBackgroundResolvedUrl: string;
   loginBackgroundCss: string;
+}
+
+export interface InviteCode {
+  id: number;
+  code: string;
+  note: string;
+  status: InviteCodeStatus;
+  isActive: boolean;
+  createdByName: string;
+  usedByName: string | null;
+  createdAt: string;
+  usedAt: string | null;
+  expiresAt: string | null;
+  canRevoke: boolean;
+}
+
+export interface CreateInviteCodesPayload {
+  count: number;
+  note?: string;
+  expiresAt?: string | null;
 }
 
 export interface SaveSiteSettingsPayload {

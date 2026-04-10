@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
+from django.db import transaction
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.permissions import AllowAny
@@ -11,7 +12,7 @@ from apps.common.responses import success_response
 from apps.common.schema import success_response_schema
 from apps.common.throttles import LoginRateThrottle
 from apps.users.serializers import CurrentUserSerializer
-from apps.users.services import UserService
+from apps.users.services import InviteCodeService, UserService
 
 
 @extend_schema_view(
@@ -39,7 +40,7 @@ class LoginView(APIView):
         if not user:
             raise AuthenticationFailed("用户名或密码错误。")
         if user.status != "active":
-            raise PermissionDenied("当前账户已被禁用。")
+            raise PermissionDenied("当前账号已被禁用。")
         login(request, user)
         return success_response(CurrentUserSerializer(user).data)
 
@@ -47,7 +48,7 @@ class LoginView(APIView):
 @extend_schema_view(
     post=extend_schema(
         operation_id="auth_register",
-        summary="公开注册普通用户账号",
+        summary="注册普通用户账号",
         tags=["Auth"],
         request=RegisterSerializer,
         responses=success_response_schema("AuthRegisterResponse", CurrentUserSerializer),
@@ -60,19 +61,24 @@ class RegisterView(APIView):
 
     def post(self, request):
         settings = SiteSetting.get_current()
-        if not settings.allow_public_registration:
-            raise PermissionDenied("当前站点未开放自由注册。")
-
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user, _ = UserService.create_user(
-            actor=None,
-            username=serializer.validated_data["username"],
-            display_name=serializer.validated_data["displayName"],
-            email=serializer.validated_data["email"],
-            role="user",
-            password=serializer.validated_data["password"],
+        serializer = RegisterSerializer(
+            data=request.data,
+            context={"requires_invite": not settings.allow_public_registration},
         )
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            user, _ = UserService.create_user(
+                actor=None,
+                username=serializer.validated_data["username"],
+                display_name=serializer.validated_data["displayName"],
+                email=serializer.validated_data["email"],
+                role="user",
+                password=serializer.validated_data["password"],
+            )
+            if serializer.validated_data["inviteCode"]:
+                InviteCodeService.redeem_code(raw_code=serializer.validated_data["inviteCode"], user=user)
+
         login(request, user)
         return success_response(CurrentUserSerializer(user).data, message="注册成功。", status_code=201)
 

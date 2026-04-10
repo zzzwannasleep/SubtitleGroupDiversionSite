@@ -13,19 +13,21 @@ from apps.releases.serializers import ReleaseSerializer
 from apps.tracker_sync.models import TrackerSyncLog
 from apps.tracker_sync.serializers import TrackerSyncLogSerializer, TrackerSyncUserDetailSerializer
 from apps.tracker_sync.services import TrackerSyncService
-from apps.users.models import User, UserRole, UserStatus
+from apps.users.models import InviteCode, User, UserRole, UserStatus
 from apps.users.serializers import (
     AdminDashboardStatsSerializer,
-    AdminUserDetailSerializer,
     AdminUserCreateSerializer,
+    AdminUserDetailSerializer,
     AdminUserSerializer,
     ChangeUserStatusSerializer,
+    CreateInviteCodesSerializer,
     CreateUserSerializer,
+    InviteCodeSerializer,
     SelfApiTokenSerializer,
     SelfThemeSerializer,
     UpdateUserSerializer,
 )
-from apps.users.services import UserService
+from apps.users.services import InviteCodeService, UserService
 
 
 @extend_schema_view(
@@ -93,6 +95,7 @@ class AdminUserListCreateView(APIView):
         role = (request.query_params.get("role") or "").strip()
         status = (request.query_params.get("status") or "").strip()
         queryset = User.objects.annotate(created_release_count=Count("created_releases"))
+
         if keyword:
             queryset = queryset.filter(
                 Q(username__icontains=keyword)
@@ -104,6 +107,7 @@ class AdminUserListCreateView(APIView):
             queryset = queryset.filter(role=role)
         if status in UserStatus.values:
             queryset = queryset.filter(status=status)
+
         return success_response(AdminUserSerializer(queryset.order_by("-date_joined", "-id"), many=True).data)
 
     @extend_schema(
@@ -128,6 +132,62 @@ class AdminUserListCreateView(APIView):
         if initial_password is not None:
             data["initialPassword"] = initial_password
         return success_response(data, message="用户创建成功。", status_code=201)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        operation_id="admin_invite_codes_list",
+        summary="获取邀请码列表",
+        tags=["Admin Invite Codes"],
+        responses=success_response_schema("AdminInviteCodeListResponse", InviteCodeSerializer(many=True)),
+    ),
+    post=extend_schema(
+        operation_id="admin_invite_codes_create",
+        summary="批量生成邀请码",
+        tags=["Admin Invite Codes"],
+        request=CreateInviteCodesSerializer,
+        responses=success_response_schema("AdminInviteCodeCreateResponse", InviteCodeSerializer(many=True)),
+    ),
+)
+class AdminInviteCodeListCreateView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        queryset = InviteCode.objects.select_related("created_by", "used_by").order_by("-created_at", "-id")
+        return success_response(InviteCodeSerializer(queryset, many=True).data)
+
+    def post(self, request):
+        serializer = CreateInviteCodesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        created_codes = InviteCodeService.create_codes(
+            actor=request.user,
+            count=serializer.validated_data["count"],
+            note=serializer.validated_data.get("note", ""),
+            expires_at=serializer.validated_data.get("expiresAt"),
+        )
+        return success_response(
+            InviteCodeSerializer(created_codes, many=True).data,
+            message="邀请码已生成。",
+            status_code=201,
+        )
+
+
+@extend_schema_view(
+    post=extend_schema(
+        operation_id="admin_invite_codes_revoke",
+        summary="停用邀请码",
+        tags=["Admin Invite Codes"],
+        request=None,
+        responses=success_response_schema("AdminInviteCodeRevokeResponse", InviteCodeSerializer),
+    ),
+)
+class AdminInviteCodeRevokeView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, invite_code_id: int):
+        invite_code = get_object_or_404(InviteCode, pk=invite_code_id)
+        invite_code = InviteCodeService.revoke_code(actor=request.user, invite_code=invite_code)
+        return success_response(InviteCodeSerializer(invite_code).data, message="邀请码已停用。")
 
 
 @extend_schema_view(

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import {
   Blocks,
   FolderOpen,
+  KeyRound,
   LayoutDashboard,
   Logs,
   Megaphone,
@@ -24,6 +25,7 @@ const brandMonogram = computed(() => buildSiteMonogram(siteSettings.value.siteNa
 
 const navItems = computed(() => [
   { label: '仪表盘', to: '/admin', icon: LayoutDashboard },
+  { label: '邀请码', to: '/admin/invite-codes', icon: KeyRound },
   { label: '用户管理', to: '/admin/users', icon: Users },
   { label: '资源管理', to: '/admin/releases', icon: FolderOpen },
   { label: '分类管理', to: '/admin/categories', icon: Blocks },

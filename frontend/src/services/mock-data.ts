@@ -4,6 +4,8 @@ import type {
   AdminUser,
   Announcement,
   AuditLog,
+  CreateInviteCodesPayload,
+  InviteCode,
   SaveSiteSettingsPayload,
   SiteSettings,
   TrackerSyncLog,
@@ -20,6 +22,17 @@ import { DEFAULT_LOGIN_BACKGROUND_CSS } from '@/utils/site-branding';
 const createPasskey = () => Math.random().toString(36).slice(2).padEnd(32, 'x').slice(0, 32);
 const createApiToken = () => `${createPasskey()}${createPasskey()}`;
 const createInitialPassword = () => `Temp${Math.random().toString(36).slice(2, 8)}!9`;
+const inviteCodeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function createInviteCodeValue() {
+  const raw = Array.from({ length: 12 }, () => inviteCodeAlphabet[Math.floor(Math.random() * inviteCodeAlphabet.length)]).join('');
+  return [raw.slice(0, 4), raw.slice(4, 8), raw.slice(8, 12)].join('-');
+}
+
+function normalizeInviteCode(value: string) {
+  const compact = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return [compact.slice(0, 4), compact.slice(4, 8), compact.slice(8, 12)].filter(Boolean).join('-');
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -343,6 +356,35 @@ export const siteSettings: SiteSettings = {
   loginBackgroundCss: DEFAULT_LOGIN_BACKGROUND_CSS,
 };
 
+export const inviteCodes: InviteCode[] = [
+  {
+    id: 7001,
+    code: 'M9QF-7K2A-XP4L',
+    note: '四月新成员',
+    status: 'available',
+    isActive: true,
+    createdByName: users[0].displayName,
+    usedByName: null,
+    createdAt: '2026-04-10T09:30:00+08:00',
+    usedAt: null,
+    expiresAt: '2026-05-01T00:00:00+08:00',
+    canRevoke: true,
+  },
+  {
+    id: 7002,
+    code: 'N3TR-4Y6P-W8QK',
+    note: '上传组备用',
+    status: 'used',
+    isActive: false,
+    createdByName: users[0].displayName,
+    usedByName: users[2].displayName,
+    createdAt: '2026-04-03T12:00:00+08:00',
+    usedAt: '2026-04-05T18:20:00+08:00',
+    expiresAt: null,
+    canRevoke: false,
+  },
+];
+
 function defaultTheme(): SiteTheme {
   return {
     mode: 'system',
@@ -636,6 +678,92 @@ export function createUserRecord(payload: {
   userApiTokens[user.id] = createApiToken();
   userThemes[user.id] = defaultTheme();
   return user;
+}
+
+function resolveInviteCodeStatus(inviteCode: InviteCode): InviteCode['status'] {
+  if (inviteCode.usedAt) return 'used';
+  if (!inviteCode.isActive) return 'revoked';
+  if (inviteCode.expiresAt && new Date(inviteCode.expiresAt).getTime() <= Date.now()) return 'expired';
+  return 'available';
+}
+
+function refreshInviteCodeRecord(inviteCode: InviteCode): InviteCode {
+  inviteCode.status = resolveInviteCodeStatus(inviteCode);
+  inviteCode.canRevoke = inviteCode.status === 'available';
+  if (inviteCode.status !== 'available') {
+    inviteCode.isActive = false;
+  }
+  return inviteCode;
+}
+
+export function createInviteCodeRecords(payload: CreateInviteCodesPayload): InviteCode[] {
+  const createdAt = nowIso();
+  const created = Array.from({ length: payload.count }, () =>
+    refreshInviteCodeRecord({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      code: createInviteCodeValue(),
+      note: payload.note?.trim() ?? '',
+      status: 'available',
+      isActive: true,
+      createdByName: users[0]?.displayName ?? '站务系统',
+      usedByName: null,
+      createdAt,
+      usedAt: null,
+      expiresAt: payload.expiresAt ?? null,
+      canRevoke: true,
+    }),
+  );
+
+  inviteCodes.unshift(...created);
+  return created;
+}
+
+export function validateInviteCodeRecord(rawCode: string): InviteCode {
+  const normalized = normalizeInviteCode(rawCode);
+  const inviteCode = inviteCodes.find((item) => item.code === normalized);
+
+  if (!inviteCode) {
+    throw new Error('邀请码不存在。');
+  }
+
+  refreshInviteCodeRecord(inviteCode);
+
+  if (inviteCode.status === 'used') {
+    throw new Error('邀请码已被使用。');
+  }
+  if (inviteCode.status === 'expired') {
+    throw new Error('邀请码已过期。');
+  }
+  if (inviteCode.status === 'revoked') {
+    throw new Error('邀请码已被停用。');
+  }
+
+  return inviteCode;
+}
+
+export function consumeInviteCodeRecord(rawCode: string, usedByName?: string | null): InviteCode {
+  const inviteCode = validateInviteCodeRecord(rawCode);
+
+  inviteCode.usedAt = nowIso();
+  inviteCode.usedByName = usedByName ?? inviteCode.usedByName ?? '新成员';
+  inviteCode.isActive = false;
+  return refreshInviteCodeRecord(inviteCode);
+}
+
+export function revokeInviteCodeRecord(inviteCodeId: number): InviteCode {
+  const inviteCode = inviteCodes.find((item) => item.id === inviteCodeId);
+  if (!inviteCode) {
+    throw new Error('邀请码不存在。');
+  }
+
+  refreshInviteCodeRecord(inviteCode);
+
+  if (inviteCode.status === 'used') {
+    throw new Error('已使用的邀请码无法停用。');
+  }
+
+  inviteCode.isActive = false;
+  return refreshInviteCodeRecord(inviteCode);
 }
 
 export function toggleUserStatus(userId: number, nextStatus: 'active' | 'disabled'): AdminUser {

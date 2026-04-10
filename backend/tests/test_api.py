@@ -1,6 +1,7 @@
-import json
+﻿import json
 import os
 import tempfile
+from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
 
@@ -9,6 +10,7 @@ from django.core.cache import cache
 from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 from torf import Torrent, _flatbencode as flatbencode
 
@@ -19,7 +21,7 @@ from apps.releases.models import Category, Release, Tag
 from apps.tracker_sync.models import TrackerSyncLog
 from apps.tracker_sync.services import TrackerSyncService
 from apps.tracker_sync.models import XbtFileCompatMirror, XbtFileMirror, XbtUserMirror
-from apps.users.models import User
+from apps.users.models import InviteCode, User
 
 
 def build_torrent_bytes(*, private: bool = True) -> bytes:
@@ -96,12 +98,12 @@ class ApiFlowTests(TestCase):
         XbtFileMirror.objects.all().delete()
         XbtFileCompatMirror.objects.all().delete()
         XbtUserMirror.objects.all().delete()
-        self.category = Category.objects.create(name="动画", slug="anime", sort_order=1, is_active=True)
+        self.category = Category.objects.create(name="鍔ㄧ敾", slug="anime", sort_order=1, is_active=True)
         self.tag = Tag.objects.create(name="1080p", slug="1080p")
         self.admin = User.objects.create_user(
             username="admin",
             password="Admin12345!",
-            display_name="管理员",
+            display_name="Admin User",
             role="admin",
             status="active",
             email="admin@example.com",
@@ -109,7 +111,7 @@ class ApiFlowTests(TestCase):
         self.uploader = User.objects.create_user(
             username="uploader",
             password="Uploader12345!",
-            display_name="上传者",
+            display_name="Uploader User",
             role="uploader",
             status="active",
             email="uploader@example.com",
@@ -117,7 +119,7 @@ class ApiFlowTests(TestCase):
         self.user = User.objects.create_user(
             username="user",
             password="User12345!",
-            display_name="普通用户",
+            display_name="Regular User",
             role="user",
             status="active",
             email="user@example.com",
@@ -160,9 +162,9 @@ class ApiFlowTests(TestCase):
             content_type="application/x-bittorrent",
         )
         payload = {
-            "title": "测试资源",
+            "title": "娴嬭瘯璧勬簮",
             "subtitle": "WEB-DL 1080p",
-            "description": "资源说明",
+            "description": "璧勬簮璇存槑",
             "categorySlug": self.category.slug,
             "tagSlugs": [self.tag.slug],
             "status": status,
@@ -186,8 +188,8 @@ class ApiFlowTests(TestCase):
 
     def test_public_site_settings_is_available_without_login(self):
         setting = SiteSetting.get_current()
-        setting.site_name = "星门字幕组"
-        setting.site_description = "欢迎来到测试站点"
+        setting.site_name = "StarGate Subs"
+        setting.site_description = "娆㈣繋鏉ュ埌娴嬭瘯绔欑偣"
         setting.site_icon_url = "https://cdn.example.com/brand/icon.png"
         setting.login_background_type = "api"
         setting.login_background_api_url = "https://cdn.example.com/backgrounds/login.jpg"
@@ -209,8 +211,8 @@ class ApiFlowTests(TestCase):
         self.assertEqual(
             response.json()["data"],
             {
-                "siteName": "星门字幕组",
-                "siteDescription": "欢迎来到测试站点",
+                "siteName": "StarGate Subs",
+                "siteDescription": "娆㈣繋鏉ュ埌娴嬭瘯绔欑偣",
                 "loginNotice": "",
                 "allowPublicRegistration": False,
                 "rssBasePath": "/rss",
@@ -226,20 +228,70 @@ class ApiFlowTests(TestCase):
             },
         )
 
-    def test_public_registration_requires_site_setting_to_be_enabled(self):
+    def test_invite_only_registration_requires_invite_code(self):
         response = self.client.post(
             "/api/auth/register/",
             {
                 "username": "new-user",
-                "displayName": "新用户",
+                "displayName": "New User",
                 "email": "new-user@example.com",
                 "password": "Register123!",
                 "confirmPassword": "Register123!",
             },
             format="json",
         )
-        self.assertEqual(response.status_code, 403, response.json())
-        self.assertEqual(response.json()["code"], "permission_denied")
+        self.assertEqual(response.status_code, 400, response.json())
+        self.assertEqual(response.json()["code"], "validation_error")
+        self.assertEqual(response.json()["message"], "当前站点仅支持邀请码注册，请输入邀请码。")
+
+    def test_invite_only_registration_can_consume_invite_code(self):
+        invite_code = InviteCode.objects.create(code="ABCD-EFGH-2345", created_by=self.admin)
+
+        response = self.client.post(
+            "/api/auth/register/",
+            {
+                "username": "new-user",
+                "displayName": "Invite User",
+                "email": "new-user@example.com",
+                "password": "Register123!",
+                "confirmPassword": "Register123!",
+                "inviteCode": "abcd efgh 2345",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["data"]["username"], "new-user")
+
+        created_user = User.objects.get(username="new-user")
+        invite_code.refresh_from_db()
+        self.assertEqual(invite_code.used_by_id, created_user.id)
+        self.assertIsNotNone(invite_code.used_at)
+        self.assertFalse(invite_code.is_active)
+        self.assertTrue(AuditLog.objects.filter(action="使用邀请码注册", target_name=invite_code.code).exists())
+
+    def test_invite_only_registration_rejects_used_invite_code(self):
+        invite_code = InviteCode.objects.create(
+            code="USED-ABCD-2345",
+            created_by=self.admin,
+            used_by=self.user,
+            used_at=timezone.now(),
+            is_active=False,
+        )
+
+        response = self.client.post(
+            "/api/auth/register/",
+            {
+                "username": "another-user",
+                "displayName": "Another User",
+                "email": "another-user@example.com",
+                "password": "Register123!",
+                "confirmPassword": "Register123!",
+                "inviteCode": invite_code.code,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400, response.json())
+        self.assertEqual(response.json()["message"], "邀请码已被使用。")
 
     def test_public_registration_can_create_and_login_regular_user(self):
         setting = SiteSetting.get_current()
@@ -250,7 +302,7 @@ class ApiFlowTests(TestCase):
             "/api/auth/register/",
             {
                 "username": "new-user",
-                "displayName": "新用户",
+                "displayName": "Public User",
                 "email": "new-user@example.com",
                 "password": "Register123!",
                 "confirmPassword": "Register123!",
@@ -263,7 +315,7 @@ class ApiFlowTests(TestCase):
 
         created_user = User.objects.get(username="new-user")
         self.assertEqual(created_user.role, "user")
-        self.assertTrue(AuditLog.objects.filter(action="创建用户", target_name="new-user").exists())
+        self.assertTrue(AuditLog.objects.filter(action="鍒涘缓鐢ㄦ埛", target_name="new-user").exists())
 
         me = self.client.get("/api/auth/me/")
         self.assertEqual(me.status_code, 200, me.json())
@@ -317,7 +369,7 @@ class ApiFlowTests(TestCase):
         response = self.client.post(
             "/api/releases/",
             {
-                "title": "无权限资源",
+                "title": "Unauthorized Release",
                 "subtitle": "test",
                 "description": "test",
                 "categorySlug": self.category.slug,
@@ -370,7 +422,7 @@ class ApiFlowTests(TestCase):
         self.assertTrue(torrent.private)
         self.assertEqual(torrent.trackers, [[f"http://localhost:8000/{self.uploader.passkey}/announce"]])
         self.assertTrue(
-            AuditLog.objects.filter(action="私有化 torrent", target_type="torrent 工具", actor=self.uploader).exists()
+            AuditLog.objects.filter(action="绉佹湁鍖?torrent", target_type="torrent 宸ュ叿", actor=self.uploader).exists()
         )
 
     def test_regular_user_cannot_use_torrent_privatize_tool(self):
@@ -480,9 +532,9 @@ class ApiFlowTests(TestCase):
         response = self.client.post(
             "/api/releases/",
             {
-                "title": "坏种子",
+                "title": "Broken Torrent",
                 "subtitle": "WEB-DL 1080p",
-                "description": "资源说明",
+                "description": "璧勬簮璇存槑",
                 "categorySlug": self.category.slug,
                 "tagSlugs": [self.tag.slug],
                 "status": "published",
@@ -506,7 +558,7 @@ class ApiFlowTests(TestCase):
             "/api/admin/users/",
             {
                 "username": self.user.username,
-                "displayName": "重复用户名用户",
+                "displayName": "Duplicate Username User",
                 "email": "duplicate@example.com",
                 "role": "user",
             },
@@ -525,7 +577,7 @@ class ApiFlowTests(TestCase):
                 "/api/admin/users/",
                 {
                     "username": "custom-member",
-                    "displayName": "自定义密码用户",
+                    "displayName": "Custom Password User",
                     "email": "custom-member@example.com",
                     "role": "user",
                     "password": "Custom12345!",
@@ -556,7 +608,7 @@ class ApiFlowTests(TestCase):
                 "/api/admin/users/",
                 {
                     "username": "generated-member",
-                    "displayName": "自动密码用户",
+                    "displayName": "鑷姩瀵嗙爜鐢ㄦ埛",
                     "email": "generated-member@example.com",
                     "role": "user",
                 },
@@ -594,7 +646,7 @@ class ApiFlowTests(TestCase):
         response = self.client.patch(
             f"/api/admin/users/{self.user.id}/",
             {
-                "displayName": "更新后的用户",
+                "displayName": "鏇存柊鍚庣殑鐢ㄦ埛",
                 "email": "updated-user@example.com",
                 "role": "uploader",
             },
@@ -603,10 +655,10 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200, response.json())
 
         self.user.refresh_from_db()
-        self.assertEqual(self.user.display_name, "更新后的用户")
+        self.assertEqual(self.user.display_name, "鏇存柊鍚庣殑鐢ㄦ埛")
         self.assertEqual(self.user.email, "updated-user@example.com")
         self.assertEqual(self.user.role, "uploader")
-        self.assertTrue(AuditLog.objects.filter(action="更新用户", target_name=self.user.username).exists())
+        self.assertTrue(AuditLog.objects.filter(action="鏇存柊鐢ㄦ埛", target_name=self.user.username).exists())
 
     def test_admin_can_upload_site_icon_and_login_background_file(self):
         self.client.force_login(self.admin)
@@ -624,8 +676,8 @@ class ApiFlowTests(TestCase):
         response = self.client.put(
             "/api/admin/settings/",
             {
-                "siteName": "测试分流站",
-                "siteDescription": "新的登录页品牌配置",
+                "siteName": "Test Site",
+                "siteDescription": "New login branding",
                 "loginBackgroundType": "file",
                 "siteIconFile": icon,
                 "loginBackgroundFile": background,
@@ -635,8 +687,8 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200, response.json())
 
         data = response.json()["data"]
-        self.assertEqual(data["siteName"], "测试分流站")
-        self.assertEqual(data["siteDescription"], "新的登录页品牌配置")
+        self.assertEqual(data["siteName"], "Test Site")
+        self.assertEqual(data["siteDescription"], "New login branding")
         self.assertEqual(data["loginBackgroundType"], "file")
         self.assertIn("/media/site/branding/", data["siteIconFileUrl"])
         self.assertIn("/media/site/branding/", data["siteIconResolvedUrl"])
@@ -647,7 +699,7 @@ class ApiFlowTests(TestCase):
         self.assertTrue(bool(setting.site_icon_file))
         self.assertTrue(bool(setting.login_background_file))
         self.assertEqual(setting.login_background_type, "file")
-        self.assertTrue(AuditLog.objects.filter(action="更新站点设置", target_type="站点设置").exists())
+        self.assertTrue(AuditLog.objects.filter(action="鏇存柊绔欑偣璁剧疆", target_type="绔欑偣璁剧疆").exists())
 
     def test_admin_can_switch_login_background_to_css_mode(self):
         self.client.force_login(self.admin)
@@ -680,6 +732,36 @@ class ApiFlowTests(TestCase):
 
         setting = SiteSetting.get_current()
         self.assertTrue(setting.allow_public_registration)
+
+    def test_admin_can_generate_and_revoke_invite_codes(self):
+        self.client.force_login(self.admin)
+        expires_at = (timezone.now() + timedelta(days=7)).isoformat()
+
+        create_response = self.client.post(
+            "/api/admin/invite-codes/",
+            {
+                "count": 2,
+                "note": "April members",
+                "expiresAt": expires_at,
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.json())
+        self.assertEqual(len(create_response.json()["data"]), 2)
+
+        created_id = create_response.json()["data"][0]["id"]
+        list_response = self.client.get("/api/admin/invite-codes/")
+        self.assertEqual(list_response.status_code, 200, list_response.json())
+        self.assertGreaterEqual(len(list_response.json()["data"]), 2)
+        self.assertTrue(AuditLog.objects.filter(action="鐢熸垚閭€璇风爜").exists())
+
+        revoke_response = self.client.post(f"/api/admin/invite-codes/{created_id}/revoke/")
+        self.assertEqual(revoke_response.status_code, 200, revoke_response.json())
+        self.assertEqual(revoke_response.json()["data"]["status"], "revoked")
+
+        revoked_code = InviteCode.objects.get(pk=created_id)
+        self.assertFalse(revoked_code.is_active)
+        self.assertTrue(AuditLog.objects.filter(action="鍋滅敤閭€璇风爜", target_name=revoked_code.code).exists())
 
     def test_admin_can_disable_and_enable_user_with_explicit_routes(self):
         self.client.force_login(self.admin)
@@ -744,12 +826,12 @@ class ApiFlowTests(TestCase):
         self.client.force_login(self.admin)
         response = self.client.post(
             "/api/admin/categories/",
-            {"name": "纪录片", "slug": "documentary"},
+            {"name": "Documentary", "slug": "documentary"},
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.json())
         self.assertTrue(
-            AuditLog.objects.filter(action="创建分类", target_type="分类", target_name="纪录片").exists()
+            AuditLog.objects.filter(action="鍒涘缓鍒嗙被", target_type="鍒嗙被", target_name="Documentary").exists()
         )
 
     def test_admin_can_set_category_sort_order_and_visibility(self):
@@ -757,7 +839,7 @@ class ApiFlowTests(TestCase):
         response = self.client.post(
             "/api/admin/categories/",
             {
-                "name": "纪录片",
+                "name": "Documentary",
                 "slug": "documentary",
                 "sortOrder": 9,
                 "isActive": False,
@@ -773,7 +855,7 @@ class ApiFlowTests(TestCase):
             response.json()["data"],
             {
                 "id": category.id,
-                "name": "纪录片",
+                "name": "Documentary",
                 "slug": "documentary",
                 "sortOrder": 9,
                 "isActive": False,
@@ -785,14 +867,14 @@ class ApiFlowTests(TestCase):
         self.assertNotIn("documentary", [item["slug"] for item in public_categories.json()["data"]])
 
     def test_admin_can_update_category_sort_order_and_visibility(self):
-        category = Category.objects.create(name="纪录片", slug="documentary", sort_order=9, is_active=False)
+        category = Category.objects.create(name="Documentary", slug="documentary", sort_order=9, is_active=False)
 
         self.client.force_login(self.admin)
         response = self.client.post(
             "/api/admin/categories/",
             {
                 "id": category.id,
-                "name": "纪录片",
+                "name": "Documentary",
                 "slug": "documentary",
                 "sortOrder": 3,
                 "isActive": True,
@@ -1106,3 +1188,4 @@ class ApiFlowTests(TestCase):
         response = self.client.get("/api/admin/users/")
         self.assertEqual(response.status_code, 403, response.json())
         self.assertEqual(response.json()["code"], "permission_denied")
+

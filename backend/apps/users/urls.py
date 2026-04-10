@@ -2,6 +2,8 @@ from django.urls import path
 
 from apps.users.views import (
     AdminDashboardView,
+    AdminInviteCodeListCreateView,
+    AdminInviteCodeRevokeView,
     AdminTrackerSyncUserView,
     AdminUserDetailView,
     AdminUserDisableView,
@@ -17,6 +19,12 @@ from apps.users.views import (
 
 urlpatterns = [
     path("admin/dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
+    path("admin/invite-codes/", AdminInviteCodeListCreateView.as_view(), name="admin-invite-codes"),
+    path(
+        "admin/invite-codes/<int:invite_code_id>/revoke/",
+        AdminInviteCodeRevokeView.as_view(),
+        name="admin-invite-code-revoke",
+    ),
     path("admin/users/", AdminUserListCreateView.as_view(), name="admin-users"),
     path("admin/users/<int:user_id>/", AdminUserDetailView.as_view(), name="admin-user-detail"),
     path("admin/users/<int:user_id>/status/", AdminUserStatusView.as_view(), name="admin-user-status"),

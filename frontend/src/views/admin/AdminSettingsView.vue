@@ -315,8 +315,8 @@ async function handleSave() {
           </div>
           <label class="settings-toggle">
             <div class="settings-toggle__copy">
-              <span class="settings-toggle__title">开启自由注册</span>
-              <span class="settings-toggle__description">开启后登录页会显示注册按钮，访客可自行创建普通用户账号。</span>
+              <span class="settings-toggle__title">开启公开注册</span>
+              <span class="settings-toggle__description">开启后访客可直接注册；关闭后注册页仍可访问，但必须填写邀请码。</span>
             </div>
             <input v-model="form.allowPublicRegistration" type="checkbox" class="settings-toggle__input" />
           </label>
@@ -422,8 +422,8 @@ async function handleSave() {
               <p v-if="form.loginNotice" class="text-xs leading-6 text-slate-300/88">{{ form.loginNotice }}</p>
               <div class="login-preview__actions">
                 <div class="login-preview__button">登录</div>
-                <div v-if="form.allowPublicRegistration" class="login-preview__button login-preview__button--secondary">
-                  注册
+                <div class="login-preview__button login-preview__button--secondary">
+                  {{ form.allowPublicRegistration ? '注册' : '邀请码注册' }}
                 </div>
               </div>
             </div>
