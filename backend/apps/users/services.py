@@ -4,7 +4,6 @@ from django.db import transaction
 
 from apps.audit.services import AuditService
 from apps.common.utils import generate_passkey
-from apps.tracker_sync.services import TrackerSyncService
 from apps.users.models import User
 
 
@@ -34,7 +33,6 @@ class UserService:
                 detail=f"角色：{user.role}",
                 payload={"user_id": user.id},
             )
-            transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
         return user, generated_password
 
     @staticmethod
@@ -50,7 +48,6 @@ class UserService:
                 detail=f"状态切换为 {next_status}",
                 payload={"user_id": user.id},
             )
-            transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
         return user
 
     @staticmethod
@@ -99,7 +96,6 @@ class UserService:
                 detail="passkey 已重置，旧 RSS 与旧 torrent 失效。",
                 payload={"user_id": user.id},
             )
-            transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
         return user
 
     @staticmethod

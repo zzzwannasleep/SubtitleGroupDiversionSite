@@ -571,6 +571,24 @@ class ApiFlowTests(TestCase):
         created_user = User.objects.get(username="generated-member")
         self.assertTrue(created_user.check_password(data["initialPassword"]))
 
+    def test_create_superuser_syncs_to_xbt_on_commit(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            manager_user = User.objects.create_superuser(
+                username="ops-admin",
+                email="ops-admin@example.com",
+                password="OpsAdmin12345!",
+                display_name="ops-admin",
+            )
+
+        self.assertEqual(XbtUserMirror.objects.get(uid=manager_user.id).torrent_pass, manager_user.passkey)
+
+    def test_direct_user_save_updates_xbt_user_mirror_on_commit(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.user.passkey = "1" * 32
+            self.user.save(update_fields=["passkey"])
+
+        self.assertEqual(XbtUserMirror.objects.get(uid=self.user.id).torrent_pass, self.user.passkey)
+
     def test_admin_can_update_user_profile_fields(self):
         self.client.force_login(self.admin)
         response = self.client.patch(
