@@ -22,14 +22,63 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-100">
+  <div class="site-layout">
+    <div class="site-layout__backdrop site-layout__backdrop--top" />
+    <div class="site-layout__backdrop site-layout__backdrop--bottom" />
+
     <SiteHeader />
     <AnnouncementStrip :announcements="announcements" />
-    <main class="app-container py-6 md:py-8">
-      <div class="space-y-6">
-        <RouterView />
+
+    <main class="site-layout__main">
+      <div class="app-container py-6 md:py-8">
+        <div class="space-y-6">
+          <RouterView />
+        </div>
       </div>
     </main>
+
     <SiteFooter />
   </div>
 </template>
+
+<style scoped>
+.site-layout {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 34%, #f8fafc 100%);
+}
+
+.site-layout__backdrop {
+  pointer-events: none;
+  position: absolute;
+  inset: auto;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.4;
+}
+
+.site-layout__backdrop--top {
+  top: 4rem;
+  left: 8%;
+  height: 14rem;
+  width: 14rem;
+  background: rgb(191 219 254 / 0.8);
+}
+
+.site-layout__backdrop--bottom {
+  right: 12%;
+  bottom: 12rem;
+  height: 18rem;
+  width: 18rem;
+  background: rgb(226 232 240 / 0.95);
+}
+
+.site-layout__main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+</style>

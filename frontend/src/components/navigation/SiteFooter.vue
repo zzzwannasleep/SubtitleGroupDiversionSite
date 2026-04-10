@@ -7,16 +7,59 @@ const siteSettings = computed(() => siteSettingsStore.settings);
 </script>
 
 <template>
-  <footer class="border-t border-slate-200 bg-white">
-    <div class="app-container flex flex-col gap-2 py-6 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-      <div class="space-y-1">
-        <p class="font-medium text-slate-700">{{ siteSettings.siteName }}</p>
-        <p>{{ siteSettings.siteDescription }}</p>
-      </div>
-      <div class="space-y-1 text-left md:text-right">
-        <p>RSS 基础路径：{{ siteSettings.rssBasePath }}</p>
-        <p v-if="siteSettings.downloadNotice">{{ siteSettings.downloadNotice }}</p>
+  <footer class="site-footer">
+    <div class="app-container">
+      <div class="site-footer__panel">
+        <div class="space-y-2">
+          <p class="site-footer__title">{{ siteSettings.siteName }}</p>
+          <p class="site-footer__description">{{ siteSettings.siteDescription }}</p>
+        </div>
+        <div class="space-y-2 text-left md:text-right">
+          <p class="site-footer__meta">RSS 基础路径：{{ siteSettings.rssBasePath }}</p>
+          <p v-if="siteSettings.downloadNotice" class="site-footer__meta">{{ siteSettings.downloadNotice }}</p>
+        </div>
       </div>
     </div>
   </footer>
 </template>
+
+<style scoped>
+.site-footer {
+  position: relative;
+  z-index: 1;
+  padding-bottom: 1rem;
+}
+
+.site-footer__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid rgb(226 232 240 / 0.9);
+  border-radius: 1.6rem;
+  background: rgb(255 255 255 / 0.78);
+  box-shadow: 0 18px 40px rgb(148 163 184 / 0.1);
+  backdrop-filter: blur(16px);
+  padding: 1.25rem 1.3rem;
+}
+
+.site-footer__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgb(15 23 42);
+}
+
+.site-footer__description,
+.site-footer__meta {
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: rgb(100 116 139);
+}
+
+@media (min-width: 768px) {
+  .site-footer__panel {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+</style>

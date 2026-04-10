@@ -164,9 +164,8 @@ watch(
 
 <style scoped>
 .site-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
+  position: relative;
+  z-index: 10;
   border-bottom: 1px solid rgb(226 232 240 / 0.92);
   background: rgb(255 255 255 / 0.88);
   backdrop-filter: blur(18px);
