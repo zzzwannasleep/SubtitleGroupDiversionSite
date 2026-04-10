@@ -75,36 +75,25 @@ watch(
 
 <template>
   <header class="site-header">
-    <div class="app-container site-header__inner">
-      <RouterLink to="/" class="site-header__brand">
-        <div :class="['site-header__brand-icon', brandIconUrl ? 'site-header__brand-icon--plain' : '']">
-          <img
-            v-if="brandIconUrl"
-            :src="brandIconUrl"
-            :alt="`${siteSettings.siteName} 图标`"
-            class="site-header__brand-image"
-          />
-          <span v-else class="site-header__brand-fallback">{{ brandMonogram }}</span>
-        </div>
-        <div class="site-header__brand-copy">
-          <p class="site-header__brand-title">{{ siteSettings.siteName }}</p>
-          <p class="site-header__brand-subtitle">{{ siteSettings.siteDescription }}</p>
-        </div>
-      </RouterLink>
+    <div class="site-header__container">
+      <div class="site-header__top">
+        <RouterLink to="/" class="site-header__brand">
+          <div :class="['site-header__brand-icon', brandIconUrl ? 'site-header__brand-icon--plain' : '']">
+            <img
+              v-if="brandIconUrl"
+              :src="brandIconUrl"
+              :alt="`${siteSettings.siteName} 图标`"
+              class="site-header__brand-image"
+            />
+            <span v-else class="site-header__brand-fallback">{{ brandMonogram }}</span>
+          </div>
+          <div class="site-header__brand-copy">
+            <p class="site-header__brand-title">{{ siteSettings.siteName }}</p>
+            <p class="site-header__brand-subtitle">{{ siteSettings.siteDescription }}</p>
+          </div>
+        </RouterLink>
 
-      <div class="site-header__desktop">
-        <nav class="site-header__nav" aria-label="主导航">
-          <RouterLink
-            v-for="item in navItems"
-            :key="item.to"
-            :to="item.to"
-            :class="['site-header__nav-item', isActive(item.to) ? 'site-header__nav-item--active' : '']"
-          >
-            {{ item.label }}
-          </RouterLink>
-        </nav>
-
-        <div class="site-header__actions">
+        <div class="site-header__top-actions">
           <RouterLink to="/me" class="site-header__account">
             <span class="site-header__account-name">{{ currentUser?.displayName }}</span>
             <span class="site-header__account-role">{{ roleLabel }}</span>
@@ -113,22 +102,32 @@ watch(
             <LogOut class="mr-1 h-4 w-4" />
             <span class="whitespace-nowrap">退出登录</span>
           </UiButton>
+          <button
+            class="site-header__menu-button"
+            type="button"
+            aria-label="切换导航菜单"
+            @click="uiStore.toggleMobileMenu()"
+          >
+            <Menu v-if="!isMobileMenuOpen" class="h-5 w-5" />
+            <X v-else class="h-5 w-5" />
+          </button>
         </div>
       </div>
 
-      <button
-        class="site-header__menu-button"
-        type="button"
-        aria-label="切换导航菜单"
-        @click="uiStore.toggleMobileMenu()"
-      >
-        <Menu v-if="!isMobileMenuOpen" class="h-5 w-5" />
-        <X v-else class="h-5 w-5" />
-      </button>
+      <nav class="site-header__desktop-nav" aria-label="主导航">
+        <RouterLink
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          :class="['site-header__nav-item', isActive(item.to) ? 'site-header__nav-item--active' : '']"
+        >
+          {{ item.label }}
+        </RouterLink>
+      </nav>
     </div>
 
     <div v-if="isMobileMenuOpen" class="site-header__mobile-shell">
-      <div class="app-container site-header__mobile-panel">
+      <div class="site-header__container site-header__mobile-panel">
         <div class="site-header__mobile-account">
           <div :class="['site-header__brand-icon', 'site-header__brand-icon--mobile', brandIconUrl ? 'site-header__brand-icon--plain' : '']">
             <img
@@ -167,31 +166,37 @@ watch(
   position: relative;
   z-index: 10;
   border-bottom: 1px solid rgb(226 232 240 / 0.92);
-  background: rgb(255 255 255 / 0.88);
+  background: rgb(255 255 255 / 0.92);
   backdrop-filter: blur(18px);
 }
 
-.site-header__inner {
+.site-header__container {
+  width: min(100%, 96rem);
+  margin: 0 auto;
+  padding-left: clamp(1rem, 2vw, 1.75rem);
+  padding-right: clamp(1rem, 2vw, 1.75rem);
+}
+
+.site-header__top {
   display: flex;
-  min-height: 4.75rem;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  padding-top: 0.75rem;
-  padding-bottom: 0.75rem;
+  padding-top: 0.9rem;
+  padding-bottom: 0.85rem;
 }
 
 .site-header__brand {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 0.9rem;
-  flex-shrink: 0;
+  gap: 0.95rem;
 }
 
 .site-header__brand-icon {
   display: flex;
-  height: 3rem;
-  width: 3rem;
+  height: 3.05rem;
+  width: 3.05rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -249,29 +254,62 @@ watch(
   color: rgb(100 116 139);
 }
 
-.site-header__desktop {
-  display: none;
-}
-
-.site-header__nav {
+.site-header__top-actions {
   display: flex;
-  min-width: 0;
-  flex: 1;
+  flex-shrink: 0;
   align-items: center;
-  gap: 0.4rem;
-  overflow-x: auto;
-  scrollbar-width: none;
+  gap: 0.75rem;
 }
 
-.site-header__nav::-webkit-scrollbar {
+.site-header__account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252 / 0.92);
+  padding: 0.52rem 0.9rem;
+  color: rgb(51 65 85);
+}
+
+.site-header__account-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.site-header__account-role {
+  border-left: 1px solid rgb(203 213 225);
+  padding-left: 0.55rem;
+  font-size: 0.78rem;
+  color: rgb(100 116 139);
+}
+
+.site-header__menu-button {
   display: none;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(255 255 255 / 0.9);
+  color: rgb(51 65 85);
+}
+
+.site-header__desktop-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  border-top: 1px solid rgb(241 245 249);
+  padding-top: 0.8rem;
+  padding-bottom: 0.95rem;
 }
 
 .site-header__nav-item {
-  flex-shrink: 0;
   white-space: nowrap;
   border-radius: 999px;
-  padding: 0.68rem 1rem;
+  padding: 0.66rem 1rem;
   font-size: 0.92rem;
   color: rgb(71 85 105);
   transition:
@@ -291,53 +329,10 @@ watch(
   box-shadow: 0 10px 24px rgb(37 99 235 / 0.18);
 }
 
-.site-header__actions {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.site-header__account {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  white-space: nowrap;
-  border-radius: 999px;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(248 250 252 / 0.92);
-  padding: 0.55rem 0.9rem;
-  color: rgb(51 65 85);
-}
-
-.site-header__account-name {
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.site-header__account-role {
-  border-left: 1px solid rgb(203 213 225);
-  padding-left: 0.55rem;
-  font-size: 0.78rem;
-  color: rgb(100 116 139);
-}
-
-.site-header__menu-button {
-  margin-left: auto;
-  display: inline-flex;
-  height: 2.75rem;
-  width: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.9rem;
-  border: 1px solid rgb(226 232 240);
-  background: rgb(255 255 255 / 0.9);
-  color: rgb(51 65 85);
-}
-
 .site-header__mobile-shell {
+  display: none;
   border-top: 1px solid rgb(226 232 240);
-  background: rgb(255 255 255 / 0.92);
+  background: rgb(255 255 255 / 0.94);
 }
 
 .site-header__mobile-panel {
@@ -369,16 +364,22 @@ watch(
   color: rgb(29 78 216);
 }
 
-@media (min-width: 1024px) {
-  .site-header__desktop {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    align-items: center;
-    gap: 1rem;
+@media (max-width: 1180px) {
+  .site-header__menu-button {
+    display: inline-flex;
   }
 
-  .site-header__menu-button {
+  .site-header__desktop-nav {
+    display: none;
+  }
+
+  .site-header__mobile-shell {
+    display: block;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header__account {
     display: none;
   }
 }
