@@ -46,17 +46,11 @@
           return 'image/x-icon';
         }
 
-        function applyFavicon(iconHref, version) {
-          const nextHref = iconHref
-            ? (() => {
-                const resolvedUrl = new URL(iconHref, window.location.origin);
-                resolvedUrl.searchParams.set('v', String(version || Date.now()));
-                return resolvedUrl.toString();
-              })()
-            : BLANK_FAVICON_DATA_URI;
+        function getFaviconSizes(type) {
+          return type === 'image/svg+xml' ? 'any' : '';
+        }
 
-          const type = getFaviconType(nextHref);
-
+        function writeFaviconLinks(href, type, sizes) {
           for (const definition of FAVICON_DEFINITIONS) {
             let link = document.getElementById(definition.id);
             if (!link) {
@@ -66,10 +60,68 @@
             }
 
             link.rel = definition.rel;
-            link.href = nextHref;
+            link.href = href;
             link.type = type;
-            link.sizes = type === 'image/svg+xml' ? 'any' : '';
+            link.sizes = sizes;
           }
+        }
+
+        function rasterizeFavicon(href) {
+          return new Promise((resolve) => {
+            const img = new Image();
+            const sourceUrl = new URL(href, window.location.origin);
+
+            if (sourceUrl.origin !== window.location.origin) {
+              img.crossOrigin = 'anonymous';
+            }
+
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = 64;
+              canvas.height = 64;
+
+              const context = canvas.getContext('2d');
+              if (!context) {
+                resolve(null);
+                return;
+              }
+
+              context.clearRect(0, 0, canvas.width, canvas.height);
+              context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+              try {
+                resolve(canvas.toDataURL('image/png'));
+              } catch {
+                resolve(null);
+              }
+            };
+
+            img.onerror = () => resolve(null);
+            img.src = sourceUrl.toString();
+          });
+        }
+
+        async function applyFavicon(iconHref, version) {
+          const nextHref = iconHref
+            ? (() => {
+                const resolvedUrl = new URL(iconHref, window.location.origin);
+                resolvedUrl.searchParams.set('v', String(version || Date.now()));
+                return resolvedUrl.toString();
+              })()
+            : BLANK_FAVICON_DATA_URI;
+
+          let resolvedHref = nextHref;
+          let type = getFaviconType(nextHref);
+
+          if (iconHref && type === 'image/svg+xml') {
+            const rasterizedHref = await rasterizeFavicon(nextHref);
+            if (rasterizedHref) {
+              resolvedHref = rasterizedHref;
+              type = 'image/png';
+            }
+          }
+
+          writeFaviconLinks(resolvedHref, type, getFaviconSizes(type));
         }
 
         function persistSettings(settings) {
@@ -82,7 +134,7 @@
 
         function applyFromSettings(settings, shouldPersist) {
           if (!settings || typeof settings !== 'object') {
-            applyFavicon('', Date.now());
+            void applyFavicon('', Date.now());
             return;
           }
 
@@ -90,7 +142,7 @@
             persistSettings(settings);
           }
 
-          applyFavicon(settings.siteIconResolvedUrl || '', Date.now());
+          void applyFavicon(settings.siteIconResolvedUrl || '', Date.now());
         }
 
         try {
@@ -99,7 +151,7 @@
             applyFromSettings(JSON.parse(raw), false);
           }
         } catch {
-          applyFavicon('', Date.now());
+          void applyFavicon('', Date.now());
         }
 
         fetch('/api/site-settings/', { credentials: 'include' })

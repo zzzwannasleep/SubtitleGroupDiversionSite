@@ -74,6 +74,74 @@ function getFaviconType(href: string) {
   return 'image/x-icon';
 }
 
+function getFaviconSizes(type: string) {
+  return type === 'image/svg+xml' ? 'any' : '';
+}
+
+function writeFaviconLinks(href: string, type: string, sizes: string) {
+  const existingFavicons = Array.from(
+    document.head.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]'),
+  ) as HTMLLinkElement[];
+
+  for (const definition of FAVICON_DEFINITIONS) {
+    let favicon =
+      (document.getElementById(definition.id) as HTMLLinkElement | null) ??
+      existingFavicons.find((item) => item.rel === definition.rel) ??
+      null;
+    if (!favicon) {
+      favicon = document.createElement('link');
+      favicon.id = definition.id;
+      document.head.appendChild(favicon);
+    } else if (!favicon.id) {
+      favicon.id = definition.id;
+    }
+
+    favicon.rel = definition.rel;
+    favicon.href = href;
+    favicon.type = type;
+    favicon.sizes = sizes;
+  }
+}
+
+async function rasterizeFavicon(href: string) {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return new Promise<string | null>((resolve) => {
+    const img = new Image();
+    const sourceUrl = new URL(href, window.location.origin);
+
+    if (sourceUrl.origin !== window.location.origin) {
+      img.crossOrigin = 'anonymous';
+    }
+
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        resolve(null);
+        return;
+      }
+
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      try {
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
+      }
+    };
+
+    img.onerror = () => resolve(null);
+    img.src = sourceUrl.toString();
+  });
+}
+
 export const useSiteSettingsStore = defineStore('site-settings', () => {
   const settings = ref<SiteSettings>(createDefaultSiteSettings());
   const isLoading = ref(false);
@@ -84,17 +152,19 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
   let initialized = false;
   let refreshTimer: number | null = null;
   let broadcastChannel: BroadcastChannel | null = null;
+  let faviconRenderToken = 0;
 
   function buildDocumentTitle(routeTitle?: string) {
     const siteName = settings.value.siteName.trim() || createDefaultSiteSettings().siteName;
     return routeTitle ? `${routeTitle} | ${siteName}` : siteName;
   }
 
-  function applyFavicon() {
+  async function applyFavicon() {
     if (typeof document === 'undefined') {
       return;
     }
 
+    const requestToken = ++faviconRenderToken;
     const faviconHref = settings.value.siteIconResolvedUrl
       ? (() => {
           const iconUrl = new URL(settings.value.siteIconResolvedUrl, window.location.origin);
@@ -103,29 +173,22 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
         })()
       : BLANK_FAVICON_DATA_URI;
 
-    const faviconType = getFaviconType(faviconHref);
-    const existingFavicons = Array.from(
-      document.head.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]'),
-    ) as HTMLLinkElement[];
+    let resolvedHref = faviconHref;
+    let resolvedType = getFaviconType(faviconHref);
 
-    for (const definition of FAVICON_DEFINITIONS) {
-      let favicon =
-        (document.getElementById(definition.id) as HTMLLinkElement | null) ??
-        existingFavicons.find((item) => item.rel === definition.rel) ??
-        null;
-      if (!favicon) {
-        favicon = document.createElement('link');
-        favicon.id = definition.id;
-        document.head.appendChild(favicon);
-      } else if (!favicon.id) {
-        favicon.id = definition.id;
+    if (settings.value.siteIconResolvedUrl && resolvedType === 'image/svg+xml') {
+      const rasterizedHref = await rasterizeFavicon(faviconHref);
+      if (requestToken !== faviconRenderToken) {
+        return;
       }
 
-      favicon.rel = definition.rel;
-      favicon.href = faviconHref;
-      favicon.type = faviconType;
-      favicon.sizes = faviconType === 'image/svg+xml' ? 'any' : '';
+      if (rasterizedHref) {
+        resolvedHref = rasterizedHref;
+        resolvedType = 'image/png';
+      }
     }
+
+    writeFaviconLinks(resolvedHref, resolvedType, getFaviconSizes(resolvedType));
   }
 
   function syncDocumentTitle(routeTitle?: string) {
@@ -137,7 +200,7 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
   }
 
   function applyBranding() {
-    applyFavicon();
+    void applyFavicon();
     syncDocumentTitle(lastRouteTitle.value || undefined);
   }
 
