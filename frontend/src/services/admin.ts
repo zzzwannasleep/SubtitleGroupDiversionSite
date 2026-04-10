@@ -4,6 +4,7 @@ import type {
   Announcement,
   AuditLog,
   CreateUserPayload,
+  SaveSiteSettingsPayload,
   SiteSettings,
   ToggleUserStatusPayload,
   UpdateUserPayload,
@@ -294,13 +295,48 @@ export async function getSettings(): Promise<SiteSettings> {
   return apiRequest<SiteSettings>('/api/admin/settings/');
 }
 
-export async function saveSiteSettings(payload: SiteSettings): Promise<SiteSettings> {
+export async function getPublicSiteSettings(): Promise<SiteSettings> {
+  if (useMockApi()) {
+    return mockResolve(() => siteSettings);
+  }
+
+  return apiRequest<SiteSettings>('/api/site-settings/');
+}
+
+export async function saveSiteSettings(payload: SaveSiteSettingsPayload): Promise<SiteSettings> {
   if (useMockApi()) {
     return mockResolve(() => saveSettings(payload));
   }
 
+  const formData = new FormData();
+  formData.append('siteName', payload.siteName);
+  formData.append('siteDescription', payload.siteDescription);
+  formData.append('loginNotice', payload.loginNotice);
+  formData.append('rssBasePath', payload.rssBasePath);
+  formData.append('downloadNotice', payload.downloadNotice);
+  formData.append('siteIconUrl', payload.siteIconUrl);
+  formData.append('loginBackgroundType', payload.loginBackgroundType);
+  formData.append('loginBackgroundApiUrl', payload.loginBackgroundApiUrl);
+  formData.append('loginBackgroundCss', payload.loginBackgroundCss);
+
+  if (payload.siteIconFile) {
+    formData.append('siteIconFile', payload.siteIconFile);
+  }
+
+  if (payload.loginBackgroundFile) {
+    formData.append('loginBackgroundFile', payload.loginBackgroundFile);
+  }
+
+  if (payload.clearSiteIconFile) {
+    formData.append('clearSiteIconFile', 'true');
+  }
+
+  if (payload.clearLoginBackgroundFile) {
+    formData.append('clearLoginBackgroundFile', 'true');
+  }
+
   return apiRequest<SiteSettings>('/api/admin/settings/', {
     method: 'PUT',
-    body: payload,
+    body: formData,
   });
 }

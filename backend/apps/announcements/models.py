@@ -13,6 +13,19 @@ class AnnouncementAudience(models.TextChoices):
     ADMIN = "admin", "管理员"
 
 
+DEFAULT_LOGIN_BACKGROUND_CSS = (
+    "radial-gradient(circle at top left, rgba(96, 165, 250, 0.38), transparent 34%), "
+    "radial-gradient(circle at 85% 15%, rgba(244, 114, 182, 0.28), transparent 30%), "
+    "linear-gradient(135deg, #020617 0%, #0f172a 46%, #111827 100%)"
+)
+
+
+class LoginBackgroundType(models.TextChoices):
+    API = "api", "API"
+    FILE = "file", "文件"
+    CSS = "css", "CSS"
+
+
 class Announcement(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
@@ -35,6 +48,16 @@ class SiteSetting(models.Model):
     login_notice = models.TextField(blank=True)
     rss_base_path = models.CharField(max_length=255, default="/rss")
     download_notice = models.TextField(blank=True)
+    site_icon_url = models.URLField(blank=True)
+    site_icon_file = models.FileField(upload_to="site/branding/", blank=True)
+    login_background_type = models.CharField(
+        max_length=20,
+        choices=LoginBackgroundType.choices,
+        default=LoginBackgroundType.CSS,
+    )
+    login_background_api_url = models.URLField(blank=True)
+    login_background_file = models.FileField(upload_to="site/login-backgrounds/", blank=True)
+    login_background_css = models.TextField(blank=True, default=DEFAULT_LOGIN_BACKGROUND_CSS)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

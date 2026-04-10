@@ -12,4 +12,4 @@ class AnnouncementAdmin(admin.ModelAdmin):
 
 @admin.register(SiteSetting)
 class SiteSettingAdmin(admin.ModelAdmin):
-    list_display = ("site_name", "rss_base_path", "updated_at")
+    list_display = ("site_name", "login_background_type", "rss_base_path", "updated_at")

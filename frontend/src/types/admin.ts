@@ -4,6 +4,7 @@ import type { ReleaseStatus, XbtFileSnapshot } from './release';
 export type SyncStatus = 'success' | 'warning' | 'failed';
 export type AnnouncementStatus = 'online' | 'draft' | 'offline';
 export type XbtUserState = 'enabled' | 'disabled' | 'missing' | 'unavailable';
+export type LoginBackgroundType = 'api' | 'file' | 'css';
 
 export interface TrackerSyncSnapshot {
   status: SyncStatus;
@@ -135,6 +136,30 @@ export interface SiteSettings {
   loginNotice: string;
   rssBasePath: string;
   downloadNotice: string;
+  siteIconUrl: string;
+  siteIconFileUrl: string;
+  siteIconResolvedUrl: string;
+  loginBackgroundType: LoginBackgroundType;
+  loginBackgroundApiUrl: string;
+  loginBackgroundFileUrl: string;
+  loginBackgroundResolvedUrl: string;
+  loginBackgroundCss: string;
+}
+
+export interface SaveSiteSettingsPayload {
+  siteName: string;
+  siteDescription: string;
+  loginNotice: string;
+  rssBasePath: string;
+  downloadNotice: string;
+  siteIconUrl: string;
+  siteIconFile?: File | null;
+  clearSiteIconFile?: boolean;
+  loginBackgroundType: LoginBackgroundType;
+  loginBackgroundApiUrl: string;
+  loginBackgroundFile?: File | null;
+  clearLoginBackgroundFile?: boolean;
+  loginBackgroundCss: string;
 }
 
 export interface RssFeedLink {

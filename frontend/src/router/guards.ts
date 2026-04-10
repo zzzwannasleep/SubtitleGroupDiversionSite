@@ -1,6 +1,7 @@
 import type { Router } from 'vue-router';
 import { pinia } from '@/stores';
 import { useAuthStore } from '@/stores/auth';
+import { useSiteSettingsStore } from '@/stores/siteSettings';
 import { hasRole } from '@/utils/permissions';
 
 export function registerRouterGuards(router: Router) {
@@ -38,7 +39,7 @@ export function registerRouterGuards(router: Router) {
   });
 
   router.afterEach((to) => {
-    const title = to.meta.title ? `${to.meta.title} | 字幕组分流站` : '字幕组分流站';
-    document.title = title;
+    const siteSettingsStore = useSiteSettingsStore(pinia);
+    siteSettingsStore.syncDocumentTitle(typeof to.meta.title === 'string' ? to.meta.title : undefined);
   });
 }

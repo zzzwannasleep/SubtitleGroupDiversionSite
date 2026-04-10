@@ -1,12 +1,15 @@
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from apps.announcements.models import Announcement, SiteSetting
 from apps.announcements.serializers import (
     AnnouncementSerializer,
     AnnouncementWriteSerializer,
-    SiteSettingSerializer,
+    SiteSettingReadSerializer,
+    SiteSettingWriteSerializer,
 )
 from apps.audit.services import AuditService
 from apps.common.permissions import IsActiveAuthenticated, IsAdminRole
@@ -35,9 +38,26 @@ class VisibleAnnouncementListView(APIView):
 
     def get(self, request):
         queryset = Announcement.objects.filter(
-            status="online", audience__in=allowed_audiences_for_role(request.user.role)
+            status="online",
+            audience__in=allowed_audiences_for_role(request.user.role),
         ).order_by("-updated_at", "-id")
         return success_response(AnnouncementSerializer(queryset, many=True).data)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        operation_id="public_site_settings_retrieve",
+        summary="获取公开站点设置",
+        tags=["Site Settings"],
+        responses=success_response_schema("PublicSiteSettingResponse", SiteSettingReadSerializer),
+    ),
+)
+class PublicSiteSettingView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        serializer = SiteSettingReadSerializer(SiteSetting.get_current(), context={"request": request})
+        return success_response(serializer.data)
 
 
 @extend_schema_view(
@@ -86,33 +106,43 @@ class AdminAnnouncementListCreateView(APIView):
         operation_id="admin_settings_retrieve",
         summary="获取站点设置",
         tags=["Admin Settings"],
-        responses=success_response_schema("AdminSiteSettingResponse", SiteSettingSerializer),
+        responses=success_response_schema("AdminSiteSettingResponse", SiteSettingReadSerializer),
     ),
     put=extend_schema(
         operation_id="admin_settings_update",
         summary="更新站点设置",
         tags=["Admin Settings"],
-        request=SiteSettingSerializer,
-        responses=success_response_schema("AdminSiteSettingUpdateResponse", SiteSettingSerializer),
+        request=SiteSettingWriteSerializer,
+        responses=success_response_schema("AdminSiteSettingUpdateResponse", SiteSettingReadSerializer),
     ),
 )
 class SiteSettingView(APIView):
     permission_classes = [IsAdminRole]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get(self, request):
-        return success_response(SiteSettingSerializer(SiteSetting.get_current()).data)
+        serializer = SiteSettingReadSerializer(SiteSetting.get_current(), context={"request": request})
+        return success_response(serializer.data)
 
     def put(self, request):
         setting = SiteSetting.get_current()
-        serializer = SiteSettingSerializer(setting, data=request.data)
+        serializer = SiteSettingWriteSerializer(setting, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
         AuditService.log(
             request.user,
             "更新站点设置",
             "站点设置",
             "基础配置",
-            detail=f"RSS 基础路径更新为 {serializer.instance.rss_base_path}。",
+            detail=(
+                f"站点图标已{'设置' if setting.site_icon_url or setting.site_icon_file else '清空'}，"
+                f"登录背景模式为 {setting.login_background_type}。"
+            ),
             payload={"site_setting_id": setting.id},
         )
-        return success_response(serializer.data, message="站点设置已保存。")
+
+        return success_response(
+            SiteSettingReadSerializer(setting, context={"request": request}).data,
+            message="站点设置已保存。",
+        )

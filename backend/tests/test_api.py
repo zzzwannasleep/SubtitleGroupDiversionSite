@@ -11,6 +11,7 @@ from django.db import connection
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
+from apps.announcements.models import SiteSetting
 from apps.audit.models import AuditLog
 from apps.common.throttles import LoginRateThrottle
 from apps.common.torrent import bdecode, bencode
@@ -149,6 +150,47 @@ class ApiFlowTests(TestCase):
         me = self.client.get("/api/auth/me/")
         self.assertEqual(me.status_code, 200, me.json())
         self.assertEqual(me.json()["data"]["username"], "admin")
+
+    def test_public_site_settings_is_available_without_login(self):
+        setting = SiteSetting.get_current()
+        setting.site_name = "星门字幕组"
+        setting.site_description = "欢迎来到测试站点"
+        setting.site_icon_url = "https://cdn.example.com/brand/icon.png"
+        setting.login_background_type = "api"
+        setting.login_background_api_url = "https://cdn.example.com/backgrounds/login.jpg"
+        setting.login_background_css = "linear-gradient(135deg, #020617, #1e293b)"
+        setting.save(
+            update_fields=[
+                "site_name",
+                "site_description",
+                "site_icon_url",
+                "login_background_type",
+                "login_background_api_url",
+                "login_background_css",
+            ]
+        )
+
+        client = APIClient()
+        response = client.get("/api/site-settings/")
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(
+            response.json()["data"],
+            {
+                "siteName": "星门字幕组",
+                "siteDescription": "欢迎来到测试站点",
+                "loginNotice": "",
+                "rssBasePath": "/rss",
+                "downloadNotice": "",
+                "siteIconUrl": "https://cdn.example.com/brand/icon.png",
+                "siteIconFileUrl": "",
+                "siteIconResolvedUrl": "https://cdn.example.com/brand/icon.png",
+                "loginBackgroundType": "api",
+                "loginBackgroundApiUrl": "https://cdn.example.com/backgrounds/login.jpg",
+                "loginBackgroundFileUrl": "",
+                "loginBackgroundResolvedUrl": "https://cdn.example.com/backgrounds/login.jpg",
+                "loginBackgroundCss": "linear-gradient(135deg, #020617, #1e293b)",
+            },
+        )
 
     def test_can_fetch_me_with_api_token_authorization_header(self):
         response = self.client.get(
@@ -369,6 +411,64 @@ class ApiFlowTests(TestCase):
         self.assertEqual(self.user.email, "updated-user@example.com")
         self.assertEqual(self.user.role, "uploader")
         self.assertTrue(AuditLog.objects.filter(action="更新用户", target_name=self.user.username).exists())
+
+    def test_admin_can_upload_site_icon_and_login_background_file(self):
+        self.client.force_login(self.admin)
+        icon = SimpleUploadedFile(
+            "favicon.svg",
+            b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28'/></svg>",
+            content_type="image/svg+xml",
+        )
+        background = SimpleUploadedFile(
+            "login-bg.jpg",
+            b"fake-background-image-bytes",
+            content_type="image/jpeg",
+        )
+
+        response = self.client.put(
+            "/api/admin/settings/",
+            {
+                "siteName": "测试分流站",
+                "siteDescription": "新的登录页品牌配置",
+                "loginBackgroundType": "file",
+                "siteIconFile": icon,
+                "loginBackgroundFile": background,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["siteName"], "测试分流站")
+        self.assertEqual(data["siteDescription"], "新的登录页品牌配置")
+        self.assertEqual(data["loginBackgroundType"], "file")
+        self.assertIn("/media/site/branding/", data["siteIconFileUrl"])
+        self.assertIn("/media/site/branding/", data["siteIconResolvedUrl"])
+        self.assertIn("/media/site/login-backgrounds/", data["loginBackgroundFileUrl"])
+        self.assertIn("/media/site/login-backgrounds/", data["loginBackgroundResolvedUrl"])
+
+        setting = SiteSetting.get_current()
+        self.assertTrue(bool(setting.site_icon_file))
+        self.assertTrue(bool(setting.login_background_file))
+        self.assertEqual(setting.login_background_type, "file")
+        self.assertTrue(AuditLog.objects.filter(action="更新站点设置", target_type="站点设置").exists())
+
+    def test_admin_can_switch_login_background_to_css_mode(self):
+        self.client.force_login(self.admin)
+        response = self.client.put(
+            "/api/admin/settings/",
+            {
+                "loginBackgroundType": "css",
+                "loginBackgroundCss": "linear-gradient(120deg, #020617 0%, #172554 100%)",
+                "loginBackgroundApiUrl": "",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+
+        setting = SiteSetting.get_current()
+        self.assertEqual(setting.login_background_type, "css")
+        self.assertEqual(setting.login_background_css, "linear-gradient(120deg, #020617 0%, #172554 100%)")
 
     def test_admin_can_disable_and_enable_user_with_explicit_routes(self):
         self.client.force_login(self.admin)
