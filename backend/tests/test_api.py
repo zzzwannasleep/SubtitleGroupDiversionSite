@@ -10,11 +10,11 @@ from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
+from torf import Torrent, _flatbencode as flatbencode
 
 from apps.announcements.models import SiteSetting
 from apps.audit.models import AuditLog
 from apps.common.throttles import LoginRateThrottle
-from apps.common.torrent import bdecode, bencode
 from apps.releases.models import Category, Release, Tag
 from apps.tracker_sync.models import TrackerSyncLog
 from apps.tracker_sync.services import TrackerSyncService
@@ -23,14 +23,18 @@ from apps.users.models import User
 
 
 def build_torrent_bytes(*, private: bool = True) -> bytes:
-    info = {
-        b"name": b"Example.S01E01.mkv",
-        b"piece length": 262144,
-        b"pieces": b"01234567890123456789",
-        b"length": 1024,
-        b"private": 1 if private else 0,
-    }
-    return bencode({b"announce": b"https://tracker.example/announce", b"info": info})
+    return flatbencode.encode(
+        {
+            b"announce": b"https://tracker.example/announce",
+            b"info": {
+                b"name": b"Example.S01E01.mkv",
+                b"piece length": 262144,
+                b"pieces": b"01234567890123456789",
+                b"length": 1024,
+                b"private": 1 if private else 0,
+            },
+        }
+    )
 
 
 @override_settings(MEDIA_ROOT="test-media")
@@ -257,10 +261,33 @@ class ApiFlowTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(f"/api/releases/{release.id}/download/")
         self.assertEqual(response.status_code, 200)
-        torrent = bdecode(response.content)
+        torrent = Torrent.read_stream(response.content, validate=False)
         self.assertEqual(
-            torrent[b"announce"].decode("utf-8"),
+            torrent.trackers[0][0],
             f"http://localhost:8000/{self.user.passkey}/announce",
+        )
+        self.assertTrue(torrent.private)
+
+    def test_user_can_upload_torrent_and_export_private_personalized_version(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            "/api/torrents/privatize/",
+            {
+                "torrentFile": SimpleUploadedFile(
+                    "public.torrent",
+                    build_torrent_bytes(private=False),
+                    content_type="application/x-bittorrent",
+                )
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertTrue(torrent.private)
+        self.assertEqual(torrent.trackers, [[f"http://localhost:8000/{self.user.passkey}/announce"]])
+        self.assertTrue(
+            AuditLog.objects.filter(action="私有化 torrent", target_type="torrent 工具", actor=self.user).exists()
         )
 
     def test_rss_feed_uses_passkey_download_link(self):
@@ -840,6 +867,7 @@ class ApiFlowTests(TestCase):
                 os.remove(schema_path)
 
         self.assertIn("/api/releases/", schema["paths"])
+        self.assertIn("/api/torrents/privatize/", schema["paths"])
         self.assertIn("/api/admin/tracker-sync/full/", schema["paths"])
         self.assertIn("/api/admin/tracker-sync/overview/", schema["paths"])
         self.assertIn("get", schema["paths"]["/api/admin/tracker-sync/users/{user_id}/"])
@@ -849,6 +877,7 @@ class ApiFlowTests(TestCase):
         self.assertIn("userApiTokenAuth", schema["components"]["securitySchemes"])
         self.assertIn("userApiKeyAuth", schema["components"]["securitySchemes"])
         self.assertIn("multipart/form-data", schema["paths"]["/api/releases/"]["post"]["requestBody"]["content"])
+        self.assertIn("multipart/form-data", schema["paths"]["/api/torrents/privatize/"]["post"]["requestBody"]["content"])
 
     def test_redoc_route_is_available(self):
         response = self.client.get("/api/docs/")

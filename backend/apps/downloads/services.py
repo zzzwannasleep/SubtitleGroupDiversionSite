@@ -1,9 +1,12 @@
+from pathlib import Path
+
 from django.conf import settings
 from django.db.models import F
 from django.utils.text import slugify
 from rest_framework.exceptions import NotAuthenticated, PermissionDenied
 
-from apps.common.torrent import inject_announce
+from apps.audit.services import AuditService
+from apps.common.torrent import inject_announce, privatize_torrent
 from apps.downloads.models import DownloadLog
 from apps.users.models import User, UserStatus
 
@@ -27,7 +30,7 @@ class DownloadService:
             raise NotAuthenticated("请先登录或提供 passkey。")
         resolved_user = User.objects.filter(passkey=passkey, status=UserStatus.ACTIVE).first()
         if not resolved_user:
-            raise PermissionDenied("passkey 无效或账户已禁用。")
+            raise PermissionDenied("passkey 无效或账户已被禁用。")
         return resolved_user
 
     @classmethod
@@ -45,6 +48,21 @@ class DownloadService:
         type(release).objects.filter(pk=release.pk).update(download_count=F("download_count") + 1)
         filename = slugify(release.title) or f"release-{release.pk}"
         return personalized, f"{filename}.torrent"
+
+    @classmethod
+    def build_private_torrent_from_upload(cls, *, user, torrent_file):
+        original_name = Path(getattr(torrent_file, "name", "") or "uploaded.torrent")
+        rewritten, metadata = privatize_torrent(torrent_file.read(), cls.build_announce_url(user))
+        filename = slugify(metadata.name) or slugify(original_name.stem) or f"private-{metadata.infohash[:12]}"
+        AuditService.log(
+            user,
+            "私有化 torrent",
+            "torrent 工具",
+            metadata.name,
+            detail="上传 torrent 并注入个人 tracker。",
+            payload={"infohash": metadata.infohash},
+        )
+        return rewritten, f"{filename}.torrent"
 
     @staticmethod
     def _extract_ip(request):
