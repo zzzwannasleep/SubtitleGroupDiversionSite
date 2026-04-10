@@ -300,6 +300,7 @@ watch(
 .site-header__desktop-nav {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.55rem;
   border-top: 1px solid rgb(241 245 249);
   padding-top: 0.8rem;
