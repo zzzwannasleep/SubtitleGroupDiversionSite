@@ -12,8 +12,15 @@ import {
   Users,
 } from 'lucide-vue-next';
 import { RouterLink, useRoute } from 'vue-router';
+import { useSiteSettingsStore } from '@/stores/siteSettings';
+import { buildSiteMonogram } from '@/utils/site-branding';
 
 const route = useRoute();
+const siteSettingsStore = useSiteSettingsStore();
+
+const siteSettings = computed(() => siteSettingsStore.settings);
+const brandIconUrl = computed(() => siteSettings.value.siteIconResolvedUrl);
+const brandMonogram = computed(() => buildSiteMonogram(siteSettings.value.siteName));
 
 const navItems = computed(() => [
   { label: '仪表盘', to: '/admin', icon: LayoutDashboard },
@@ -35,9 +42,26 @@ function isActive(path: string) {
 <template>
   <aside class="flex h-full flex-col bg-slate-950 text-slate-100">
     <div class="border-b border-slate-800 px-5 py-5">
-      <p class="text-sm font-semibold">后台管理</p>
-      <p class="mt-1 text-xs text-slate-400">角色与系统控制台</p>
+      <div class="flex items-center gap-3">
+        <div class="admin-sidebar-brand__icon">
+          <img
+            v-if="brandIconUrl"
+            :src="brandIconUrl"
+            :alt="`${siteSettings.siteName} 图标`"
+            class="admin-sidebar-brand__image"
+          />
+          <span v-else class="admin-sidebar-brand__fallback">{{ brandMonogram }}</span>
+        </div>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-semibold">{{ siteSettings.siteName }}</p>
+          <p class="truncate text-xs text-slate-400">管理后台</p>
+        </div>
+      </div>
+      <p class="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">
+        {{ siteSettings.siteDescription }}
+      </p>
     </div>
+
     <nav class="flex-1 space-y-1 px-3 py-4">
       <RouterLink
         v-for="item in navItems"
@@ -54,3 +78,35 @@ function isActive(path: string) {
     </nav>
   </aside>
 </template>
+
+<style scoped>
+.admin-sidebar-brand__icon {
+  display: flex;
+  height: 2.9rem;
+  width: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 1rem;
+  background:
+    linear-gradient(145deg, rgba(96, 165, 250, 0.4), rgba(15, 23, 42, 0.92)),
+    rgb(15 23 42);
+  box-shadow:
+    0 12px 26px rgb(2 6 23 / 0.34),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.admin-sidebar-brand__image {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.admin-sidebar-brand__fallback {
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+</style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppError from '@/components/app/AppError.vue';
@@ -8,14 +8,17 @@ import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { getRssOverview } from '@/services/rss';
 import { useAuthStore } from '@/stores/auth';
+import { useSiteSettingsStore } from '@/stores/siteSettings';
 import type { RssOverview } from '@/types/admin';
 
 const authStore = useAuthStore();
+const siteSettingsStore = useSiteSettingsStore();
 const loading = ref(true);
 const failed = ref(false);
 const feedback = ref('');
 const errorMessage = ref('');
 const rssOverview = ref<RssOverview | null>(null);
+const siteSettings = computed(() => siteSettingsStore.settings);
 
 async function loadData() {
   if (!authStore.currentUser) return;
@@ -52,6 +55,12 @@ onMounted(loadData);
   <template v-else-if="rssOverview">
     <AppAlert v-if="feedback" variant="success" :title="feedback" />
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
+    <AppAlert
+      v-if="siteSettings.rssBasePath"
+      variant="info"
+      title="当前 RSS 基础路径"
+      :description="siteSettings.rssBasePath"
+    />
 
     <div class="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
       <div class="space-y-6">

@@ -14,12 +14,14 @@ import UiButton from '@/components/ui/UiButton.vue';
 import { isApiError } from '@/services/api';
 import { downloadRelease, getReleaseById, toggleReleaseStatus } from '@/services/releases';
 import { useAuthStore } from '@/stores/auth';
+import { useSiteSettingsStore } from '@/stores/siteSettings';
 import type { Release } from '@/types/release';
 import { formatBytes, formatDateTime } from '@/utils/format';
 import { canEditRelease } from '@/utils/permissions';
 
 const route = useRoute();
 const authStore = useAuthStore();
+const siteSettingsStore = useSiteSettingsStore();
 
 const state = ref<'loading' | 'ready' | 'forbidden' | 'not-found' | 'error'>('loading');
 const release = ref<Release | null>(null);
@@ -28,6 +30,7 @@ const errorMessage = ref('');
 const pageErrorMessage = ref('');
 const pendingVisibilityAction = ref(false);
 const visibilityDialogOpen = ref(false);
+const siteSettings = computed(() => siteSettingsStore.settings);
 
 const canEdit = computed(() => canEditRelease(authStore.currentUser, release.value));
 const canHide = computed(() => authStore.currentUser?.role === 'admin');
@@ -166,6 +169,12 @@ watch(() => route.params.id, loadRelease, { immediate: true });
       variant="warning"
       :title="hiddenNotice.title"
       :description="hiddenNotice.description"
+    />
+    <AppAlert
+      v-if="siteSettings.downloadNotice"
+      variant="info"
+      title="下载提示"
+      :description="siteSettings.downloadNotice"
     />
     <AppAlert v-if="feedback" variant="info" :title="feedback" />
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
