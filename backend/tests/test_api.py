@@ -242,7 +242,7 @@ class ApiFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 400, response.json())
         self.assertEqual(response.json()["code"], "validation_error")
-        self.assertEqual(response.json()["message"], "当前站点仅支持邀请码注册，请输入邀请码。")
+        self.assertEqual(response.json()["message"], "参数校验失败。")
 
     def test_invite_only_registration_can_consume_invite_code(self):
         invite_code = InviteCode.objects.create(code="ABCD-EFGH-2345", created_by=self.admin)
@@ -315,7 +315,7 @@ class ApiFlowTests(TestCase):
 
         created_user = User.objects.get(username="new-user")
         self.assertEqual(created_user.role, "user")
-        self.assertTrue(AuditLog.objects.filter(action="鍒涘缓鐢ㄦ埛", target_name="new-user").exists())
+        self.assertTrue(AuditLog.objects.filter(action="创建用户", target_name="new-user").exists())
 
         me = self.client.get("/api/auth/me/")
         self.assertEqual(me.status_code, 200, me.json())
@@ -422,7 +422,7 @@ class ApiFlowTests(TestCase):
         self.assertTrue(torrent.private)
         self.assertEqual(torrent.trackers, [[f"http://localhost:8000/{self.uploader.passkey}/announce"]])
         self.assertTrue(
-            AuditLog.objects.filter(action="绉佹湁鍖?torrent", target_type="torrent 宸ュ叿", actor=self.uploader).exists()
+            AuditLog.objects.filter(action="私有化 torrent", target_type="torrent 工具", actor=self.uploader).exists()
         )
 
     def test_regular_user_cannot_use_torrent_privatize_tool(self):
@@ -658,7 +658,7 @@ class ApiFlowTests(TestCase):
         self.assertEqual(self.user.display_name, "鏇存柊鍚庣殑鐢ㄦ埛")
         self.assertEqual(self.user.email, "updated-user@example.com")
         self.assertEqual(self.user.role, "uploader")
-        self.assertTrue(AuditLog.objects.filter(action="鏇存柊鐢ㄦ埛", target_name=self.user.username).exists())
+        self.assertTrue(AuditLog.objects.filter(action="更新用户", target_name=self.user.username).exists())
 
     def test_admin_can_upload_site_icon_and_login_background_file(self):
         self.client.force_login(self.admin)
@@ -699,7 +699,7 @@ class ApiFlowTests(TestCase):
         self.assertTrue(bool(setting.site_icon_file))
         self.assertTrue(bool(setting.login_background_file))
         self.assertEqual(setting.login_background_type, "file")
-        self.assertTrue(AuditLog.objects.filter(action="鏇存柊绔欑偣璁剧疆", target_type="绔欑偣璁剧疆").exists())
+        self.assertTrue(AuditLog.objects.filter(action="更新站点设置", target_type="站点设置").exists())
 
     def test_admin_can_switch_login_background_to_css_mode(self):
         self.client.force_login(self.admin)
@@ -753,7 +753,7 @@ class ApiFlowTests(TestCase):
         list_response = self.client.get("/api/admin/invite-codes/")
         self.assertEqual(list_response.status_code, 200, list_response.json())
         self.assertGreaterEqual(len(list_response.json()["data"]), 2)
-        self.assertTrue(AuditLog.objects.filter(action="鐢熸垚閭€璇风爜").exists())
+        self.assertTrue(AuditLog.objects.filter(action="生成邀请码").exists())
 
         revoke_response = self.client.post(f"/api/admin/invite-codes/{created_id}/revoke/")
         self.assertEqual(revoke_response.status_code, 200, revoke_response.json())
@@ -761,7 +761,7 @@ class ApiFlowTests(TestCase):
 
         revoked_code = InviteCode.objects.get(pk=created_id)
         self.assertFalse(revoked_code.is_active)
-        self.assertTrue(AuditLog.objects.filter(action="鍋滅敤閭€璇风爜", target_name=revoked_code.code).exists())
+        self.assertTrue(AuditLog.objects.filter(action="停用邀请码", target_name=revoked_code.code).exists())
 
     def test_admin_can_disable_and_enable_user_with_explicit_routes(self):
         self.client.force_login(self.admin)
@@ -831,7 +831,7 @@ class ApiFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200, response.json())
         self.assertTrue(
-            AuditLog.objects.filter(action="鍒涘缓鍒嗙被", target_type="鍒嗙被", target_name="Documentary").exists()
+            AuditLog.objects.filter(action="创建分类", target_type="分类", target_name="Documentary").exists()
         )
 
     def test_admin_can_set_category_sort_order_and_visibility(self):
