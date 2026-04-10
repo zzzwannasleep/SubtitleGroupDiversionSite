@@ -68,7 +68,7 @@ watch(
               <Menu class="h-5 w-5" />
             </button>
 
-            <div class="admin-layout-brand__icon">
+            <div :class="['admin-layout-brand__icon', brandIconUrl ? 'admin-layout-brand__icon--plain' : '']">
               <img
                 v-if="brandIconUrl"
                 :src="brandIconUrl"
@@ -120,10 +120,15 @@ watch(
   box-shadow: 0 10px 24px rgb(37 99 235 / 0.18);
 }
 
+.admin-layout-brand__icon--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
 .admin-layout-brand__image {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .admin-layout-brand__fallback {

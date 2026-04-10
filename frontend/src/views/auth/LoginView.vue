@@ -43,7 +43,7 @@ function fillDemoUser(username: string) {
 <template>
   <div class="space-y-6">
     <div class="login-brand-compact lg:hidden">
-      <div class="login-brand-compact__icon">
+      <div :class="['login-brand-compact__icon', mobileBrandIcon ? 'login-brand-compact__icon--plain' : '']">
         <img
           v-if="mobileBrandIcon"
           :src="mobileBrandIcon"
@@ -132,10 +132,15 @@ function fillDemoUser(username: string) {
   animation: compact-brand-float 4s ease-in-out infinite;
 }
 
+.login-brand-compact__icon--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
 .login-brand-compact__image {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .login-brand-compact__fallback {

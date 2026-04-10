@@ -39,7 +39,7 @@ const backgroundLabel = computed(() => {
             <div class="auth-brand-mark">
               <span class="auth-brand-mark__ring auth-brand-mark__ring--outer" />
               <span class="auth-brand-mark__ring auth-brand-mark__ring--inner" />
-              <div class="auth-brand-mark__core">
+              <div :class="['auth-brand-mark__core', siteIconUrl ? 'auth-brand-mark__core--plain' : '']">
                 <img
                   v-if="siteIconUrl"
                   :src="siteIconUrl"
@@ -253,10 +253,15 @@ const backgroundLabel = computed(() => {
   animation: float-brand 4.8s ease-in-out infinite;
 }
 
+.auth-brand-mark__core--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
 .auth-brand-mark__image {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .auth-brand-mark__fallback {

@@ -72,7 +72,7 @@ watch(
     <div class="app-container flex h-16 items-center justify-between gap-4">
       <div class="flex min-w-0 items-center gap-3">
         <RouterLink to="/" class="flex min-w-0 items-center gap-3 text-sm font-semibold text-slate-900">
-          <div class="site-header-brand__icon">
+          <div :class="['site-header-brand__icon', brandIconUrl ? 'site-header-brand__icon--plain' : '']">
             <img
               v-if="brandIconUrl"
               :src="brandIconUrl"
@@ -135,7 +135,13 @@ watch(
     <div v-if="isMobileMenuOpen" class="border-t border-slate-200 bg-white lg:hidden">
       <div class="app-container space-y-3 py-4">
         <div class="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-          <div class="site-header-brand__icon site-header-brand__icon--mobile">
+          <div
+            :class="[
+              'site-header-brand__icon',
+              'site-header-brand__icon--mobile',
+              brandIconUrl ? 'site-header-brand__icon--plain' : '',
+            ]"
+          >
             <img
               v-if="brandIconUrl"
               :src="brandIconUrl"
@@ -189,6 +195,11 @@ watch(
   box-shadow: 0 10px 24px rgb(37 99 235 / 0.18);
 }
 
+.site-header-brand__icon--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
 .site-header-brand__icon--mobile {
   height: 2.75rem;
   width: 2.75rem;
@@ -197,7 +208,7 @@ watch(
 .site-header-brand__image {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .site-header-brand__fallback {

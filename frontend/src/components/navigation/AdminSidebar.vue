@@ -43,7 +43,7 @@ function isActive(path: string) {
   <aside class="flex h-full flex-col bg-slate-950 text-slate-100">
     <div class="border-b border-slate-800 px-5 py-5">
       <div class="flex items-center gap-3">
-        <div class="admin-sidebar-brand__icon">
+        <div :class="['admin-sidebar-brand__icon', brandIconUrl ? 'admin-sidebar-brand__icon--plain' : '']">
           <img
             v-if="brandIconUrl"
             :src="brandIconUrl"
@@ -97,10 +97,15 @@ function isActive(path: string) {
     inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
+.admin-sidebar-brand__icon--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
 .admin-sidebar-brand__image {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .admin-sidebar-brand__fallback {

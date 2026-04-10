@@ -4,7 +4,11 @@ import { getPublicSiteSettings } from '@/services/admin';
 import type { SiteSettings } from '@/types/admin';
 import { DEFAULT_LOGIN_BACKGROUND_CSS } from '@/utils/site-branding';
 
-const FAVICON_ELEMENT_ID = 'subtitle-group-site-favicon';
+const FAVICON_DEFINITIONS = [
+  { id: 'subtitle-group-site-favicon', rel: 'icon' },
+  { id: 'subtitle-group-site-shortcut-icon', rel: 'shortcut icon' },
+  { id: 'subtitle-group-site-apple-touch-icon', rel: 'apple-touch-icon' },
+] as const;
 const SITE_SETTINGS_STORAGE_KEY = 'sgds:site-settings';
 const SITE_SETTINGS_SIGNAL_KEY = 'sgds:site-settings:signal';
 const REFRESH_INTERVAL_MS = 15000;
@@ -58,6 +62,16 @@ function serializeSettings(settings: SiteSettings) {
   return JSON.stringify(settings);
 }
 
+function getFaviconType(href: string) {
+  const normalized = href.toLowerCase();
+  if (normalized.includes('.svg')) return 'image/svg+xml';
+  if (normalized.includes('.png')) return 'image/png';
+  if (normalized.includes('.gif')) return 'image/gif';
+  if (normalized.includes('.webp')) return 'image/webp';
+  if (normalized.includes('.jpg') || normalized.includes('.jpeg')) return 'image/jpeg';
+  return 'image/x-icon';
+}
+
 export const useSiteSettingsStore = defineStore('site-settings', () => {
   const settings = ref<SiteSettings>(createDefaultSiteSettings());
   const isLoading = ref(false);
@@ -79,20 +93,39 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
       return;
     }
 
-    let favicon = document.getElementById(FAVICON_ELEMENT_ID) as HTMLLinkElement | null;
     if (!settings.value.siteIconResolvedUrl) {
-      favicon?.remove();
+      for (const definition of FAVICON_DEFINITIONS) {
+        document.getElementById(definition.id)?.remove();
+      }
       return;
     }
 
-    if (!favicon) {
-      favicon = document.createElement('link');
-      favicon.id = FAVICON_ELEMENT_ID;
-      favicon.rel = 'icon';
-      document.head.appendChild(favicon);
-    }
+    const iconUrl = new URL(settings.value.siteIconResolvedUrl, window.location.origin);
+    iconUrl.searchParams.set('v', String(lastLoadedAt.value || Date.now()));
 
-    favicon.href = settings.value.siteIconResolvedUrl;
+    const faviconType = getFaviconType(settings.value.siteIconResolvedUrl);
+    const existingFavicons = Array.from(
+      document.head.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]'),
+    ) as HTMLLinkElement[];
+
+    for (const definition of FAVICON_DEFINITIONS) {
+      let favicon =
+        (document.getElementById(definition.id) as HTMLLinkElement | null) ??
+        existingFavicons.find((item) => item.rel === definition.rel) ??
+        null;
+      if (!favicon) {
+        favicon = document.createElement('link');
+        favicon.id = definition.id;
+        document.head.appendChild(favicon);
+      } else if (!favicon.id) {
+        favicon.id = definition.id;
+      }
+
+      favicon.rel = definition.rel;
+      favicon.href = iconUrl.toString();
+      favicon.type = faviconType;
+      favicon.sizes = faviconType === 'image/svg+xml' ? 'any' : '';
+    }
   }
 
   function syncDocumentTitle(routeTitle?: string) {

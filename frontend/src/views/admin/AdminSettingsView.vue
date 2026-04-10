@@ -286,7 +286,7 @@ async function handleSave() {
           </div>
 
           <div class="brand-preview">
-            <div class="brand-preview__icon">
+            <div :class="['brand-preview__icon', resolvedSiteIconPreviewUrl ? 'brand-preview__icon--plain' : '']">
               <img
                 v-if="resolvedSiteIconPreviewUrl"
                 :src="resolvedSiteIconPreviewUrl"
@@ -384,7 +384,7 @@ async function handleSave() {
 
           <div class="login-preview__content">
             <div class="login-preview__brand">
-              <div class="login-preview__brand-icon">
+              <div :class="['login-preview__brand-icon', resolvedSiteIconPreviewUrl ? 'login-preview__brand-icon--plain' : '']">
                 <img
                   v-if="resolvedSiteIconPreviewUrl"
                   :src="resolvedSiteIconPreviewUrl"
@@ -468,10 +468,15 @@ async function handleSave() {
     inset 0 1px 0 rgb(255 255 255 / 0.1);
 }
 
+.brand-preview__icon--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
 .brand-preview__image {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .brand-preview__fallback {
@@ -558,10 +563,15 @@ async function handleSave() {
     inset 0 1px 0 rgb(255 255 255 / 0.1);
 }
 
+.login-preview__brand-icon--plain {
+  background: transparent;
+  box-shadow: none;
+}
+
 .login-preview__brand-image {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .login-preview__brand-fallback {
