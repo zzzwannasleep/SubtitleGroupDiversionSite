@@ -132,17 +132,18 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
   function setSettings(nextSettings: Partial<SiteSettings>, options: SetSettingsOptions = {}) {
     const persist = options.persist ?? false;
     const broadcast = options.broadcast ?? false;
+    const normalizedSettings = normalizeSiteSettings(nextSettings);
 
-    settings.value = normalizeSiteSettings(nextSettings);
+    settings.value = normalizedSettings;
     lastLoadedAt.value = Date.now();
     applyBranding();
 
     if (persist) {
-      persistSettingsSnapshot(settings.value);
+      persistSettingsSnapshot(normalizedSettings);
     }
 
     if (broadcast) {
-      broadcastSettingsSnapshot(settings.value);
+      broadcastSettingsSnapshot(normalizedSettings);
     }
   }
 
