@@ -9,6 +9,7 @@ const FAVICON_DEFINITIONS = [
   { id: 'subtitle-group-site-shortcut-icon', rel: 'shortcut icon' },
   { id: 'subtitle-group-site-apple-touch-icon', rel: 'apple-touch-icon' },
 ] as const;
+const BLANK_FAVICON_DATA_URI = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E';
 const SITE_SETTINGS_STORAGE_KEY = 'sgds:site-settings';
 const SITE_SETTINGS_SIGNAL_KEY = 'sgds:site-settings:signal';
 const REFRESH_INTERVAL_MS = 15000;
@@ -64,6 +65,7 @@ function serializeSettings(settings: SiteSettings) {
 
 function getFaviconType(href: string) {
   const normalized = href.toLowerCase();
+  if (normalized.startsWith('data:image/svg+xml')) return 'image/svg+xml';
   if (normalized.includes('.svg')) return 'image/svg+xml';
   if (normalized.includes('.png')) return 'image/png';
   if (normalized.includes('.gif')) return 'image/gif';
@@ -93,17 +95,15 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
       return;
     }
 
-    if (!settings.value.siteIconResolvedUrl) {
-      for (const definition of FAVICON_DEFINITIONS) {
-        document.getElementById(definition.id)?.remove();
-      }
-      return;
-    }
+    const faviconHref = settings.value.siteIconResolvedUrl
+      ? (() => {
+          const iconUrl = new URL(settings.value.siteIconResolvedUrl, window.location.origin);
+          iconUrl.searchParams.set('v', String(lastLoadedAt.value || Date.now()));
+          return iconUrl.toString();
+        })()
+      : BLANK_FAVICON_DATA_URI;
 
-    const iconUrl = new URL(settings.value.siteIconResolvedUrl, window.location.origin);
-    iconUrl.searchParams.set('v', String(lastLoadedAt.value || Date.now()));
-
-    const faviconType = getFaviconType(settings.value.siteIconResolvedUrl);
+    const faviconType = getFaviconType(faviconHref);
     const existingFavicons = Array.from(
       document.head.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]'),
     ) as HTMLLinkElement[];
@@ -122,7 +122,7 @@ export const useSiteSettingsStore = defineStore('site-settings', () => {
       }
 
       favicon.rel = definition.rel;
-      favicon.href = iconUrl.toString();
+      favicon.href = faviconHref;
       favicon.type = faviconType;
       favicon.sizes = faviconType === 'image/svg+xml' ? 'any' : '';
     }

@@ -3,7 +3,117 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>字幕组分流站</title>
+    <link
+      id="subtitle-group-site-favicon"
+      rel="icon"
+      type="image/svg+xml"
+      sizes="any"
+      href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E"
+    />
+    <link
+      id="subtitle-group-site-shortcut-icon"
+      rel="shortcut icon"
+      type="image/svg+xml"
+      sizes="any"
+      href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E"
+    />
+    <link
+      id="subtitle-group-site-apple-touch-icon"
+      rel="apple-touch-icon"
+      type="image/svg+xml"
+      sizes="any"
+      href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E"
+    />
+    <title>站点</title>
+    <script>
+      (() => {
+        const SITE_SETTINGS_STORAGE_KEY = 'sgds:site-settings';
+        const FAVICON_DEFINITIONS = [
+          { id: 'subtitle-group-site-favicon', rel: 'icon' },
+          { id: 'subtitle-group-site-shortcut-icon', rel: 'shortcut icon' },
+          { id: 'subtitle-group-site-apple-touch-icon', rel: 'apple-touch-icon' },
+        ];
+        const BLANK_FAVICON_DATA_URI = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E';
+
+        function getFaviconType(href) {
+          const normalized = String(href || '').toLowerCase();
+          if (normalized.startsWith('data:image/svg+xml')) return 'image/svg+xml';
+          if (normalized.includes('.svg')) return 'image/svg+xml';
+          if (normalized.includes('.png')) return 'image/png';
+          if (normalized.includes('.gif')) return 'image/gif';
+          if (normalized.includes('.webp')) return 'image/webp';
+          if (normalized.includes('.jpg') || normalized.includes('.jpeg')) return 'image/jpeg';
+          return 'image/x-icon';
+        }
+
+        function applyFavicon(iconHref, version) {
+          const nextHref = iconHref
+            ? (() => {
+                const resolvedUrl = new URL(iconHref, window.location.origin);
+                resolvedUrl.searchParams.set('v', String(version || Date.now()));
+                return resolvedUrl.toString();
+              })()
+            : BLANK_FAVICON_DATA_URI;
+
+          const type = getFaviconType(nextHref);
+
+          for (const definition of FAVICON_DEFINITIONS) {
+            let link = document.getElementById(definition.id);
+            if (!link) {
+              link = document.createElement('link');
+              link.id = definition.id;
+              document.head.appendChild(link);
+            }
+
+            link.rel = definition.rel;
+            link.href = nextHref;
+            link.type = type;
+            link.sizes = type === 'image/svg+xml' ? 'any' : '';
+          }
+        }
+
+        function persistSettings(settings) {
+          try {
+            localStorage.setItem(SITE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+          } catch {
+            // Ignore storage write failures during early bootstrap.
+          }
+        }
+
+        function applyFromSettings(settings, shouldPersist) {
+          if (!settings || typeof settings !== 'object') {
+            applyFavicon('', Date.now());
+            return;
+          }
+
+          if (shouldPersist) {
+            persistSettings(settings);
+          }
+
+          applyFavicon(settings.siteIconResolvedUrl || '', Date.now());
+        }
+
+        try {
+          const raw = localStorage.getItem(SITE_SETTINGS_STORAGE_KEY);
+          if (raw) {
+            applyFromSettings(JSON.parse(raw), false);
+          }
+        } catch {
+          applyFavicon('', Date.now());
+        }
+
+        fetch('/api/site-settings/', { credentials: 'include' })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((payload) => {
+            if (payload && payload.success && payload.data) {
+              applyFromSettings(payload.data, true);
+            }
+          })
+          .catch(() => {
+            // Ignore bootstrap favicon fetch errors; SPA store will retry later.
+          });
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
