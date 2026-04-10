@@ -212,6 +212,7 @@ class ApiFlowTests(TestCase):
                 "siteName": "星门字幕组",
                 "siteDescription": "欢迎来到测试站点",
                 "loginNotice": "",
+                "allowPublicRegistration": False,
                 "rssBasePath": "/rss",
                 "downloadNotice": "",
                 "siteIconUrl": "https://cdn.example.com/brand/icon.png",
@@ -224,6 +225,49 @@ class ApiFlowTests(TestCase):
                 "loginBackgroundCss": "linear-gradient(135deg, #020617, #1e293b)",
             },
         )
+
+    def test_public_registration_requires_site_setting_to_be_enabled(self):
+        response = self.client.post(
+            "/api/auth/register/",
+            {
+                "username": "new-user",
+                "displayName": "新用户",
+                "email": "new-user@example.com",
+                "password": "Register123!",
+                "confirmPassword": "Register123!",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403, response.json())
+        self.assertEqual(response.json()["code"], "permission_denied")
+
+    def test_public_registration_can_create_and_login_regular_user(self):
+        setting = SiteSetting.get_current()
+        setting.allow_public_registration = True
+        setting.save(update_fields=["allow_public_registration"])
+
+        response = self.client.post(
+            "/api/auth/register/",
+            {
+                "username": "new-user",
+                "displayName": "新用户",
+                "email": "new-user@example.com",
+                "password": "Register123!",
+                "confirmPassword": "Register123!",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["data"]["username"], "new-user")
+        self.assertEqual(response.json()["data"]["status"], "active")
+
+        created_user = User.objects.get(username="new-user")
+        self.assertEqual(created_user.role, "user")
+        self.assertTrue(AuditLog.objects.filter(action="创建用户", target_name="new-user").exists())
+
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, 200, me.json())
+        self.assertEqual(me.json()["data"]["username"], "new-user")
 
     def test_can_fetch_me_with_api_token_authorization_header(self):
         response = self.client.get(
@@ -603,6 +647,21 @@ class ApiFlowTests(TestCase):
         setting = SiteSetting.get_current()
         self.assertEqual(setting.login_background_type, "css")
         self.assertEqual(setting.login_background_css, "linear-gradient(120deg, #020617 0%, #172554 100%)")
+
+    def test_admin_can_toggle_public_registration(self):
+        self.client.force_login(self.admin)
+        response = self.client.put(
+            "/api/admin/settings/",
+            {
+                "allowPublicRegistration": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["data"]["allowPublicRegistration"], True)
+
+        setting = SiteSetting.get_current()
+        self.assertTrue(setting.allow_public_registration)
 
     def test_admin_can_disable_and_enable_user_with_explicit_routes(self):
         self.client.force_login(self.admin)

@@ -46,6 +46,7 @@ class SiteSetting(models.Model):
     site_name = models.CharField(max_length=120, default="字幕组分流站")
     site_description = models.CharField(max_length=255, default="内部资源浏览、下载与 RSS 订阅入口")
     login_notice = models.TextField(blank=True)
+    allow_public_registration = models.BooleanField(default=False)
     rss_base_path = models.CharField(max_length=255, default="/rss")
     download_notice = models.TextField(blank=True)
     site_icon_url = models.URLField(blank=True)

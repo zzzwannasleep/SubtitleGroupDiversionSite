@@ -137,7 +137,8 @@ class SiteSettingView(APIView):
             "基础配置",
             detail=(
                 f"站点图标已{'设置' if setting.site_icon_url or setting.site_icon_file else '清空'}，"
-                f"登录背景模式为 {setting.login_background_type}。"
+                f"登录背景模式为 {setting.login_background_type}，"
+                f"自由注册为 {'开启' if setting.allow_public_registration else '关闭'}。"
             ),
             payload={"site_setting_id": setting.id},
         )

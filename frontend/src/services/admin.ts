@@ -312,6 +312,7 @@ export async function saveSiteSettings(payload: SaveSiteSettingsPayload): Promis
   formData.append('siteName', payload.siteName);
   formData.append('siteDescription', payload.siteDescription);
   formData.append('loginNotice', payload.loginNotice);
+  formData.append('allowPublicRegistration', String(payload.allowPublicRegistration));
   formData.append('rssBasePath', payload.rssBasePath);
   formData.append('downloadNotice', payload.downloadNotice);
   formData.append('siteIconUrl', payload.siteIconUrl);

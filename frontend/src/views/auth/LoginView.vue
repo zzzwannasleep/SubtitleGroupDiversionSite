@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
-import AppAlert from '@/components/app/AppAlert.vue';
-import AppCard from '@/components/app/AppCard.vue';
+import { computed, onMounted, reactive } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
-import { useRoute, useRouter } from 'vue-router';
 import { useMockApi } from '@/services/runtime';
 import { useAuthStore } from '@/stores/auth';
 import { useSiteSettingsStore } from '@/stores/siteSettings';
@@ -14,14 +12,20 @@ const authStore = useAuthStore();
 const siteSettingsStore = useSiteSettingsStore();
 const router = useRouter();
 const route = useRoute();
+
 const isMockMode = computed(() => useMockApi());
 const settings = computed(() => siteSettingsStore.settings);
-const mobileBrandIcon = computed(() => settings.value.siteIconResolvedUrl);
-const mobileBrandMonogram = computed(() => buildSiteMonogram(settings.value.siteName));
+const brandIconUrl = computed(() => settings.value.siteIconResolvedUrl);
+const brandMonogram = computed(() => buildSiteMonogram(settings.value.siteName));
+const canRegister = computed(() => settings.value.allowPublicRegistration);
 
 const form = reactive({
   username: '',
   password: '',
+});
+
+onMounted(() => {
+  authStore.errorMessage = '';
 });
 
 async function handleSubmit() {
@@ -41,161 +45,209 @@ function fillDemoUser(username: string) {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="login-brand-compact lg:hidden">
-      <div :class="['login-brand-compact__icon', mobileBrandIcon ? 'login-brand-compact__icon--plain' : '']">
-        <img
-          v-if="mobileBrandIcon"
-          :src="mobileBrandIcon"
-          :alt="`${settings.siteName} 图标`"
-          class="login-brand-compact__image"
-        />
-        <span v-else class="login-brand-compact__fallback">{{ mobileBrandMonogram }}</span>
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-card__section login-card__section--brand">
+        <div :class="['login-card__icon', brandIconUrl ? 'login-card__icon--plain' : '']">
+          <img
+            v-if="brandIconUrl"
+            :src="brandIconUrl"
+            :alt="`${settings.siteName} 图标`"
+            class="login-card__image"
+          />
+          <span v-else class="login-card__fallback">{{ brandMonogram }}</span>
+        </div>
+        <div class="min-w-0">
+          <h1 class="login-card__title">{{ settings.siteName }}</h1>
+        </div>
       </div>
-      <div class="min-w-0 space-y-1">
-        <p class="text-xs uppercase tracking-[0.24em] text-slate-300/80">站点登录</p>
-        <h1 class="text-2xl font-semibold text-white">{{ settings.siteName }}</h1>
-        <p class="text-sm leading-6 text-slate-300/88">{{ settings.siteDescription }}</p>
+
+      <form class="login-card__section login-card__section--form" @submit.prevent="handleSubmit">
+        <div class="space-y-4">
+          <div>
+            <label class="login-card__label">账号</label>
+            <UiInput v-model="form.username" placeholder="请输入用户名" />
+          </div>
+
+          <div>
+            <label class="login-card__label">密码</label>
+            <UiInput v-model="form.password" type="password" placeholder="请输入密码" />
+          </div>
+        </div>
+
+        <p v-if="authStore.errorMessage" class="login-card__error">{{ authStore.errorMessage }}</p>
+      </form>
+
+      <div class="login-card__section login-card__section--actions">
+        <UiButton type="submit" block variant="primary" :disabled="authStore.isLoading" @click="handleSubmit">
+          {{ authStore.isLoading ? '登录中...' : '登录' }}
+        </UiButton>
+        <UiButton
+          v-if="canRegister"
+          to="/register"
+          block
+          variant="secondary"
+          :disabled="authStore.isLoading"
+        >
+          注册
+        </UiButton>
       </div>
     </div>
 
-    <div class="login-card-shell">
-      <AppCard title="登录系统" :description="`使用管理员预先创建的账号进入 ${settings.siteName}。`">
-        <div class="space-y-5">
-          <AppAlert
-            v-if="settings.loginNotice"
-            variant="info"
-            title="登录提示"
-            :description="settings.loginNotice"
-          />
+    <p v-if="settings.loginNotice" class="login-page__notice">{{ settings.loginNotice }}</p>
 
-          <form class="space-y-4" @submit.prevent="handleSubmit">
-            <div>
-              <label class="app-field-label">用户名</label>
-              <UiInput v-model="form.username" placeholder="请输入用户名" />
-            </div>
-            <div>
-              <label class="app-field-label">密码</label>
-              <UiInput v-model="form.password" type="password" placeholder="请输入密码" />
-              <p class="app-field-help">登录成功后会自动跳回你刚才尝试访问的页面。</p>
-            </div>
-            <AppAlert v-if="authStore.errorMessage" variant="error" :title="authStore.errorMessage" />
-            <UiButton type="submit" block variant="primary" :disabled="authStore.isLoading">
-              {{ authStore.isLoading ? '登录中...' : '登录' }}
-            </UiButton>
-          </form>
-        </div>
-
-        <template v-if="isMockMode" #footer>
-          <div class="space-y-3">
-            <p class="text-sm text-slate-500">本地预览可直接填入演示账号</p>
-            <div class="flex flex-wrap gap-2">
-              <UiButton variant="ghost" size="sm" @click="fillDemoUser('admin')">admin</UiButton>
-              <UiButton variant="ghost" size="sm" @click="fillDemoUser('uploader')">uploader</UiButton>
-              <UiButton variant="ghost" size="sm" @click="fillDemoUser('user')">user</UiButton>
-            </div>
-          </div>
-        </template>
-      </AppCard>
+    <div v-if="isMockMode" class="login-page__demo">
+      <p class="login-page__demo-title">本地预览快捷账号</p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <UiButton variant="ghost" size="sm" @click="fillDemoUser('admin')">admin</UiButton>
+        <UiButton variant="ghost" size="sm" @click="fillDemoUser('uploader')">uploader</UiButton>
+        <UiButton variant="ghost" size="sm" @click="fillDemoUser('user')">user</UiButton>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.login-brand-compact {
+.login-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.login-card {
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 1.75rem;
+  background:
+    linear-gradient(180deg, rgb(15 23 42 / 0.52), rgb(15 23 42 / 0.36)),
+    rgb(15 23 42 / 0.24);
+  box-shadow:
+    0 28px 70px rgb(2 6 23 / 0.32),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+  backdrop-filter: blur(24px);
+}
+
+.login-card__section {
+  padding: 1.35rem 1.35rem 1.2rem;
+}
+
+.login-card__section + .login-card__section {
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.login-card__section--brand {
   display: flex;
   align-items: center;
   gap: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 24px;
-  background: linear-gradient(145deg, rgba(15, 23, 42, 0.74), rgba(15, 23, 42, 0.5));
-  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.24);
-  backdrop-filter: blur(18px);
-  padding: 1.1rem 1rem;
 }
 
-.login-brand-compact__icon {
+.login-card__section--actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.login-card__icon {
   display: flex;
-  height: 4rem;
-  width: 4rem;
+  height: 3.5rem;
+  width: 3.5rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  flex-shrink: 0;
-  border-radius: 1.25rem;
+  border-radius: 1.15rem;
   background:
-    linear-gradient(145deg, rgba(96, 165, 250, 0.34), rgba(15, 23, 42, 0.92)),
-    rgba(15, 23, 42, 0.92);
+    linear-gradient(145deg, rgb(96 165 250 / 0.34), rgb(15 23 42 / 0.92)),
+    rgb(15 23 42);
   box-shadow:
-    0 16px 30px rgba(37, 99, 235, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: compact-brand-float 4s ease-in-out infinite;
+    0 14px 28px rgb(59 130 246 / 0.2),
+    inset 0 1px 0 rgb(255 255 255 / 0.14);
 }
 
-.login-brand-compact__icon--plain {
+.login-card__icon--plain {
   background: transparent;
   box-shadow: none;
 }
 
-.login-brand-compact__image {
+.login-card__image {
   height: 100%;
   width: 100%;
   object-fit: contain;
 }
 
-.login-brand-compact__fallback {
+.login-card__fallback {
   color: white;
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 
-.login-card-shell :deep(.app-surface) {
+.login-card__title {
   overflow: hidden;
-  border-color: rgba(148, 163, 184, 0.18);
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.84));
-  box-shadow: 0 28px 72px rgba(2, 6, 23, 0.26);
-  backdrop-filter: blur(22px);
-}
-
-.login-card-shell :deep(.app-card-header) {
-  border-bottom-color: rgba(148, 163, 184, 0.16);
-}
-
-.login-card-shell :deep(.app-card-header h2) {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.45rem;
+  font-weight: 700;
   color: white;
 }
 
-.login-card-shell :deep(.app-card-header p),
-.login-card-shell :deep(.app-field-label) {
-  color: rgb(226 232 240 / 0.9);
+.login-card__label {
+  margin-bottom: 0.55rem;
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: rgb(226 232 240 / 0.92);
 }
 
-.login-card-shell :deep(.app-field-help) {
-  color: rgb(148 163 184 / 0.95);
-}
-
-.login-card-shell :deep(input) {
-  border-color: rgba(148, 163, 184, 0.18);
-  background: rgba(30, 41, 59, 0.78);
+.login-card__section--form :deep(input) {
+  height: 3rem;
+  border-color: rgb(148 163 184 / 0.18);
+  background: rgb(15 23 42 / 0.42);
   color: white;
 }
 
-.login-card-shell :deep(input::placeholder) {
-  color: rgb(148 163 184 / 0.9);
+.login-card__section--form :deep(input::placeholder) {
+  color: rgb(148 163 184 / 0.88);
 }
 
-.login-card-shell :deep(.app-card-footer) {
-  border-top-color: rgba(148, 163, 184, 0.16);
+.login-card__section--actions :deep(.bg-white) {
+  background: rgb(255 255 255 / 0.16);
+  border-color: rgb(255 255 255 / 0.12);
+  color: rgb(241 245 249);
 }
 
-@keyframes compact-brand-float {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-5px) rotate(-2deg);
-  }
+.login-card__section--actions :deep(.bg-white:hover) {
+  background: rgb(255 255 255 / 0.22);
+}
+
+.login-card__error {
+  margin-top: 1rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: rgb(252 165 165);
+}
+
+.login-page__notice,
+.login-page__demo {
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 1.25rem;
+  background: rgb(15 23 42 / 0.26);
+  padding: 0.95rem 1rem;
+  color: rgb(226 232 240 / 0.92);
+  backdrop-filter: blur(18px);
+}
+
+.login-page__notice {
+  font-size: 0.88rem;
+  line-height: 1.8;
+}
+
+.login-page__demo {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.login-page__demo-title {
+  text-align: center;
+  font-size: 0.82rem;
+  color: rgb(191 219 254 / 0.92);
 }
 </style>

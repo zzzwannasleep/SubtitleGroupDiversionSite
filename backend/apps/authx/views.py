@@ -4,12 +4,14 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
-from apps.authx.serializers import ChangePasswordSerializer, LoginSerializer
+from apps.announcements.models import SiteSetting
+from apps.authx.serializers import ChangePasswordSerializer, LoginSerializer, RegisterSerializer
 from apps.common.permissions import IsActiveAuthenticated
 from apps.common.responses import success_response
 from apps.common.schema import success_response_schema
 from apps.common.throttles import LoginRateThrottle
 from apps.users.serializers import CurrentUserSerializer
+from apps.users.services import UserService
 
 
 @extend_schema_view(
@@ -40,6 +42,39 @@ class LoginView(APIView):
             raise PermissionDenied("当前账户已被禁用。")
         login(request, user)
         return success_response(CurrentUserSerializer(user).data)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        operation_id="auth_register",
+        summary="公开注册普通用户账号",
+        tags=["Auth"],
+        request=RegisterSerializer,
+        responses=success_response_schema("AuthRegisterResponse", CurrentUserSerializer),
+    ),
+)
+class RegisterView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [LoginRateThrottle]
+
+    def post(self, request):
+        settings = SiteSetting.get_current()
+        if not settings.allow_public_registration:
+            raise PermissionDenied("当前站点未开放自由注册。")
+
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user, _ = UserService.create_user(
+            actor=None,
+            username=serializer.validated_data["username"],
+            display_name=serializer.validated_data["displayName"],
+            email=serializer.validated_data["email"],
+            role="user",
+            password=serializer.validated_data["password"],
+        )
+        login(request, user)
+        return success_response(CurrentUserSerializer(user).data, message="注册成功。", status_code=201)
 
 
 @extend_schema_view(

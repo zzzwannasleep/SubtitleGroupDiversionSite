@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
-import { Menu, Shield, Upload, X } from 'lucide-vue-next';
+import { LogOut, Menu, X } from 'lucide-vue-next';
 import UiButton from '@/components/ui/UiButton.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useSiteSettingsStore } from '@/stores/siteSettings';
@@ -15,6 +15,7 @@ const siteSettingsStore = useSiteSettingsStore();
 const uiStore = useUiStore();
 const route = useRoute();
 const router = useRouter();
+
 const { currentUser } = storeToRefs(authStore);
 const { isMobileMenuOpen } = storeToRefs(uiStore);
 
@@ -73,61 +74,52 @@ watch(
 </script>
 
 <template>
-  <header class="border-b border-slate-200 bg-white">
-    <div class="app-container flex h-16 items-center justify-between gap-4">
-      <div class="flex min-w-0 items-center gap-3">
-        <RouterLink to="/" class="flex min-w-0 items-center gap-3 text-sm font-semibold text-slate-900">
-          <div :class="['site-header-brand__icon', brandIconUrl ? 'site-header-brand__icon--plain' : '']">
-            <img
-              v-if="brandIconUrl"
-              :src="brandIconUrl"
-              :alt="`${siteSettings.siteName} 图标`"
-              class="site-header-brand__image"
-            />
-            <span v-else class="site-header-brand__fallback">{{ brandMonogram }}</span>
-          </div>
-          <div class="hidden min-w-0 sm:block">
-            <div class="truncate">{{ siteSettings.siteName }}</div>
-            <div class="truncate text-xs font-normal text-slate-500">{{ siteSettings.siteDescription }}</div>
-          </div>
-        </RouterLink>
+  <header class="site-header">
+    <div class="app-container site-header__inner">
+      <RouterLink to="/" class="site-header__brand">
+        <div :class="['site-header__brand-icon', brandIconUrl ? 'site-header__brand-icon--plain' : '']">
+          <img
+            v-if="brandIconUrl"
+            :src="brandIconUrl"
+            :alt="`${siteSettings.siteName} 图标`"
+            class="site-header__brand-image"
+          />
+          <span v-else class="site-header__brand-fallback">{{ brandMonogram }}</span>
+        </div>
+        <div class="site-header__brand-copy">
+          <p class="site-header__brand-title">{{ siteSettings.siteName }}</p>
+          <p class="site-header__brand-subtitle">{{ siteSettings.siteDescription }}</p>
+        </div>
+      </RouterLink>
 
-        <nav class="hidden items-center gap-1 lg:flex">
+      <div class="site-header__desktop">
+        <nav class="site-header__nav" aria-label="主导航">
           <RouterLink
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
-            :class="[
-              'rounded-md px-3 py-2 text-sm transition',
-              isActive(item.to) ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-            ]"
+            :class="['site-header__nav-item', isActive(item.to) ? 'site-header__nav-item--active' : '']"
           >
             {{ item.label }}
           </RouterLink>
         </nav>
-      </div>
 
-      <div class="hidden items-center gap-2 lg:flex">
-        <div class="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
-          {{ currentUser?.displayName }} / {{ roleLabel }}
+        <div class="site-header__actions">
+          <RouterLink to="/me" class="site-header__account">
+            <span class="site-header__account-name">{{ currentUser?.displayName }}</span>
+            <span class="site-header__account-role">{{ roleLabel }}</span>
+          </RouterLink>
+          <UiButton variant="ghost" size="sm" @click="handleLogout">
+            <LogOut class="mr-1 h-4 w-4" />
+            <span class="whitespace-nowrap">退出登录</span>
+          </UiButton>
         </div>
-        <UiButton v-if="currentUser?.role === 'admin'" to="/admin" variant="ghost" size="sm">
-          <Shield class="mr-1 h-4 w-4" />
-          管理区
-        </UiButton>
-        <UiButton v-if="canManageReleases" to="/torrent-tool" variant="ghost" size="sm">
-          <Upload class="mr-1 h-4 w-4" />
-          改种
-        </UiButton>
-        <UiButton v-if="canManageReleases" to="/upload" variant="ghost" size="sm">
-          上传
-        </UiButton>
-        <UiButton variant="secondary" size="sm" @click="handleLogout">退出登录</UiButton>
       </div>
 
       <button
-        class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-700 lg:hidden"
+        class="site-header__menu-button"
         type="button"
+        aria-label="切换导航菜单"
         @click="uiStore.toggleMobileMenu()"
       >
         <Menu v-if="!isMobileMenuOpen" class="h-5 w-5" />
@@ -135,47 +127,35 @@ watch(
       </button>
     </div>
 
-    <div v-if="isMobileMenuOpen" class="border-t border-slate-200 bg-white lg:hidden">
-      <div class="app-container space-y-3 py-4">
-        <div class="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-          <div
-            :class="[
-              'site-header-brand__icon',
-              'site-header-brand__icon--mobile',
-              brandIconUrl ? 'site-header-brand__icon--plain' : '',
-            ]"
-          >
+    <div v-if="isMobileMenuOpen" class="site-header__mobile-shell">
+      <div class="app-container site-header__mobile-panel">
+        <div class="site-header__mobile-account">
+          <div :class="['site-header__brand-icon', 'site-header__brand-icon--mobile', brandIconUrl ? 'site-header__brand-icon--plain' : '']">
             <img
               v-if="brandIconUrl"
               :src="brandIconUrl"
               :alt="`${siteSettings.siteName} 图标`"
-              class="site-header-brand__image"
+              class="site-header__brand-image"
             />
-            <span v-else class="site-header-brand__fallback">{{ brandMonogram }}</span>
+            <span v-else class="site-header__brand-fallback">{{ brandMonogram }}</span>
           </div>
           <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-slate-900">{{ siteSettings.siteName }}</p>
-            <p class="truncate text-xs text-slate-500">{{ siteSettings.siteDescription }}</p>
+            <p class="truncate text-sm font-semibold text-slate-900">{{ currentUser?.displayName }}</p>
+            <p class="truncate text-xs text-slate-500">{{ roleLabel }}</p>
           </div>
         </div>
 
-        <div class="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          {{ currentUser?.displayName }} / {{ roleLabel }}
-        </div>
-
-        <nav class="grid gap-2">
+        <nav class="grid gap-2" aria-label="移动端导航">
           <RouterLink
             v-for="item in navItems"
             :key="item.to"
             :to="item.to"
-            :class="[
-              'rounded-md px-3 py-2 text-sm transition',
-              isActive(item.to) ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700',
-            ]"
+            :class="['site-header__mobile-link', isActive(item.to) ? 'site-header__mobile-link--active' : '']"
           >
             {{ item.label }}
           </RouterLink>
         </nav>
+
         <UiButton block variant="secondary" @click="handleLogout">退出登录</UiButton>
       </div>
     </div>
@@ -183,41 +163,230 @@ watch(
 </template>
 
 <style scoped>
-.site-header-brand__icon {
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgb(226 232 240 / 0.92);
+  background: rgb(255 255 255 / 0.88);
+  backdrop-filter: blur(18px);
+}
+
+.site-header__inner {
   display: flex;
-  height: 2.5rem;
-  width: 2.5rem;
+  min-height: 4.75rem;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.site-header__brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.9rem;
+  flex-shrink: 0;
+}
+
+.site-header__brand-icon {
+  display: flex;
+  height: 3rem;
+  width: 3rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  flex-shrink: 0;
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   background:
-    linear-gradient(145deg, rgba(37, 99, 235, 0.92), rgba(59, 130, 246, 0.74)),
+    linear-gradient(145deg, rgba(37, 99, 235, 0.94), rgba(96, 165, 250, 0.78)),
     rgb(37 99 235);
-  box-shadow: 0 10px 24px rgb(37 99 235 / 0.18);
+  box-shadow:
+    0 12px 28px rgb(37 99 235 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
 }
 
-.site-header-brand__icon--plain {
+.site-header__brand-icon--plain {
   background: transparent;
   box-shadow: none;
 }
 
-.site-header-brand__icon--mobile {
+.site-header__brand-icon--mobile {
   height: 2.75rem;
   width: 2.75rem;
 }
 
-.site-header-brand__image {
+.site-header__brand-image {
   height: 100%;
   width: 100%;
   object-fit: contain;
 }
 
-.site-header-brand__fallback {
+.site-header__brand-fallback {
   color: white;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+.site-header__brand-copy {
+  min-width: 0;
+}
+
+.site-header__brand-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgb(15 23 42);
+}
+
+.site-header__brand-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  color: rgb(100 116 139);
+}
+
+.site-header__desktop {
+  display: none;
+}
+
+.site-header__nav {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.4rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.site-header__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.site-header__nav-item {
+  flex-shrink: 0;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.68rem 1rem;
+  font-size: 0.92rem;
+  color: rgb(71 85 105);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.site-header__nav-item:hover {
+  background: rgb(241 245 249);
+  color: rgb(15 23 42);
+}
+
+.site-header__nav-item--active {
+  background: linear-gradient(135deg, rgb(37 99 235), rgb(96 165 250));
+  color: white;
+  box-shadow: 0 10px 24px rgb(37 99 235 / 0.18);
+}
+
+.site-header__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.site-header__account {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252 / 0.92);
+  padding: 0.55rem 0.9rem;
+  color: rgb(51 65 85);
+}
+
+.site-header__account-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.site-header__account-role {
+  border-left: 1px solid rgb(203 213 225);
+  padding-left: 0.55rem;
+  font-size: 0.78rem;
+  color: rgb(100 116 139);
+}
+
+.site-header__menu-button {
+  margin-left: auto;
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(255 255 255 / 0.9);
+  color: rgb(51 65 85);
+}
+
+.site-header__mobile-shell {
+  border-top: 1px solid rgb(226 232 240);
+  background: rgb(255 255 255 / 0.92);
+}
+
+.site-header__mobile-panel {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.site-header__mobile-account {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  border-radius: 1.1rem;
+  background: rgb(248 250 252);
+  padding: 0.9rem;
+}
+
+.site-header__mobile-link {
+  border-radius: 0.95rem;
+  background: rgb(248 250 252);
+  padding: 0.85rem 0.95rem;
+  font-size: 0.92rem;
+  color: rgb(51 65 85);
+}
+
+.site-header__mobile-link--active {
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+@media (min-width: 1024px) {
+  .site-header__desktop {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .site-header__menu-button {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .site-header__brand-subtitle {
+    display: none;
+  }
 }
 </style>

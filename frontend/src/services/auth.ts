@@ -1,12 +1,14 @@
-import type { LoginPayload, CurrentUser } from '@/types/auth';
+import type { CurrentUser, LoginPayload, RegisterPayload } from '@/types/auth';
 import type { ApiTokenPayload } from '@/types/admin';
 import { apiRequest, isApiError } from './api';
 import {
+  createUserRecord,
   getCurrentUserApiToken,
   getUserById,
   getUserByUsername,
   resetPasskey as resetMockPasskey,
   resetUserApiToken,
+  siteSettings,
 } from './mock-data';
 import { mockResolve, useMockApi } from './runtime';
 
@@ -66,6 +68,62 @@ export async function login(payload: LoginPayload): Promise<CurrentUser> {
     body: {
       username: payload.username.trim(),
       password: payload.password,
+    },
+  });
+}
+
+export async function register(payload: RegisterPayload): Promise<CurrentUser> {
+  if (useMockApi()) {
+    return mockResolve(() => {
+      if (!siteSettings.allowPublicRegistration) {
+        throw new Error('当前站点未开放自由注册');
+      }
+
+      if (!payload.username.trim()) {
+        throw new Error('请输入用户名');
+      }
+
+      if (!payload.displayName.trim()) {
+        throw new Error('请输入显示名称');
+      }
+
+      if (!payload.email.trim()) {
+        throw new Error('请输入邮箱地址');
+      }
+
+      if (!payload.password.trim()) {
+        throw new Error('请输入密码');
+      }
+
+      if (payload.password !== payload.confirmPassword) {
+        throw new Error('两次输入的密码不一致');
+      }
+
+      if (getUserByUsername(payload.username.trim())) {
+        throw new Error('用户名已存在');
+      }
+
+      const user = createUserRecord({
+        username: payload.username.trim(),
+        displayName: payload.displayName.trim(),
+        email: payload.email.trim(),
+        role: 'user',
+        password: payload.password,
+      });
+
+      window.localStorage.setItem(SESSION_KEY, String(user.id));
+      return user;
+    });
+  }
+
+  return apiRequest<CurrentUser>('/api/auth/register/', {
+    method: 'POST',
+    body: {
+      username: payload.username.trim(),
+      displayName: payload.displayName.trim(),
+      email: payload.email.trim(),
+      password: payload.password,
+      confirmPassword: payload.confirmPassword,
     },
   });
 }

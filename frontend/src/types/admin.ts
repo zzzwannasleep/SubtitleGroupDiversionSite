@@ -134,6 +134,7 @@ export interface SiteSettings {
   siteName: string;
   siteDescription: string;
   loginNotice: string;
+  allowPublicRegistration: boolean;
   rssBasePath: string;
   downloadNotice: string;
   siteIconUrl: string;
@@ -150,6 +151,7 @@ export interface SaveSiteSettingsPayload {
   siteName: string;
   siteDescription: string;
   loginNotice: string;
+  allowPublicRegistration: boolean;
   rssBasePath: string;
   downloadNotice: string;
   siteIconUrl: string;

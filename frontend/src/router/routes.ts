@@ -3,6 +3,7 @@ import AdminLayout from '@/layouts/AdminLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SiteLayout from '@/layouts/SiteLayout.vue';
 import LoginView from '@/views/auth/LoginView.vue';
+import RegisterView from '@/views/auth/RegisterView.vue';
 import AdminAnnouncementsView from '@/views/admin/AdminAnnouncementsView.vue';
 import AdminAuditLogsView from '@/views/admin/AdminAuditLogsView.vue';
 import AdminCategoriesView from '@/views/admin/AdminCategoriesView.vue';
@@ -34,6 +35,11 @@ export const routes: RouteRecordRaw[] = [
     path: '/login',
     component: AuthLayout,
     children: [{ path: '', name: 'login', component: LoginView, meta: { guestOnly: true, title: '登录' } }],
+  },
+  {
+    path: '/register',
+    component: AuthLayout,
+    children: [{ path: '', name: 'register', component: RegisterView, meta: { guestOnly: true, title: '注册' } }],
   },
   {
     path: '/403',

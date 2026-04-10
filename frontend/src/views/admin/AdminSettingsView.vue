@@ -32,6 +32,7 @@ const form = reactive({
   siteName: '',
   siteDescription: '',
   loginNotice: '',
+  allowPublicRegistration: false,
   rssBasePath: '',
   downloadNotice: '',
   siteIconUrl: '',
@@ -73,6 +74,7 @@ function applySettings(settings: SiteSettings) {
     siteName: settings.siteName,
     siteDescription: settings.siteDescription,
     loginNotice: settings.loginNotice,
+    allowPublicRegistration: settings.allowPublicRegistration,
     rssBasePath: settings.rssBasePath,
     downloadNotice: settings.downloadNotice,
     siteIconUrl: settings.siteIconUrl,
@@ -193,6 +195,7 @@ async function handleSave() {
       siteName: form.siteName,
       siteDescription: form.siteDescription,
       loginNotice: form.loginNotice,
+      allowPublicRegistration: form.allowPublicRegistration,
       rssBasePath: form.rssBasePath,
       downloadNotice: form.downloadNotice,
       siteIconUrl: form.siteIconUrl,
@@ -310,6 +313,13 @@ async function handleSave() {
             <label class="app-field-label">登录提示</label>
             <UiTextarea v-model="form.loginNotice" :rows="3" />
           </div>
+          <label class="settings-toggle">
+            <div class="settings-toggle__copy">
+              <span class="settings-toggle__title">开启自由注册</span>
+              <span class="settings-toggle__description">开启后登录页会显示注册按钮，访客可自行创建普通用户账号。</span>
+            </div>
+            <input v-model="form.allowPublicRegistration" type="checkbox" class="settings-toggle__input" />
+          </label>
           <div>
             <label class="app-field-label">RSS 基础路径</label>
             <UiInput v-model="form.rssBasePath" />
@@ -410,7 +420,12 @@ async function handleSave() {
                 <div class="login-preview__field">密码</div>
               </div>
               <p v-if="form.loginNotice" class="text-xs leading-6 text-slate-300/88">{{ form.loginNotice }}</p>
-              <div class="login-preview__button">登录</div>
+              <div class="login-preview__actions">
+                <div class="login-preview__button">登录</div>
+                <div v-if="form.allowPublicRegistration" class="login-preview__button login-preview__button--secondary">
+                  注册
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -437,6 +452,41 @@ async function handleSave() {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 18px;
+  background: rgb(248 250 252);
+  padding: 1rem 1.05rem;
+}
+
+.settings-toggle__copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.settings-toggle__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgb(15 23 42);
+}
+
+.settings-toggle__description {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: rgb(100 116 139);
+}
+
+.settings-toggle__input {
+  height: 1.2rem;
+  width: 1.2rem;
+  flex-shrink: 0;
+  accent-color: rgb(37 99 235);
 }
 
 .brand-preview {
@@ -599,8 +649,13 @@ async function handleSave() {
   font-size: 0.92rem;
 }
 
-.login-preview__button {
+.login-preview__actions {
   margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.login-preview__button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -609,6 +664,12 @@ async function handleSave() {
   color: white;
   font-weight: 600;
   min-height: 2.8rem;
+}
+
+.login-preview__button--secondary {
+  border: 1px solid rgb(148 163 184 / 0.2);
+  background: rgb(255 255 255 / 0.14);
+  color: rgb(241 245 249);
 }
 
 @media (min-width: 768px) {

@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { CurrentUser, LoginPayload } from '@/types/auth';
+import type { CurrentUser, LoginPayload, RegisterPayload } from '@/types/auth';
 import * as authService from '@/services/auth';
 import { useThemeStore } from './theme';
 
@@ -72,6 +72,23 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function register(payload: RegisterPayload) {
+    errorMessage.value = '';
+    isLoading.value = true;
+
+    try {
+      currentUser.value = await authService.register(payload);
+      await useThemeStore().loadTheme();
+      return currentUser.value;
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : '注册失败';
+      throw error;
+    } finally {
+      isLoading.value = false;
+      isBootstrapped.value = true;
+    }
+  }
+
   async function logout() {
     isLoading.value = true;
 
@@ -111,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
     bootstrap,
     fetchMe,
     login,
+    register,
     logout,
     resetPasskey,
     changePassword,
