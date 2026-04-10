@@ -19,6 +19,7 @@ import { DEFAULT_LOGIN_BACKGROUND_CSS } from '@/utils/site-branding';
 
 const createPasskey = () => Math.random().toString(36).slice(2).padEnd(32, 'x').slice(0, 32);
 const createApiToken = () => `${createPasskey()}${createPasskey()}`;
+const createInitialPassword = () => `Temp${Math.random().toString(36).slice(2, 8)}!9`;
 
 function nowIso() {
   return new Date().toISOString();
@@ -601,8 +602,10 @@ export function createUserRecord(payload: {
   displayName: string;
   email: string;
   role: 'admin' | 'uploader' | 'user';
+  password?: string;
 }): AdminUser {
   const now = nowIso();
+  const generatedPassword = payload.password ? undefined : createInitialPassword();
   const user: AdminUser = {
     id: Date.now(),
     username: payload.username,
@@ -626,6 +629,7 @@ export function createUserRecord(payload: {
       uploaded: 0,
       completed: 0,
     },
+    initialPassword: generatedPassword,
   };
   users.unshift(user);
   userApiTokens[user.id] = createApiToken();

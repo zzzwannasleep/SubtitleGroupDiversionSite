@@ -13,6 +13,7 @@ import AdminTagsView from '@/views/admin/AdminTagsView.vue';
 import AdminTrackerSyncView from '@/views/admin/AdminTrackerSyncView.vue';
 import AdminUserDetailView from '@/views/admin/AdminUserDetailView.vue';
 import AdminUsersView from '@/views/admin/AdminUsersView.vue';
+import TorrentToolView from '@/views/tools/TorrentToolView.vue';
 import EditMyReleaseView from '@/views/upload/EditMyReleaseView.vue';
 import MyReleasesView from '@/views/upload/MyReleasesView.vue';
 import UploadView from '@/views/upload/UploadView.vue';
@@ -61,6 +62,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'rss', name: 'rss', component: RssView, meta: { requiresAuth: true, title: 'RSS' } },
       { path: 'me', name: 'me', component: MeView, meta: { requiresAuth: true, title: '我的账户' } },
       { path: 'me/downloads', name: 'my-downloads', component: MyDownloadsView, meta: { requiresAuth: true, title: '我的下载' } },
+      { path: 'torrent-tool', name: 'torrent-tool', component: TorrentToolView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '改种工具' } },
       { path: 'upload', name: 'upload', component: UploadView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '上传资源' } },
       { path: 'my/releases', name: 'my-releases', component: MyReleasesView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '我的发布' } },
       { path: 'my/releases/:id/edit', name: 'my-release-edit', component: EditMyReleaseView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '编辑资源' } },
@@ -87,4 +89,3 @@ export const routes: RouteRecordRaw[] = [
     redirect: '/404',
   },
 ];
-

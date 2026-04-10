@@ -26,6 +26,7 @@ const form = reactive({
   username: '',
   displayName: '',
   email: '',
+  password: '',
   role: 'user',
 });
 
@@ -77,6 +78,7 @@ function resetCreateForm() {
   form.username = '';
   form.displayName = '';
   form.email = '';
+  form.password = '';
   form.role = 'user';
 }
 
@@ -99,15 +101,19 @@ async function handleCreateUser() {
   creating.value = true;
 
   try {
+    const usesCustomPassword = Boolean(form.password);
     const user = await createUser({
       username: form.username,
       displayName: form.displayName,
       email: form.email,
+      password: form.password || undefined,
       role: form.role as 'admin' | 'uploader' | 'user',
     });
     feedback.value = user.initialPassword
       ? `已创建用户 ${user.username}，初始密码：${user.initialPassword}`
-      : `已创建用户：${user.username}`;
+      : usesCustomPassword
+        ? `已创建用户 ${user.username}，已使用自定义密码。`
+        : `已创建用户：${user.username}`;
     resetCreateForm();
     await loadUsers();
   } catch (error) {
@@ -121,7 +127,10 @@ onMounted(loadUsers);
 </script>
 
 <template>
-  <AppPageHeader title="用户管理" description="支持搜索、角色/状态筛选、建号和详情入口，保持管理路径直观。">
+  <AppPageHeader
+    title="用户管理"
+    description="支持搜索、角色与状态筛选、建号和详情入口，保持后台管理路径直观。"
+  >
     <template #actions>
       <UiButton to="/admin/settings" variant="secondary">系统设置</UiButton>
       <UiButton variant="ghost" @click="loadUsers">刷新列表</UiButton>
@@ -144,7 +153,7 @@ onMounted(loadUsers);
   </div>
 
   <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-    <AppCard title="用户列表" description="按账号、显示名、邮箱、角色和状态筛选，再进入用户详情页处理。">
+    <AppCard title="用户列表" description="按账号、显示名、邮箱、角色和状态筛选，再进入详情页处理。">
       <div class="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
         <UiInput v-model="search" placeholder="搜索用户名 / 显示名 / 邮箱 / 角色" />
         <UiSelect
@@ -211,7 +220,10 @@ onMounted(loadUsers);
       </UiTable>
     </AppCard>
 
-    <AppCard title="创建用户" description="建号完成后会返回一次性的初始密码，方便管理员直接分发。">
+    <AppCard
+      title="创建用户"
+      description="管理员现在可以在建号时直接指定密码；若留空，系统会继续自动生成一次性初始密码。"
+    >
       <div class="space-y-4">
         <div>
           <label class="app-field-label">用户名</label>
@@ -226,6 +238,11 @@ onMounted(loadUsers);
           <UiInput v-model="form.email" placeholder="例如：member@subtitle.local" />
         </div>
         <div>
+          <label class="app-field-label">初始密码</label>
+          <UiInput v-model="form.password" type="password" placeholder="留空则自动生成；填写则按该密码创建" />
+          <p class="mt-2 text-xs leading-6 text-slate-500">如果填写，会按你输入的密码直接建号；不填写则由系统生成一次性密码并回显。</p>
+        </div>
+        <div>
           <label class="app-field-label">角色</label>
           <UiSelect
             v-model="form.role"
@@ -238,7 +255,7 @@ onMounted(loadUsers);
         </div>
 
         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-          管理员拥有全部后台权限，上传者仅拥有前台上传与“我的发布”相关权限，普通用户只保留浏览、下载和 RSS 入口。
+          管理员拥有完整后台权限，上传者拥有前台上传与“我的发布”入口，普通用户保留浏览、下载和 RSS 能力。
         </div>
       </div>
       <template #footer>

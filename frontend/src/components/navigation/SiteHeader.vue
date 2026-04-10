@@ -23,6 +23,10 @@ const roleLabel = computed(() => {
   return role ? roleLabels[role] : '';
 });
 
+const canManageReleases = computed(
+  () => currentUser.value?.role === 'uploader' || currentUser.value?.role === 'admin',
+);
+
 const siteSettings = computed(() => siteSettingsStore.settings);
 const brandIconUrl = computed(() => siteSettings.value.siteIconResolvedUrl);
 const brandMonogram = computed(() => buildSiteMonogram(siteSettings.value.siteName));
@@ -34,7 +38,8 @@ const navItems = computed(() => {
     { label: 'RSS', to: '/rss' },
   ];
 
-  if (currentUser.value?.role === 'uploader' || currentUser.value?.role === 'admin') {
+  if (canManageReleases.value) {
+    items.push({ label: '改种工具', to: '/torrent-tool' });
     items.push({ label: '上传资源', to: '/upload' });
     items.push({ label: '我的发布', to: '/my/releases' });
   }
@@ -110,14 +115,12 @@ watch(
           <Shield class="mr-1 h-4 w-4" />
           管理区
         </UiButton>
-        <UiButton
-          v-if="currentUser?.role === 'uploader' || currentUser?.role === 'admin'"
-          to="/upload"
-          variant="ghost"
-          size="sm"
-        >
+        <UiButton v-if="canManageReleases" to="/torrent-tool" variant="ghost" size="sm">
           <Upload class="mr-1 h-4 w-4" />
-          发布
+          改种
+        </UiButton>
+        <UiButton v-if="canManageReleases" to="/upload" variant="ghost" size="sm">
+          上传
         </UiButton>
         <UiButton variant="secondary" size="sm" @click="handleLogout">退出登录</UiButton>
       </div>

@@ -20,10 +20,18 @@ const latestReleases = ref<Release[]>([]);
 const categories = ref<Category[]>([]);
 const tags = ref<Tag[]>([]);
 
+const canManageReleases = computed(
+  () => authStore.currentUser?.role === 'uploader' || authStore.currentUser?.role === 'admin',
+);
+
 const quickActions = computed(() => [
   { label: '浏览全部资源', to: '/releases', variant: 'primary' as const },
-  ...(authStore.currentUser?.role === 'uploader' || authStore.currentUser?.role === 'admin'
-    ? [{ label: '上传资源', to: '/upload', variant: 'secondary' as const }]
+  ...(canManageReleases.value
+    ? [
+        { label: '改种工具', to: '/torrent-tool', variant: 'secondary' as const },
+        { label: '上传资源', to: '/upload', variant: 'secondary' as const },
+        { label: '我的发布', to: '/my/releases', variant: 'secondary' as const },
+      ]
     : []),
 ]);
 
@@ -47,7 +55,7 @@ onMounted(loadData);
 </script>
 
 <template>
-  <AppPageHeader title="首页" description="围绕浏览、下载和订阅设计的前台入口，尽量让高频操作保持短路径。">
+  <AppPageHeader title="首页" description="围绕浏览、下载、改种和订阅设计的前台入口，高频动作尽量放在一屏内完成。">
     <template #actions>
       <UiButton v-for="item in quickActions" :key="item.to" :to="item.to" :variant="item.variant">
         {{ item.label }}
@@ -63,7 +71,7 @@ onMounted(loadData);
   />
   <template v-else>
     <div class="grid gap-6 xl:grid-cols-[2fr_1fr]">
-      <AppCard title="最新资源" description="首页直接给出最新发布与进入详情页的快捷入口。">
+      <AppCard title="最新资源" description="首页直接给出最新发布内容，方便快速下载和进入详情页。">
         <AppEmpty v-if="!latestReleases.length" title="暂无资源" description="资源发布后会出现在这里。" />
         <ReleaseListTable v-else :releases="latestReleases">
           <template #actions="{ release }">
@@ -74,7 +82,7 @@ onMounted(loadData);
       </AppCard>
 
       <div class="space-y-6">
-        <AppCard title="分类入口" description="优先按分类进入，降低搜索成本。">
+        <AppCard title="分类入口" description="优先按分类进入，减少搜索成本。">
           <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             <RouterLink
               v-for="category in categories"
@@ -100,7 +108,7 @@ onMounted(loadData);
             </RouterLink>
           </div>
           <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-            RSS 页面会把通用地址、分类地址和标签地址集中展示，并保持“一键复制”作为主操作。
+            改种工具和资源下载已经分开处理。你可以先改种导出，再按需要继续发布或分发。
           </div>
         </AppCard>
       </div>

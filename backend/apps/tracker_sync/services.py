@@ -45,6 +45,79 @@ class TrackerSyncService:
                 return model
         return XbtFileMirror
 
+    @classmethod
+    def _xbt_user_columns(cls) -> set[str]:
+        alias = cls._xbt_database_alias()
+        connection = connections[alias]
+        with connection.cursor() as cursor:
+            description = connection.introspection.get_table_description(cursor, XbtUserMirror._meta.db_table)
+        return {column.name for column in description}
+
+    @classmethod
+    def _read_xbt_user_row(cls, user_id: int):
+        alias = cls._xbt_database_alias()
+        connection = connections[alias]
+        columns = cls._xbt_user_columns()
+        required_columns = {"uid", "torrent_pass"}
+        missing_columns = required_columns - columns
+        if missing_columns:
+            missing_list = ", ".join(sorted(missing_columns))
+            raise ValueError(f"xbt_users schema missing required columns: {missing_list}")
+
+        selected_columns = ["uid", "torrent_pass"] + [
+            column for column in ("can_leech", "downloaded", "uploaded", "completed") if column in columns
+        ]
+        quoted_table = connection.ops.quote_name(XbtUserMirror._meta.db_table)
+        quoted_uid = connection.ops.quote_name("uid")
+        quoted_columns = ", ".join(connection.ops.quote_name(column) for column in selected_columns)
+
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT {quoted_columns} FROM {quoted_table} WHERE {quoted_uid} = %s", [user_id])
+            row = cursor.fetchone()
+
+        if row is None:
+            return None
+        return dict(zip(selected_columns, row))
+
+    @classmethod
+    def _sync_xbt_user_row(cls, user: User):
+        alias = cls._xbt_database_alias()
+        connection = connections[alias]
+        columns = cls._xbt_user_columns()
+        required_columns = {"uid", "torrent_pass"}
+        missing_columns = required_columns - columns
+        if missing_columns:
+            missing_list = ", ".join(sorted(missing_columns))
+            raise ValueError(f"xbt_users schema missing required columns: {missing_list}")
+
+        payload = {"torrent_pass": user.passkey}
+        supports_can_leech = "can_leech" in columns
+        if supports_can_leech:
+            payload["can_leech"] = user.status == UserStatus.ACTIVE
+
+        quoted_table = connection.ops.quote_name(XbtUserMirror._meta.db_table)
+        quoted_uid = connection.ops.quote_name("uid")
+
+        with connection.cursor() as cursor:
+            if user.status != UserStatus.ACTIVE and not supports_can_leech:
+                cursor.execute(f"DELETE FROM {quoted_table} WHERE {quoted_uid} = %s", [user.id])
+                return
+
+            cursor.execute(f"SELECT 1 FROM {quoted_table} WHERE {quoted_uid} = %s", [user.id])
+            exists = cursor.fetchone() is not None
+
+            if exists:
+                assignments = ", ".join(f"{connection.ops.quote_name(column)} = %s" for column in payload)
+                cursor.execute(f"UPDATE {quoted_table} SET {assignments} WHERE {quoted_uid} = %s", [*payload.values(), user.id])
+            else:
+                insert_columns = ["uid", *payload.keys()]
+                quoted_insert_columns = ", ".join(connection.ops.quote_name(column) for column in insert_columns)
+                placeholders = ", ".join(["%s"] * len(insert_columns))
+                cursor.execute(
+                    f"INSERT INTO {quoted_table} ({quoted_insert_columns}) VALUES ({placeholders})",
+                    [user.id, *payload.values()],
+                )
+
     @staticmethod
     def create_log(scope: str, target_name: str, status: str, message: str, user=None, release=None):
         return TrackerSyncLog.objects.create(
@@ -146,14 +219,15 @@ class TrackerSyncService:
             "completed": None,
         }
         try:
-            mirror = XbtUserMirror.objects.using(cls._xbt_database_alias()).filter(uid=user.id).first()
+            mirror = cls._read_xbt_user_row(user.id)
             if mirror:
+                can_leech = mirror.get("can_leech")
                 xbt_state = {
-                    "state": "enabled" if mirror.can_leech else "disabled",
-                    "canLeech": mirror.can_leech,
-                    "downloaded": mirror.downloaded,
-                    "uploaded": mirror.uploaded,
-                    "completed": mirror.completed,
+                    "state": "enabled" if can_leech is not False else "disabled",
+                    "canLeech": True if can_leech is None else can_leech,
+                    "downloaded": mirror.get("downloaded"),
+                    "uploaded": mirror.get("uploaded"),
+                    "completed": mirror.get("completed"),
                 }
         except Exception:
             logger.exception("failed to read xbt user mirror for %s via %s", user.id, cls._xbt_database_alias())
@@ -271,13 +345,7 @@ class TrackerSyncService:
             )
 
         try:
-            XbtUserMirror.objects.using(cls._xbt_database_alias()).update_or_create(
-                uid=user.id,
-                defaults={
-                    "torrent_pass": user.passkey,
-                    "can_leech": user.status == UserStatus.ACTIVE,
-                },
-            )
+            cls._sync_xbt_user_row(user)
             return cls.create_log(
                 TrackerSyncScope.USER,
                 user.username,

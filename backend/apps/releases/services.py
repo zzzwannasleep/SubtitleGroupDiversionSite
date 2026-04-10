@@ -1,3 +1,4 @@
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -5,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.audit.services import AuditService
 from apps.common.exceptions import BusinessException
-from apps.common.torrent import parse_torrent
+from apps.common.torrent import parse_torrent, rewrite_torrent
 from apps.releases.models import Release, ReleaseFile, ReleaseStatus
 from apps.tracker_sync.services import TrackerSyncService
 
@@ -59,18 +60,18 @@ class ReleaseService:
 
     @staticmethod
     def _apply_torrent_payload(release: Release, torrent_file):
-        torrent_bytes = torrent_file.read()
+        original_name = getattr(torrent_file, "name", "upload.torrent")
+        torrent_bytes = rewrite_torrent(torrent_file.read(), private=True)
         metadata = parse_torrent(torrent_bytes)
-        if not metadata.is_private:
-            raise BusinessException("torrent 必须包含 private=1。")
         duplicated = Release.objects.exclude(pk=release.pk).filter(infohash=metadata.infohash).exists()
         if duplicated:
             raise BusinessException("该 infohash 已存在，不能重复发布。")
 
-        torrent_file.seek(0)
         release.size_bytes = metadata.size_bytes
         release.infohash = metadata.infohash
-        release.torrent_file = torrent_file
+        stored_torrent = ContentFile(torrent_bytes)
+        stored_torrent.name = original_name
+        release.torrent_file = stored_torrent
         return metadata
 
     @classmethod

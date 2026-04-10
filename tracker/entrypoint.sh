@@ -102,6 +102,27 @@ ensure_schema() {
   fi
 }
 
+ensure_user_columns() {
+  CAN_LEECH_EXISTS=$(
+    MYSQL_PWD="$DB_PASSWORD" mysql \
+      -h "$DB_HOST" \
+      -P "$DB_PORT" \
+      -u"$DB_USER" \
+      "$DB_NAME" \
+      -Nse "SHOW COLUMNS FROM xbt_users LIKE 'can_leech';"
+  )
+
+  if [ -z "$CAN_LEECH_EXISTS" ]; then
+    echo "Adding missing xbt_users.can_leech column..."
+    MYSQL_PWD="$DB_PASSWORD" mysql \
+      -h "$DB_HOST" \
+      -P "$DB_PORT" \
+      -u"$DB_USER" \
+      "$DB_NAME" \
+      -e "ALTER TABLE xbt_users ADD COLUMN can_leech TINYINT(1) NOT NULL DEFAULT 1 AFTER torrent_pass;"
+  fi
+}
+
 if [ -n "$DB_NAME" ] || [ -n "$DB_USER" ] || [ -n "$DB_PASSWORD" ]; then
   : "${DB_NAME:?XBT_DB_NAME or MYSQL_DATABASE is required}"
   : "${DB_USER:?XBT_DB_USER or MYSQL_USER is required}"
@@ -111,6 +132,7 @@ if [ -n "$DB_NAME" ] || [ -n "$DB_USER" ] || [ -n "$DB_PASSWORD" ]; then
   render_config
   wait_for_mysql
   ensure_schema
+  ensure_user_columns
 fi
 
 if [ ! -f "$CONFIG_FILE" ]; then

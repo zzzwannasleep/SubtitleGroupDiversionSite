@@ -123,6 +123,35 @@ class ApiFlowTests(TestCase):
             email="user@example.com",
         )
 
+    def recreate_xbt_users_table(self, *, include_can_leech: bool):
+        with connection.cursor() as cursor:
+            cursor.execute("DROP TABLE IF EXISTS xbt_users")
+            if include_can_leech:
+                cursor.execute(
+                    """
+                    CREATE TABLE xbt_users (
+                        uid INTEGER PRIMARY KEY,
+                        torrent_pass VARCHAR(32) NOT NULL UNIQUE,
+                        can_leech BOOLEAN NOT NULL DEFAULT 1,
+                        downloaded BIGINT NOT NULL DEFAULT 0,
+                        uploaded BIGINT NOT NULL DEFAULT 0,
+                        completed INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+            else:
+                cursor.execute(
+                    """
+                    CREATE TABLE xbt_users (
+                        uid INTEGER PRIMARY KEY,
+                        torrent_pass VARCHAR(32) NOT NULL UNIQUE,
+                        downloaded BIGINT NOT NULL DEFAULT 0,
+                        uploaded BIGINT NOT NULL DEFAULT 0,
+                        completed INTEGER NOT NULL DEFAULT 0
+                    )
+                    """
+                )
+
     def create_release(self, *, status: str = "published", execute_on_commit: bool = False, torrent_bytes: bytes | None = None):
         self.client.force_login(self.uploader)
         torrent = SimpleUploadedFile(
@@ -268,8 +297,18 @@ class ApiFlowTests(TestCase):
         )
         self.assertTrue(torrent.private)
 
-    def test_user_can_upload_torrent_and_export_private_personalized_version(self):
-        self.client.force_login(self.user)
+    def test_uploader_create_release_auto_converts_public_torrent_to_private(self):
+        release = self.create_release(torrent_bytes=build_torrent_bytes(private=False))
+        self.assertEqual(release.status, "published")
+
+        with release.torrent_file.open("rb") as torrent_handle:
+            stored_torrent = Torrent.read_stream(torrent_handle.read(), validate=False)
+
+        self.assertTrue(stored_torrent.private)
+        self.assertEqual(release.files.count(), 1)
+
+    def test_uploader_can_upload_torrent_and_export_private_personalized_version(self):
+        self.client.force_login(self.uploader)
         response = self.client.post(
             "/api/torrents/privatize/",
             {
@@ -285,10 +324,25 @@ class ApiFlowTests(TestCase):
 
         torrent = Torrent.read_stream(response.content, validate=False)
         self.assertTrue(torrent.private)
-        self.assertEqual(torrent.trackers, [[f"http://localhost:8000/{self.user.passkey}/announce"]])
+        self.assertEqual(torrent.trackers, [[f"http://localhost:8000/{self.uploader.passkey}/announce"]])
         self.assertTrue(
-            AuditLog.objects.filter(action="私有化 torrent", target_type="torrent 工具", actor=self.user).exists()
+            AuditLog.objects.filter(action="私有化 torrent", target_type="torrent 工具", actor=self.uploader).exists()
         )
+
+    def test_regular_user_cannot_use_torrent_privatize_tool(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            "/api/torrents/privatize/",
+            {
+                "torrentFile": SimpleUploadedFile(
+                    "public.torrent",
+                    build_torrent_bytes(private=False),
+                    content_type="application/x-bittorrent",
+                )
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 403, response.content)
 
     def test_rss_feed_uses_passkey_download_link(self):
         release = self.create_release()
@@ -419,6 +473,59 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.json()["code"], "validation_error")
         self.assertEqual(response.json()["message"], "参数校验失败。")
         self.assertEqual(response.json()["errors"], {"username": ["该用户名已存在。"]})
+
+    def test_admin_can_create_user_with_custom_password(self):
+        self.client.force_login(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                "/api/admin/users/",
+                {
+                    "username": "custom-member",
+                    "displayName": "自定义密码用户",
+                    "email": "custom-member@example.com",
+                    "role": "user",
+                    "password": "Custom12345!",
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, 201, response.json())
+
+        data = response.json()["data"]
+        self.assertNotIn("initialPassword", data)
+
+        created_user = User.objects.get(username="custom-member")
+        self.assertTrue(created_user.check_password("Custom12345!"))
+        self.assertEqual(XbtUserMirror.objects.get(uid=created_user.id).torrent_pass, created_user.passkey)
+
+        self.client.logout()
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "custom-member", "password": "Custom12345!"},
+            format="json",
+        )
+        self.assertEqual(login.status_code, 200, login.json())
+
+    def test_admin_create_user_without_password_returns_generated_password(self):
+        self.client.force_login(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                "/api/admin/users/",
+                {
+                    "username": "generated-member",
+                    "displayName": "自动密码用户",
+                    "email": "generated-member@example.com",
+                    "role": "user",
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, 201, response.json())
+
+        data = response.json()["data"]
+        self.assertIn("initialPassword", data)
+        self.assertTrue(data["initialPassword"])
+
+        created_user = User.objects.get(username="generated-member")
+        self.assertTrue(created_user.check_password(data["initialPassword"]))
 
     def test_admin_can_update_user_profile_fields(self):
         self.client.force_login(self.admin)
@@ -701,6 +808,33 @@ class ApiFlowTests(TestCase):
         self.assertEqual(data["userId"], self.user.id)
         self.assertTrue(data["retryable"])
         self.assertEqual(XbtUserMirror.objects.get(uid=self.user.id).torrent_pass, self.user.passkey)
+
+    def test_tracker_sync_user_supports_legacy_xbt_users_schema_without_can_leech(self):
+        self.recreate_xbt_users_table(include_can_leech=False)
+        self.addCleanup(self.recreate_xbt_users_table, include_can_leech=True)
+
+        active_log = TrackerSyncService.sync_user(self.user)
+        self.assertEqual(active_log.status, "success")
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT uid, torrent_pass FROM xbt_users WHERE uid = %s", [self.user.id])
+            active_row = cursor.fetchone()
+        self.assertEqual(active_row, (self.user.id, self.user.passkey))
+
+        snapshot = TrackerSyncService.get_user_sync_snapshot(self.user)
+        self.assertEqual(snapshot["xbtUser"]["state"], "enabled")
+        self.assertEqual(snapshot["xbtUser"]["canLeech"], True)
+
+        self.user.status = "disabled"
+        self.user.save(update_fields=["status"])
+
+        disabled_log = TrackerSyncService.sync_user(self.user)
+        self.assertEqual(disabled_log.status, "success")
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM xbt_users WHERE uid = %s", [self.user.id])
+            remaining_rows = cursor.fetchone()[0]
+        self.assertEqual(remaining_rows, 0)
 
     def test_admin_can_get_tracker_sync_release_detail(self):
         release = self.create_release(execute_on_commit=True)

@@ -122,9 +122,11 @@ class AdminUserListCreateView(APIView):
             display_name=serializer.validated_data["displayName"],
             email=serializer.validated_data["email"],
             role=serializer.validated_data["role"],
+            password=serializer.validated_data.get("password") or None,
         )
         data = AdminUserSerializer(user).data
-        data["initialPassword"] = initial_password
+        if initial_password is not None:
+            data["initialPassword"] = initial_password
         return success_response(data, message="用户创建成功。", status_code=201)
 
 

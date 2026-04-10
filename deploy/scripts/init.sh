@@ -33,6 +33,13 @@ if [ "$XBT_TABLE_EXISTS" = "0" ]; then
     | docker compose exec -T -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql mysql -uroot "$MYSQL_DATABASE"
 fi
 
+XBT_CAN_LEECH_EXISTS=$(docker compose exec -T -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql mysql -uroot -Nse "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='${MYSQL_DATABASE}' AND table_name='xbt_users' AND column_name='can_leech';")
+
+if [ "$XBT_CAN_LEECH_EXISTS" = "0" ]; then
+  echo "Adding missing xbt_users.can_leech column..."
+  docker compose exec -T -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql mysql -uroot "$MYSQL_DATABASE" -e "ALTER TABLE xbt_users ADD COLUMN can_leech TINYINT(1) NOT NULL DEFAULT 1 AFTER torrent_pass;"
+fi
+
 docker compose up -d backend frontend xbt nginx
 
 echo "Run 'docker compose -f deploy/docker-compose.yml exec backend python manage.py createsuperuser' to create the first admin user."

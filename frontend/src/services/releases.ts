@@ -21,6 +21,49 @@ interface PaginatedReleaseResponse<T> {
   results: T[];
 }
 
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function fallbackTorrentFilename(sourceName: string) {
+  const baseName = sourceName.replace(/\.torrent$/i, '') || 'private-torrent';
+  return `${baseName}.torrent`;
+}
+
+function resolveFilenameFromDisposition(disposition: string | null, fallbackName: string) {
+  if (!disposition) {
+    return fallbackName;
+  }
+
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const basicMatch = disposition.match(/filename="?([^"]+)"?/i);
+  if (basicMatch?.[1]) {
+    return basicMatch[1];
+  }
+
+  return fallbackName;
+}
+
+async function buildBinaryError(response: Response) {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    const payload = (await response.json()) as { message?: string };
+    return payload.message ?? `请求失败（HTTP ${response.status}）`;
+  }
+
+  const payload = (await response.text()).trim();
+  return payload || `请求失败（HTTP ${response.status}）`;
+}
+
 function applyQuery(items: Release[], query: ReleaseQuery = {}): PagedResult<Release> {
   const keyword = query.q?.trim().toLowerCase();
   const page = query.page ?? 1;
@@ -230,6 +273,36 @@ export async function editRelease(releaseId: number, payload: ReleaseFormPayload
       status: payload.status ?? 'published',
     },
   });
+}
+
+export async function privatizeTorrent(file: File): Promise<string> {
+  const fallbackName = fallbackTorrentFilename(file.name);
+
+  if (useMockApi()) {
+    triggerBlobDownload(
+      new Blob([`Mock private torrent for ${file.name}`], { type: 'application/x-bittorrent' }),
+      fallbackName,
+    );
+    return mockResolve(() => fallbackName);
+  }
+
+  const formData = new FormData();
+  formData.set('torrentFile', file, file.name);
+
+  const response = await fetch(buildApiUrl('/api/torrents/privatize/'), {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(await buildBinaryError(response));
+  }
+
+  const filename = resolveFilenameFromDisposition(response.headers.get('content-disposition'), fallbackName);
+  const blob = await response.blob();
+  triggerBlobDownload(blob, filename);
+  return filename;
 }
 
 export async function toggleReleaseStatus(releaseId: number, nextStatus: 'published' | 'hidden'): Promise<Release> {

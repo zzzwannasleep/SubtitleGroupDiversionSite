@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -45,7 +47,7 @@ class AdminUserSerializer(CurrentUserSerializer):
 
 
 class AdminUserCreateSerializer(AdminUserSerializer):
-    initialPassword = serializers.CharField()
+    initialPassword = serializers.CharField(allow_null=True, required=False)
 
     class Meta(AdminUserSerializer.Meta):
         fields = AdminUserSerializer.Meta.fields + ("initialPassword",)
@@ -83,11 +85,30 @@ class CreateUserSerializer(serializers.Serializer):
     displayName = serializers.CharField(max_length=100)
     email = serializers.EmailField()
     role = serializers.ChoiceField(choices=UserRole.choices)
+    password = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False, write_only=True)
 
     def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
             raise serializers.ValidationError("该用户名已存在。")
         return value
+
+    def validate(self, attrs):
+        password = attrs.get("password")
+        if not password:
+            return attrs
+        if not password.strip():
+            raise serializers.ValidationError({"password": ["密码不能为空。"]})
+
+        candidate_user = User(
+            username=attrs.get("username", ""),
+            email=attrs.get("email", ""),
+            display_name=attrs.get("displayName", ""),
+        )
+        try:
+            validate_password(password, user=candidate_user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        return attrs
 
 
 class UpdateUserSerializer(serializers.Serializer):

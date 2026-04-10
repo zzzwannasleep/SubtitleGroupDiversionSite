@@ -41,7 +41,7 @@ const validationMessage = computed(() => {
   return '';
 });
 
-const canSubmit = computed(() => !validationMessage.value);
+const canSubmit = computed(() => !validationMessage.value && !submitting.value);
 const selectedCategory = computed(() => categories.value.find((item) => item.slug === form.categorySlug) ?? null);
 const selectedTags = computed(() => tags.value.filter((item) => form.tagSlugs.includes(item.slug)));
 
@@ -55,7 +55,7 @@ async function loadOptions() {
     tags.value = tagList;
     form.categorySlug = categoryList[0]?.slug ?? '';
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '分类和标签加载失败';
+    errorMessage.value = error instanceof Error ? error.message : '分类和标签加载失败。';
   } finally {
     loading.value = false;
   }
@@ -117,7 +117,7 @@ async function submit(status: 'published' | 'draft') {
     feedback.value = status === 'published' ? `资源已发布：${release.title}` : `草稿已保存：${release.title}`;
     resetForm();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '提交资源失败';
+    errorMessage.value = error instanceof Error ? error.message : '提交资源失败。';
   } finally {
     submitting.value = false;
   }
@@ -127,7 +127,10 @@ onMounted(loadOptions);
 </script>
 
 <template>
-  <AppPageHeader title="上传资源" description="上传页只保留最必要字段，让发布路径更短、校验更明确。" />
+  <AppPageHeader
+    title="上传资源"
+    description="这里只负责站内资源发布。上传的 torrent 会在后端自动转成 private 模板，不要求你手动先处理。"
+  />
 
   <AppLoading v-if="loading" />
   <template v-else>
@@ -135,7 +138,7 @@ onMounted(loadOptions);
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
     <div class="mx-auto max-w-5xl">
-      <AppCard title="发布表单" description="保留真正会影响浏览和下载的信息，把发布动作尽量压缩到一屏内。">
+      <AppCard title="发布表单" description="保留真正影响浏览和下载的信息，把发布动作尽量压缩到一屏内。">
         <div class="space-y-6">
           <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div class="flex items-start gap-3">
@@ -143,9 +146,9 @@ onMounted(loadOptions);
                 <FileUp class="h-5 w-5" />
               </div>
               <div class="space-y-1">
-                <h3 class="text-base font-semibold text-slate-900">最短发布路径</h3>
-                <p class="text-sm leading-6 text-slate-500">
-                  填写资源信息，上传 torrent，最后在底部选择“发布资源”或“保存草稿”。
+                <h3 class="text-base font-semibold text-slate-900">发布时自动私有化</h3>
+                <p class="text-sm leading-6 text-slate-600">
+                  这里上传的 torrent 不再要求你手动先做成 private。后端会自动改写后再入库。
                 </p>
               </div>
             </div>
@@ -155,13 +158,13 @@ onMounted(loadOptions);
             <div>
               <label class="app-field-label">标题</label>
               <UiInput v-model="form.title" placeholder="例如：孤独摇滚！TV 01-12 合集" />
-              <p class="app-field-help">标题会直接出现在首页、列表页和详情页顶部。</p>
+              <p class="app-field-help">标题会直接出现在首页、列表页和详情页。</p>
             </div>
 
             <div>
               <label class="app-field-label">副标题</label>
               <UiInput v-model="form.subtitle" placeholder="例如：BDRip 1080p 简繁内封" />
-              <p class="app-field-help">建议用来补充分辨率、字幕语言和版本信息。</p>
+              <p class="app-field-help">建议补充分辨率、字幕语言和片源版本。</p>
             </div>
 
             <div class="grid gap-5 md:grid-cols-2">
@@ -187,7 +190,11 @@ onMounted(loadOptions);
                   @change="handleTorrentChange"
                 />
                 <p class="app-field-help">
-                  {{ form.torrentFileName ? `已选择：${form.torrentFileName}` : '请选择一个 private torrent 文件。' }}
+                  {{
+                    form.torrentFileName
+                      ? `已选择：${form.torrentFileName}`
+                      : '请选择一个 .torrent 文件，系统会自动转成 private 模板。'
+                  }}
                 </p>
               </div>
             </div>
@@ -227,12 +234,12 @@ onMounted(loadOptions);
 
         <template #footer>
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="text-sm text-slate-500">一个区域里只保留真正需要的动作，草稿作为次级操作。</p>
+            <p class="text-sm text-slate-500">站内发布仍然只对上传者和管理员开放。</p>
             <div class="flex flex-wrap items-center gap-2">
-              <UiButton variant="primary" :disabled="submitting || !canSubmit" @click="submit('published')">
-                {{ submitting ? '提交中...' : '发布资源' }}
+              <UiButton variant="primary" :disabled="!canSubmit" @click="submit('published')">
+                {{ submitting ? '正在提交...' : '发布资源' }}
               </UiButton>
-              <UiButton variant="secondary" :disabled="submitting || !canSubmit" @click="submit('draft')">
+              <UiButton variant="secondary" :disabled="!canSubmit" @click="submit('draft')">
                 保存草稿
               </UiButton>
             </div>

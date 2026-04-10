@@ -6,7 +6,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
-from apps.common.permissions import IsActiveAuthenticated
+from apps.common.permissions import IsActiveAuthenticated, IsUploaderOrAdmin
 from apps.common.responses import success_response
 from apps.common.schema import success_response_schema
 from apps.common.throttles import TorrentDownloadThrottle
@@ -62,7 +62,7 @@ class ReleaseDownloadView(APIView):
     ),
 )
 class TorrentPrivatizeView(APIView):
-    permission_classes = [IsActiveAuthenticated]
+    permission_classes = [IsUploaderOrAdmin]
     parser_classes = [FormParser, MultiPartParser]
 
     def post(self, request):

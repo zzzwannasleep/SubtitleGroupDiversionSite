@@ -10,8 +10,12 @@ from apps.users.models import User
 
 class UserService:
     @staticmethod
-    def create_user(*, actor, username: str, display_name: str, email: str, role: str):
-        initial_password = secrets.token_urlsafe(12)[:12]
+    def create_user(*, actor, username: str, display_name: str, email: str, role: str, password: str | None = None):
+        generated_password = None
+        effective_password = password
+        if not effective_password:
+            generated_password = secrets.token_urlsafe(12)[:12]
+            effective_password = generated_password
         with transaction.atomic():
             user = User.objects.create(
                 username=username,
@@ -20,7 +24,7 @@ class UserService:
                 role=role,
                 passkey=generate_passkey(),
             )
-            user.set_password(initial_password)
+            user.set_password(effective_password)
             user.save(update_fields=["password"])
             AuditService.log(
                 actor,
@@ -31,7 +35,7 @@ class UserService:
                 payload={"user_id": user.id},
             )
             transaction.on_commit(lambda: TrackerSyncService.sync_user_by_id(user.id))
-        return user, initial_password
+        return user, generated_password
 
     @staticmethod
     def change_status(*, actor, user: User, next_status: str):

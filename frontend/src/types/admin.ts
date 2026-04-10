@@ -179,6 +179,7 @@ export interface CreateUserPayload {
   displayName: string;
   email: string;
   role: UserRole;
+  password?: string;
 }
 
 export interface UpdateUserPayload {
