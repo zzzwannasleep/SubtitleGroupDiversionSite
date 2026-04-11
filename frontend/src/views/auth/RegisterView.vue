@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -10,6 +10,7 @@ import { buildSiteMonogram } from '@/utils/site-branding';
 const authStore = useAuthStore();
 const siteSettingsStore = useSiteSettingsStore();
 const router = useRouter();
+const route = useRoute();
 
 const settings = computed(() => siteSettingsStore.settings);
 const brandIconUrl = computed(() => settings.value.siteIconResolvedUrl);
@@ -27,6 +28,9 @@ const form = reactive({
 
 onMounted(() => {
   authStore.errorMessage = '';
+  if (typeof route.query.code === 'string' && route.query.code.trim()) {
+    form.inviteCode = route.query.code.trim();
+  }
 });
 
 async function handleSubmit() {
