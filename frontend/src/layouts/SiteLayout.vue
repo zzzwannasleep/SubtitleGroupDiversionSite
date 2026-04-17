@@ -48,7 +48,7 @@ watch(
   min-height: 100vh;
   flex-direction: column;
   background:
-    linear-gradient(180deg, #f8fbff 0%, #eef4fb 34%, #f8fafc 100%);
+    linear-gradient(180deg, rgb(var(--page-bg)) 0%, rgb(var(--surface-muted)) 34%, rgb(var(--page-bg)) 100%);
 }
 
 .site-layout__backdrop {
@@ -65,7 +65,7 @@ watch(
   left: 8%;
   height: 14rem;
   width: 14rem;
-  background: rgb(191 219 254 / 0.8);
+  background: rgb(var(--primary-border) / 0.76);
 }
 
 .site-layout__backdrop--bottom {
@@ -73,7 +73,7 @@ watch(
   bottom: 12rem;
   height: 18rem;
   width: 18rem;
-  background: rgb(226 232 240 / 0.95);
+  background: rgb(var(--surface-strong) / 0.86);
 }
 
 .site-layout__main {

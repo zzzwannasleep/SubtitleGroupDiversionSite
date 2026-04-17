@@ -531,9 +531,9 @@ onMounted(loadData);
 .invite-export-toggle {
   display: flex;
   gap: 0.85rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid rgb(var(--border));
   border-radius: 1rem;
-  background: rgb(248 250 252);
+  background: rgb(var(--surface-muted));
   padding: 0.9rem 1rem;
 }
 
@@ -541,14 +541,14 @@ onMounted(loadData);
   margin-top: 0.2rem;
   height: 1rem;
   width: 1rem;
-  accent-color: rgb(37 99 235);
+  accent-color: rgb(var(--primary));
 }
 
 .invite-export-toggle__title {
   display: block;
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgb(15 23 42);
+  color: rgb(var(--text-primary));
 }
 
 .invite-export-toggle__hint {
@@ -556,7 +556,7 @@ onMounted(loadData);
   margin-top: 0.25rem;
   font-size: 0.8rem;
   line-height: 1.6;
-  color: rgb(100 116 139);
+  color: rgb(var(--text-secondary));
 }
 
 .invite-export-preview {
@@ -565,6 +565,6 @@ onMounted(loadData);
   word-break: break-all;
   font-size: 0.8rem;
   line-height: 1.7;
-  color: rgb(51 65 85);
+  color: rgb(var(--text-tertiary));
 }
 </style>

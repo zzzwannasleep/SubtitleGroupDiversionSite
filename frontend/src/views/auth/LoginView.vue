@@ -118,14 +118,12 @@ function fillDemoUser(username: string) {
 
 .login-card {
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 0.18);
+  border: 1px solid rgb(var(--border) / 0.66);
   border-radius: 1.75rem;
   background:
-    linear-gradient(180deg, rgb(15 23 42 / 0.52), rgb(15 23 42 / 0.36)),
-    rgb(15 23 42 / 0.24);
-  box-shadow:
-    0 28px 70px rgb(2 6 23 / 0.32),
-    inset 0 1px 0 rgb(255 255 255 / 0.12);
+    linear-gradient(180deg, rgb(var(--surface) / 0.9), rgb(var(--surface-muted) / 0.76)),
+    rgb(var(--surface) / 0.58);
+  box-shadow: var(--shadow-2xl);
   backdrop-filter: blur(24px);
 }
 
@@ -134,7 +132,7 @@ function fillDemoUser(username: string) {
 }
 
 .login-card__section + .login-card__section {
-  border-top: 1px solid rgb(255 255 255 / 0.1);
+  border-top: 1px solid rgb(var(--border) / 0.5);
 }
 
 .login-card__section--brand {
@@ -158,10 +156,10 @@ function fillDemoUser(username: string) {
   overflow: hidden;
   border-radius: 1.15rem;
   background:
-    linear-gradient(145deg, rgb(96 165 250 / 0.34), rgb(15 23 42 / 0.92)),
-    rgb(15 23 42);
+    linear-gradient(145deg, rgb(var(--primary) / 0.88), rgb(var(--surface) / 0.98)),
+    rgb(var(--surface));
   box-shadow:
-    0 14px 28px rgb(59 130 246 / 0.2),
+    0 14px 28px rgb(var(--primary) / 0.18),
     inset 0 1px 0 rgb(255 255 255 / 0.14);
 }
 
@@ -189,7 +187,7 @@ function fillDemoUser(username: string) {
   white-space: nowrap;
   font-size: 1.45rem;
   font-weight: 700;
-  color: white;
+  color: rgb(var(--text-primary));
 }
 
 .login-card__label {
@@ -197,45 +195,45 @@ function fillDemoUser(username: string) {
   display: block;
   font-size: 0.88rem;
   font-weight: 500;
-  color: rgb(226 232 240 / 0.92);
+  color: rgb(var(--text-tertiary));
 }
 
 .login-card__section--form :deep(input) {
   height: 3rem;
-  border-color: rgb(148 163 184 / 0.18);
-  background: rgb(15 23 42 / 0.42);
-  color: white;
+  border-color: rgb(var(--border) / 0.7);
+  background: rgb(var(--page-bg) / 0.84);
+  color: rgb(var(--text-primary));
 }
 
 .login-card__section--form :deep(input::placeholder) {
-  color: rgb(148 163 184 / 0.88);
+  color: rgb(var(--text-secondary) / 0.9);
 }
 
 .login-card__section--actions :deep(.bg-white) {
-  background: rgb(255 255 255 / 0.16);
-  border-color: rgb(255 255 255 / 0.12);
-  color: rgb(241 245 249);
+  background: rgb(var(--surface) / 0.74);
+  border-color: rgb(var(--border) / 0.74);
+  color: rgb(var(--text-primary));
 }
 
 .login-card__section--actions :deep(.bg-white:hover) {
-  background: rgb(255 255 255 / 0.22);
+  background: rgb(var(--surface-muted) / 0.94);
 }
 
 .login-card__error {
   margin-top: 1rem;
   font-size: 0.88rem;
   line-height: 1.6;
-  color: rgb(252 165 165);
+  color: rgb(var(--danger));
 }
 
 .login-page__notice,
 .login-page__demo,
 .login-page__invite-tip {
-  border: 1px solid rgb(255 255 255 / 0.14);
+  border: 1px solid rgb(var(--border) / 0.58);
   border-radius: 1.25rem;
-  background: rgb(15 23 42 / 0.26);
+  background: rgb(var(--surface) / 0.68);
   padding: 0.95rem 1rem;
-  color: rgb(226 232 240 / 0.92);
+  color: rgb(var(--text-primary));
   backdrop-filter: blur(18px);
 }
 
@@ -253,6 +251,6 @@ function fillDemoUser(username: string) {
 .login-page__demo-title {
   text-align: center;
   font-size: 0.82rem;
-  color: rgb(191 219 254 / 0.92);
+  color: rgb(var(--primary-text));
 }
 </style>

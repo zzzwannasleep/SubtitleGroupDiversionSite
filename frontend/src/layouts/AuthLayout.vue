@@ -1,11 +1,51 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, watch } from 'vue';
 import { useSiteSettingsStore } from '@/stores/siteSettings';
 import { buildLoginBackgroundStyle } from '@/utils/site-branding';
+
+const LOGIN_PAGE_STYLE_ID = 'subtitle-group-login-page-css';
 
 const siteSettingsStore = useSiteSettingsStore();
 const settings = computed(() => siteSettingsStore.settings);
 const backgroundStyle = computed(() => buildLoginBackgroundStyle(settings.value));
+
+function applyLoginPageCss(cssText: string) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const nextCssText = cssText.trim();
+  const existingStyleElement = document.getElementById(LOGIN_PAGE_STYLE_ID) as HTMLStyleElement | null;
+
+  if (!nextCssText) {
+    existingStyleElement?.remove();
+    return;
+  }
+
+  const styleElement = existingStyleElement ?? document.createElement('style');
+  styleElement.id = LOGIN_PAGE_STYLE_ID;
+  styleElement.textContent = nextCssText;
+
+  if (!existingStyleElement) {
+    document.head.appendChild(styleElement);
+  }
+}
+
+watch(
+  () => settings.value.loginPageCss,
+  (cssText) => {
+    applyLoginPageCss(cssText);
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  document.getElementById(LOGIN_PAGE_STYLE_ID)?.remove();
+});
 </script>
 
 <template>
@@ -29,7 +69,8 @@ const backgroundStyle = computed(() => buildLoginBackgroundStyle(settings.value)
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background: #020617;
+  background:
+    linear-gradient(180deg, rgb(var(--page-bg)) 0%, rgb(var(--surface-muted)) 46%, rgb(var(--page-bg)) 100%);
 }
 
 .auth-shell__background,
@@ -43,20 +84,20 @@ const backgroundStyle = computed(() => buildLoginBackgroundStyle(settings.value)
 
 .auth-shell__background {
   transform: scale(1.05);
-  filter: saturate(1.06);
+  filter: saturate(1.04);
 }
 
 .auth-shell__veil {
   background:
-    radial-gradient(circle at top left, rgb(15 23 42 / 0.18), transparent 38%),
-    linear-gradient(135deg, rgb(2 6 23 / 0.56), rgb(15 23 42 / 0.76));
+    radial-gradient(circle at top left, rgb(var(--primary) / 0.22), transparent 36%),
+    linear-gradient(135deg, rgb(var(--page-bg) / 0.42), rgb(var(--surface-muted) / 0.76));
 }
 
 .auth-shell__noise {
   opacity: 0.08;
   background-image:
-    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    linear-gradient(rgb(var(--text-primary) / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--text-primary) / 0.05) 1px, transparent 1px);
   background-position: center;
   background-size: 72px 72px;
   mask-image: linear-gradient(to bottom, transparent, black 14%, black 86%, transparent);
@@ -72,7 +113,7 @@ const backgroundStyle = computed(() => buildLoginBackgroundStyle(settings.value)
   height: 22rem;
   width: 22rem;
   border-radius: 9999px;
-  background: rgb(56 189 248 / 0.36);
+  background: rgb(var(--primary) / 0.24);
   animation: auth-glow-drift 15s ease-in-out infinite;
 }
 
@@ -81,7 +122,7 @@ const backgroundStyle = computed(() => buildLoginBackgroundStyle(settings.value)
   height: 18rem;
   width: 18rem;
   border-radius: 9999px;
-  background: rgb(148 163 184 / 0.26);
+  background: rgb(var(--surface-stronger) / 0.3);
   animation: auth-glow-drift 18s ease-in-out infinite reverse;
 }
 

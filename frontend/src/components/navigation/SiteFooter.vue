@@ -33,10 +33,10 @@ const siteSettings = computed(() => siteSettingsStore.settings);
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  border: 1px solid rgb(226 232 240 / 0.9);
+  border: 1px solid rgb(var(--border) / 0.88);
   border-radius: 1.6rem;
-  background: rgb(255 255 255 / 0.78);
-  box-shadow: 0 18px 40px rgb(148 163 184 / 0.1);
+  background: rgb(var(--surface) / 0.78);
+  box-shadow: var(--shadow-xl);
   backdrop-filter: blur(16px);
   padding: 1.25rem 1.3rem;
 }
@@ -44,14 +44,14 @@ const siteSettings = computed(() => siteSettingsStore.settings);
 .site-footer__title {
   font-size: 1rem;
   font-weight: 700;
-  color: rgb(15 23 42);
+  color: rgb(var(--text-primary));
 }
 
 .site-footer__description,
 .site-footer__meta {
   font-size: 0.9rem;
   line-height: 1.75;
-  color: rgb(100 116 139);
+  color: rgb(var(--text-secondary));
 }
 
 @media (min-width: 768px) {

@@ -237,6 +237,7 @@ export const auditLogs: AuditLog[] = [
 ];
 
 export const siteSettings: SiteSettings = {
+  loginPageCss: '',
   siteName: '字幕组分流站',
   siteDescription: '内部资源浏览、下载与 RSS 订阅入口',
   loginNotice: '仅限内部成员使用，不开放公开注册。',
@@ -614,6 +615,7 @@ export function saveSettings(payload: SaveSiteSettingsPayload): SiteSettings {
   Object.assign(siteSettings, {
     siteName: payload.siteName,
     siteDescription: payload.siteDescription,
+    loginPageCss: payload.loginPageCss,
     loginNotice: payload.loginNotice,
     allowPublicRegistration: payload.allowPublicRegistration,
     rssBasePath: payload.rssBasePath,

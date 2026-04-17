@@ -32,6 +32,7 @@ const form = reactive({
   siteName: '',
   siteDescription: '',
   loginNotice: '',
+  loginPageCss: '',
   allowPublicRegistration: false,
   rssBasePath: '',
   downloadNotice: '',
@@ -74,6 +75,7 @@ function applySettings(settings: SiteSettings) {
     siteName: settings.siteName,
     siteDescription: settings.siteDescription,
     loginNotice: settings.loginNotice,
+    loginPageCss: settings.loginPageCss,
     allowPublicRegistration: settings.allowPublicRegistration,
     rssBasePath: settings.rssBasePath,
     downloadNotice: settings.downloadNotice,
@@ -195,6 +197,7 @@ async function handleSave() {
       siteName: form.siteName,
       siteDescription: form.siteDescription,
       loginNotice: form.loginNotice,
+      loginPageCss: form.loginPageCss,
       allowPublicRegistration: form.allowPublicRegistration,
       rssBasePath: form.rssBasePath,
       downloadNotice: form.downloadNotice,
@@ -304,6 +307,18 @@ async function handleSave() {
               <p class="text-sm leading-6 text-slate-500">{{ form.siteDescription }}</p>
             </div>
           </div>
+
+          <div>
+            <label class="app-field-label">Login Page Custom CSS</label>
+            <UiTextarea
+              v-model="form.loginPageCss"
+              :rows="8"
+              placeholder=".auth-shell { --auth-card-radius: 2rem; }\n.login-card { max-width: 28rem; }"
+            />
+            <p class="app-field-help">
+              Applies to the live auth pages. You can target `.auth-shell`, `.login-card`, `.register-card`, and related elements.
+            </p>
+          </div>
         </div>
       </AppCard>
 
@@ -405,8 +420,8 @@ async function handleSave() {
               </div>
               <div class="space-y-2">
                 <p class="text-xs uppercase tracking-[0.24em] text-slate-300/90">登录页预览</p>
-                <h2 class="text-2xl font-semibold text-white">{{ form.siteName }}</h2>
-                <p class="text-sm leading-7 text-slate-200/88">{{ form.siteDescription }}</p>
+                <h2 class="login-preview__title">{{ form.siteName }}</h2>
+                <p class="login-preview__description">{{ form.siteDescription }}</p>
               </div>
             </div>
 
@@ -419,7 +434,7 @@ async function handleSave() {
                 <div class="login-preview__field">用户名</div>
                 <div class="login-preview__field">密码</div>
               </div>
-              <p v-if="form.loginNotice" class="text-xs leading-6 text-slate-300/88">{{ form.loginNotice }}</p>
+              <p v-if="form.loginNotice" class="login-preview__notice">{{ form.loginNotice }}</p>
               <div class="login-preview__actions">
                 <div class="login-preview__button">登录</div>
                 <div class="login-preview__button login-preview__button--secondary">
@@ -438,11 +453,11 @@ async function handleSave() {
 .settings-file-input {
   display: block;
   width: 100%;
-  border: 1px dashed rgb(148 163 184 / 0.42);
+  border: 1px dashed rgb(var(--border) / 0.72);
   border-radius: 14px;
-  background: rgb(248 250 252);
+  background: rgb(var(--surface-muted));
   padding: 0.75rem 0.9rem;
-  color: rgb(51 65 85);
+  color: rgb(var(--text-tertiary));
   font-size: 0.92rem;
 }
 
@@ -459,9 +474,9 @@ async function handleSave() {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid rgb(var(--border));
   border-radius: 18px;
-  background: rgb(248 250 252);
+  background: rgb(var(--surface-muted));
   padding: 1rem 1.05rem;
 }
 
@@ -473,31 +488,31 @@ async function handleSave() {
 .settings-toggle__title {
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgb(15 23 42);
+  color: rgb(var(--text-primary));
 }
 
 .settings-toggle__description {
   font-size: 0.85rem;
   line-height: 1.7;
-  color: rgb(100 116 139);
+  color: rgb(var(--text-secondary));
 }
 
 .settings-toggle__input {
   height: 1.2rem;
   width: 1.2rem;
   flex-shrink: 0;
-  accent-color: rgb(37 99 235);
+  accent-color: rgb(var(--primary));
 }
 
 .brand-preview {
   display: flex;
   align-items: center;
   gap: 1rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid rgb(var(--border));
   border-radius: 22px;
   background:
-    radial-gradient(circle at top left, rgb(191 219 254 / 0.34), transparent 38%),
-    linear-gradient(135deg, rgb(248 250 252), rgb(241 245 249));
+    radial-gradient(circle at top left, rgb(var(--primary-border) / 0.34), transparent 38%),
+    linear-gradient(135deg, rgb(var(--surface-muted)), rgb(var(--page-bg)));
   padding: 1.1rem;
 }
 
@@ -542,7 +557,8 @@ async function handleSave() {
   border-radius: 26px;
   min-height: 420px;
   padding: 1.5rem;
-  background: #020617;
+  background:
+    linear-gradient(180deg, rgb(var(--page-bg)) 0%, rgb(var(--surface-muted)) 46%, rgb(var(--page-bg)) 100%);
 }
 
 .login-preview__overlay,
@@ -554,9 +570,9 @@ async function handleSave() {
 
 .login-preview__overlay {
   background:
-    linear-gradient(180deg, rgb(2 6 23 / 0.16), rgb(2 6 23 / 0.42)),
-    linear-gradient(90deg, rgb(255 255 255 / 0.04) 1px, transparent 1px),
-    linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px);
+    linear-gradient(180deg, rgb(var(--page-bg) / 0.16), rgb(var(--surface-muted) / 0.42)),
+    linear-gradient(90deg, rgb(var(--text-primary) / 0.04) 1px, transparent 1px),
+    linear-gradient(rgb(var(--text-primary) / 0.04) 1px, transparent 1px);
   background-size: auto, 56px 56px, 56px 56px;
 }
 
@@ -570,7 +586,7 @@ async function handleSave() {
   height: 16rem;
   width: 16rem;
   border-radius: 9999px;
-  background: rgb(59 130 246 / 0.62);
+  background: rgb(var(--primary) / 0.32);
 }
 
 .login-preview__glow--right {
@@ -578,7 +594,7 @@ async function handleSave() {
   height: 14rem;
   width: 14rem;
   border-radius: 9999px;
-  background: rgb(244 114 182 / 0.4);
+  background: rgb(var(--surface-stronger) / 0.3);
 }
 
 .login-preview__content {
@@ -588,10 +604,29 @@ async function handleSave() {
   gap: 1.5rem;
 }
 
+.login-preview__brand .space-y-2 > p:first-child {
+  color: rgb(var(--primary-text));
+  font-size: 0.75rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.login-preview__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--text-primary));
+}
+
+.login-preview__description {
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: rgb(var(--text-secondary));
+}
+
 .login-preview__brand {
-  border: 1px solid rgb(148 163 184 / 0.18);
+  border: 1px solid rgb(var(--border) / 0.52);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgb(15 23 42 / 0.74), rgb(15 23 42 / 0.46));
+  background: linear-gradient(180deg, rgb(var(--surface) / 0.9), rgb(var(--surface-muted) / 0.72));
   backdrop-filter: blur(18px);
   padding: 1.2rem;
 }
@@ -632,19 +667,27 @@ async function handleSave() {
 }
 
 .login-preview__card {
-  border: 1px solid rgb(148 163 184 / 0.18);
+  border: 1px solid rgb(var(--border) / 0.52);
   border-radius: 24px;
-  background: linear-gradient(180deg, rgb(15 23 42 / 0.9), rgb(15 23 42 / 0.82));
-  box-shadow: 0 28px 60px rgb(2 6 23 / 0.26);
+  background: linear-gradient(180deg, rgb(var(--surface) / 0.94), rgb(var(--surface-muted) / 0.82));
+  box-shadow: var(--shadow-2xl);
   backdrop-filter: blur(18px);
   padding: 1.2rem;
 }
 
+.login-preview__card .space-y-1 > p:first-child {
+  color: rgb(var(--text-primary));
+}
+
+.login-preview__card .space-y-1 > p:last-child {
+  color: rgb(var(--text-secondary));
+}
+
 .login-preview__field {
-  border: 1px solid rgb(148 163 184 / 0.14);
+  border: 1px solid rgb(var(--border) / 0.6);
   border-radius: 14px;
-  background: rgb(30 41 59 / 0.84);
-  color: rgb(226 232 240 / 0.94);
+  background: rgb(var(--page-bg) / 0.84);
+  color: rgb(var(--text-primary));
   padding: 0.78rem 0.85rem;
   font-size: 0.92rem;
 }
@@ -653,6 +696,12 @@ async function handleSave() {
   margin-top: 1rem;
   display: grid;
   gap: 0.75rem;
+}
+
+.login-preview__notice {
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: rgb(var(--text-secondary));
 }
 
 .login-preview__button {
@@ -667,9 +716,9 @@ async function handleSave() {
 }
 
 .login-preview__button--secondary {
-  border: 1px solid rgb(148 163 184 / 0.2);
-  background: rgb(255 255 255 / 0.14);
-  color: rgb(241 245 249);
+  border: 1px solid rgb(var(--border) / 0.74);
+  background: rgb(var(--surface) / 0.74);
+  color: rgb(var(--text-primary));
 }
 
 @media (min-width: 768px) {

@@ -117,6 +117,7 @@ class ApiFlowTests(TestCase):
         setting = SiteSetting.get_current()
         setting.site_name = "StarGate Subs"
         setting.site_description = "娆㈣繋鏉ュ埌娴嬭瘯绔欑偣"
+        setting.login_page_css = ".auth-shell { --login-accent-hue: 196; }"
         setting.site_icon_url = "https://cdn.example.com/brand/icon.png"
         setting.login_background_type = "api"
         setting.login_background_api_url = "https://cdn.example.com/backgrounds/login.jpg"
@@ -125,6 +126,7 @@ class ApiFlowTests(TestCase):
             update_fields=[
                 "site_name",
                 "site_description",
+                "login_page_css",
                 "site_icon_url",
                 "login_background_type",
                 "login_background_api_url",
@@ -141,6 +143,7 @@ class ApiFlowTests(TestCase):
                 "siteName": "StarGate Subs",
                 "siteDescription": "娆㈣繋鏉ュ埌娴嬭瘯绔欑偣",
                 "loginNotice": "",
+                "loginPageCss": ".auth-shell { --login-accent-hue: 196; }",
                 "allowPublicRegistration": False,
                 "rssBasePath": "/rss",
                 "downloadNotice": "",
@@ -597,6 +600,7 @@ class ApiFlowTests(TestCase):
             {
                 "loginBackgroundType": "css",
                 "loginBackgroundCss": "linear-gradient(120deg, #020617 0%, #172554 100%)",
+                "loginPageCss": ".login-card { border-radius: 2rem; }",
                 "loginBackgroundApiUrl": "",
             },
             format="json",
@@ -606,6 +610,7 @@ class ApiFlowTests(TestCase):
         setting = SiteSetting.get_current()
         self.assertEqual(setting.login_background_type, "css")
         self.assertEqual(setting.login_background_css, "linear-gradient(120deg, #020617 0%, #172554 100%)")
+        self.assertEqual(setting.login_page_css, ".login-card { border-radius: 2rem; }")
 
     def test_admin_can_toggle_public_registration(self):
         self.client.force_login(self.admin)

@@ -30,6 +30,7 @@ class SiteSettingReadSerializer(serializers.ModelSerializer):
     siteName = serializers.CharField(source="site_name")
     siteDescription = serializers.CharField(source="site_description")
     loginNotice = serializers.CharField(source="login_notice")
+    loginPageCss = serializers.CharField(source="login_page_css", allow_blank=True)
     allowPublicRegistration = serializers.BooleanField(source="allow_public_registration")
     rssBasePath = serializers.CharField(source="rss_base_path")
     downloadNotice = serializers.CharField(source="download_notice")
@@ -48,6 +49,7 @@ class SiteSettingReadSerializer(serializers.ModelSerializer):
             "siteName",
             "siteDescription",
             "loginNotice",
+            "loginPageCss",
             "allowPublicRegistration",
             "rssBasePath",
             "downloadNotice",
@@ -100,6 +102,7 @@ class SiteSettingWriteSerializer(serializers.ModelSerializer):
     siteName = serializers.CharField(source="site_name", required=False, allow_blank=True, max_length=120)
     siteDescription = serializers.CharField(source="site_description", required=False, allow_blank=True, max_length=255)
     loginNotice = serializers.CharField(source="login_notice", required=False, allow_blank=True)
+    loginPageCss = serializers.CharField(source="login_page_css", required=False, allow_blank=True)
     allowPublicRegistration = serializers.BooleanField(source="allow_public_registration", required=False)
     rssBasePath = serializers.CharField(source="rss_base_path", required=False, allow_blank=True, max_length=255)
     downloadNotice = serializers.CharField(source="download_notice", required=False, allow_blank=True)
@@ -131,6 +134,7 @@ class SiteSettingWriteSerializer(serializers.ModelSerializer):
             "siteName",
             "siteDescription",
             "loginNotice",
+            "loginPageCss",
             "allowPublicRegistration",
             "rssBasePath",
             "downloadNotice",
