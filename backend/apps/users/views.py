@@ -30,7 +30,7 @@ from apps.users.services import InviteCodeService, UserService
     get=extend_schema(
         operation_id="admin_dashboard_overview",
         summary="获取后台仪表盘概览",
-        tags=["Admin"],
+        tags=["Admin Dashboard"],
         responses=success_response_schema(
             "AdminDashboardOverviewResponse",
             inline_serializer(
@@ -257,13 +257,7 @@ class AdminUserStatusView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(
-        operation_id="admin_users_disable",
-        summary="禁用指定用户",
-        tags=["Admin Users"],
-        request=None,
-        responses=success_response_schema("AdminUserDisableResponse", AdminUserSerializer),
-    ),
+    post=extend_schema(exclude=True),
 )
 class AdminUserDisableView(APIView):
     permission_classes = [IsAdminRole]
@@ -275,13 +269,7 @@ class AdminUserDisableView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(
-        operation_id="admin_users_enable",
-        summary="启用指定用户",
-        tags=["Admin Users"],
-        request=None,
-        responses=success_response_schema("AdminUserEnableResponse", AdminUserSerializer),
-    ),
+    post=extend_schema(exclude=True),
 )
 class AdminUserEnableView(APIView):
     permission_classes = [IsAdminRole]
@@ -296,13 +284,13 @@ class AdminUserEnableView(APIView):
     get=extend_schema(
         operation_id="users_theme_retrieve",
         summary="获取当前用户主题",
-        tags=["Users"],
+        tags=["Profile"],
         responses=success_response_schema("UserThemeResponse", SelfThemeSerializer),
     ),
     put=extend_schema(
         operation_id="users_theme_update",
         summary="更新当前用户主题",
-        tags=["Users"],
+        tags=["Profile"],
         request=SelfThemeSerializer,
         responses=success_response_schema("UserThemeUpdateResponse", SelfThemeSerializer),
     ),
@@ -324,13 +312,13 @@ class SelfThemeView(APIView):
     get=extend_schema(
         operation_id="users_api_token_retrieve",
         summary="获取当前用户 API token",
-        tags=["Users"],
+        tags=["Profile"],
         responses=success_response_schema("UserApiTokenResponse", SelfApiTokenSerializer),
     ),
     post=extend_schema(
         operation_id="users_api_token_reset",
         summary="重置当前用户 API token",
-        tags=["Users"],
+        tags=["Profile"],
         request=None,
         responses=success_response_schema("UserApiTokenResetResponse", SelfApiTokenSerializer),
     ),

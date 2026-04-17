@@ -29,7 +29,7 @@ def allowed_audiences_for_role(role: str):
     get=extend_schema(
         operation_id="announcements_visible_list",
         summary="获取当前用户可见公告",
-        tags=["Announcements"],
+        tags=["Site"],
         responses=success_response_schema("VisibleAnnouncementListResponse", AnnouncementSerializer(many=True)),
     ),
 )
@@ -48,7 +48,7 @@ class VisibleAnnouncementListView(APIView):
     get=extend_schema(
         operation_id="public_site_settings_retrieve",
         summary="获取公开站点设置",
-        tags=["Site Settings"],
+        tags=["Site"],
         responses=success_response_schema("PublicSiteSettingResponse", SiteSettingReadSerializer),
     ),
 )
@@ -64,13 +64,13 @@ class PublicSiteSettingView(APIView):
     get=extend_schema(
         operation_id="admin_announcements_list",
         summary="获取后台公告列表",
-        tags=["Admin Announcements"],
+        tags=["Admin Site"],
         responses=success_response_schema("AdminAnnouncementListResponse", AnnouncementSerializer(many=True)),
     ),
     post=extend_schema(
         operation_id="admin_announcements_save",
         summary="创建或更新公告",
-        tags=["Admin Announcements"],
+        tags=["Admin Site"],
         request=AnnouncementWriteSerializer,
         responses=success_response_schema("AdminAnnouncementSaveResponse", AnnouncementSerializer),
     ),
@@ -105,13 +105,13 @@ class AdminAnnouncementListCreateView(APIView):
     get=extend_schema(
         operation_id="admin_settings_retrieve",
         summary="获取站点设置",
-        tags=["Admin Settings"],
+        tags=["Admin Site"],
         responses=success_response_schema("AdminSiteSettingResponse", SiteSettingReadSerializer),
     ),
     put=extend_schema(
         operation_id="admin_settings_update",
         summary="更新站点设置",
-        tags=["Admin Settings"],
+        tags=["Admin Site"],
         request=SiteSettingWriteSerializer,
         responses=success_response_schema("AdminSiteSettingUpdateResponse", SiteSettingReadSerializer),
     ),

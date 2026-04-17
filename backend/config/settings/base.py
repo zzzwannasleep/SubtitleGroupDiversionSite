@@ -215,10 +215,41 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Subtitle Group Diversion Site API",
-    "DESCRIPTION": "内部字幕组分流站点后端 API。",
+    "DESCRIPTION": (
+        "内部字幕组分流站点后端 API。\n\n"
+        "推荐阅读顺序：先看 `Auth` 完成登录，再按 `Site`、`Releases`、`Downloads`、`RSS`、`Profile` 使用前台能力；"
+        "后台接口统一放在 `Admin ...` 分组下。\n\n"
+        "认证方式：\n"
+        "- 浏览器调试优先使用 Session / Cookie 登录。\n"
+        "- 脚本调用可使用 `Authorization: Token <api_token>`、`Authorization: Bearer <api_token>`，"
+        "或 `X-API-Key: <api_token>`。\n"
+        "- 文件上传接口请使用 `multipart/form-data`。"
+    ),
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": "/api",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "TAGS": [
+        {"name": "Auth", "description": "登录、注册、退出登录、获取当前用户与修改密码。"},
+        {"name": "Site", "description": "前台公开或当前用户可见的站点信息，例如公告与站点设置。"},
+        {"name": "Releases", "description": "前台资源浏览、详情、创建、编辑，以及“我的发布”。"},
+        {"name": "Downloads", "description": "torrent 下载与当前用户下载记录。"},
+        {"name": "RSS", "description": "RSS 概览与按站点、分类、标签输出的订阅源。"},
+        {"name": "Profile", "description": "当前登录用户的个性化设置与 API Token 自助管理。"},
+        {"name": "Admin Dashboard", "description": "后台仪表盘概览数据。"},
+        {"name": "Admin Users", "description": "后台用户管理与用户状态调整。"},
+        {"name": "Admin Invite Codes", "description": "邀请码查询、批量生成与停用。"},
+        {"name": "Admin Releases", "description": "后台资源列表与可见状态控制。"},
+        {"name": "Admin Taxonomy", "description": "后台分类与标签维护。"},
+        {"name": "Admin Site", "description": "后台公告与站点设置管理。"},
+        {"name": "Admin Audit", "description": "后台审计日志查询。"},
+    ],
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+        "displayRequestDuration": True,
+        "docExpansion": "list",
+        "filter": True,
+    },
     "ENUM_NAME_OVERRIDES": {
         "UserRoleEnum": [("admin", "管理员"), ("uploader", "上传者"), ("user", "普通用户")],
         "UserStatusEnum": [("active", "正常"), ("disabled", "禁用")],

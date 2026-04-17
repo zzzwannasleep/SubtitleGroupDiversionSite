@@ -13,7 +13,7 @@ from apps.common.schema import success_response_schema
     get=extend_schema(
         operation_id="admin_audit_logs_list",
         summary="获取审计日志",
-        tags=["Audit"],
+        tags=["Admin Audit"],
         parameters=[
             OpenApiParameter(name="q", description="关键词，支持操作人、动作、对象类型、对象名称和详情。", type=str),
             OpenApiParameter(name="targetType", description="按对象类型筛选。", type=str),

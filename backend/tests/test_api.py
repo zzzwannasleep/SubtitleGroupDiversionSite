@@ -868,6 +868,24 @@ class ApiFlowTests(TestCase):
         self.assertIn("userApiTokenAuth", schema["components"]["securitySchemes"])
         self.assertIn("userApiKeyAuth", schema["components"]["securitySchemes"])
         self.assertIn("multipart/form-data", schema["paths"]["/api/releases/"]["post"]["requestBody"]["content"])
+        self.assertEqual(
+            [tag["name"] for tag in schema["tags"][:6]],
+            ["Auth", "Site", "Releases", "Downloads", "RSS", "Profile"],
+        )
+        self.assertNotIn("Announcements", [tag["name"] for tag in schema["tags"]])
+        self.assertNotIn("Users", [tag["name"] for tag in schema["tags"]])
+        self.assertEqual(
+            schema["components"]["schemas"]["ReleaseWriteRequest"]["properties"]["torrentFile"]["format"],
+            "binary",
+        )
+        self.assertEqual(
+            schema["components"]["schemas"]["SiteSettingWriteRequest"]["properties"]["siteIconFile"]["format"],
+            "binary",
+        )
+        self.assertNotIn("/api/home/", schema["paths"])
+        self.assertNotIn("/api/releases/{release_id}/hide/", schema["paths"])
+        self.assertNotIn("/api/admin/users/{user_id}/disable/", schema["paths"])
+        self.assertNotIn("/api/admin/users/{user_id}/enable/", schema["paths"])
         self.assertNotIn("/api/torrents/privatize/", schema["paths"])
         self.assertNotIn("/api/admin/tracker-sync/overview/", schema["paths"])
 

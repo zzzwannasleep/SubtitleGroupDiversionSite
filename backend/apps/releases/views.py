@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
@@ -36,22 +36,7 @@ class ReleasePaginationMixin:
 
 
 @extend_schema_view(
-    get=extend_schema(
-        operation_id="releases_home_data",
-        summary="获取首页聚合数据",
-        tags=["Releases"],
-        responses=success_response_schema(
-            "ReleaseHomeDataResponse",
-            inline_serializer(
-                name="ReleaseHomeData",
-                fields={
-                    "latestReleases": ReleaseSerializer(many=True),
-                    "categories": CategorySerializer(many=True),
-                    "tags": TagSerializer(many=True),
-                },
-            ),
-        ),
-    ),
+    get=extend_schema(exclude=True),
 )
 class HomeDataView(APIView):
     permission_classes = [IsActiveAuthenticated]
@@ -239,13 +224,7 @@ class ReleaseVisibilityView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(
-        operation_id="admin_releases_hide",
-        summary="隐藏资源（兼容旧接口）",
-        tags=["Admin Releases"],
-        request=None,
-        responses=success_response_schema("ReleaseHideResponse", ReleaseSerializer),
-    ),
+    post=extend_schema(exclude=True),
 )
 class ReleaseHideView(APIView):
     permission_classes = [IsAdminRole]
@@ -276,13 +255,13 @@ class MyReleaseListView(APIView):
     get=extend_schema(
         operation_id="admin_categories_list",
         summary="获取后台分类列表",
-        tags=["Admin Categories"],
+        tags=["Admin Taxonomy"],
         responses=success_response_schema("AdminCategoryListResponse", CategorySerializer(many=True)),
     ),
     post=extend_schema(
         operation_id="admin_categories_save",
         summary="创建或更新分类",
-        tags=["Admin Categories"],
+        tags=["Admin Taxonomy"],
         request=CategoryWriteSerializer,
         responses=success_response_schema("AdminCategorySaveResponse", CategorySerializer),
     ),
@@ -317,13 +296,13 @@ class AdminCategoryListCreateView(APIView):
     get=extend_schema(
         operation_id="admin_tags_list",
         summary="获取后台标签列表",
-        tags=["Admin Tags"],
+        tags=["Admin Taxonomy"],
         responses=success_response_schema("AdminTagListResponse", TagSerializer(many=True)),
     ),
     post=extend_schema(
         operation_id="admin_tags_save",
         summary="创建或更新标签",
-        tags=["Admin Tags"],
+        tags=["Admin Taxonomy"],
         request=TagWriteSerializer,
         responses=success_response_schema("AdminTagSaveResponse", TagSerializer),
     ),
