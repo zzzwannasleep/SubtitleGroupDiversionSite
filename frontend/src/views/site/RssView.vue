@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppError from '@/components/app/AppError.vue';
@@ -8,17 +8,14 @@ import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { getRssOverview } from '@/services/rss';
 import { useAuthStore } from '@/stores/auth';
-import { useSiteSettingsStore } from '@/stores/siteSettings';
 import type { RssOverview } from '@/types/admin';
 
 const authStore = useAuthStore();
-const siteSettingsStore = useSiteSettingsStore();
 const loading = ref(true);
 const failed = ref(false);
 const feedback = ref('');
 const errorMessage = ref('');
 const rssOverview = ref<RssOverview | null>(null);
-const siteSettings = computed(() => siteSettingsStore.settings);
 
 async function loadData() {
   if (!authStore.currentUser) return;
@@ -49,18 +46,12 @@ onMounted(loadData);
 </script>
 
 <template>
-  <AppPageHeader title="RSS 订阅" description="支持全量、分类与标签级地址，一键复制即可接入下载器。" />
+  <AppPageHeader title="RSS 订阅" description="保留最常用的通用地址和分类订阅，减少无效信息干扰。" />
   <AppLoading v-if="loading" />
   <AppError v-else-if="failed" title="RSS 数据加载失败" description="请稍后重试，或检查后端 RSS 服务状态。" />
   <template v-else-if="rssOverview">
     <AppAlert v-if="feedback" variant="success" :title="feedback" />
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
-    <AppAlert
-      v-if="siteSettings.rssBasePath"
-      variant="info"
-      title="当前 RSS 基础路径"
-      :description="siteSettings.rssBasePath"
-    />
 
     <div class="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
       <div class="space-y-6">
@@ -74,7 +65,7 @@ onMounted(loadData);
         </AppCard>
 
         <AppCard title="分类订阅" description="按分类缩小订阅范围。">
-          <div class="space-y-3">
+          <div v-if="rssOverview.categoryFeeds.length" class="space-y-3">
             <div
               v-for="feed in rssOverview.categoryFeeds"
               :key="feed.url"
@@ -87,31 +78,18 @@ onMounted(loadData);
               <UiButton variant="ghost" size="sm" @click="copyFeed(feed.url)">复制</UiButton>
             </div>
           </div>
+          <p v-else class="text-sm text-slate-500">当前还没有可用的分类订阅地址。</p>
         </AppCard>
       </div>
 
       <div class="space-y-6">
-        <AppCard title="标签订阅" description="适合做细粒度追更。">
-          <div class="space-y-3">
-            <div
-              v-for="feed in rssOverview.tagFeeds"
-              :key="feed.url"
-              class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between"
-            >
-              <div>
-                <p class="font-medium text-slate-900">{{ feed.label }}</p>
-                <p class="mt-1 break-all text-sm text-slate-500">{{ feed.url }}</p>
-              </div>
-              <UiButton variant="ghost" size="sm" @click="copyFeed(feed.url)">复制</UiButton>
-            </div>
-          </div>
-        </AppCard>
-
-        <AppCard title="使用说明" description="地址内含 passkey，泄露后可在“我的账户”中重置。">
+        <AppCard title="使用说明" description="RSS 地址包含 passkey，请只在自己的下载器或脚本里使用。">
           <ul class="space-y-2 text-sm text-slate-600">
             <li>不要把 RSS 地址贴到公共聊天或脚本仓库。</li>
-            <li>禁用用户后，RSS 访问应立即失效。</li>
-            <li>最近更新：{{ rssOverview.recentReleaseTitles.join('、') }}</li>
+            <li>禁用用户后，RSS 访问会立即失效。</li>
+            <li v-if="rssOverview.recentReleaseTitles.length">
+              最近更新：{{ rssOverview.recentReleaseTitles.join('、') }}
+            </li>
           </ul>
         </AppCard>
       </div>

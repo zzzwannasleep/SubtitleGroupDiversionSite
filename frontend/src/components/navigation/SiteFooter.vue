@@ -15,7 +15,6 @@ const siteSettings = computed(() => siteSettingsStore.settings);
           <p class="site-footer__description">{{ siteSettings.siteDescription }}</p>
         </div>
         <div class="space-y-2 text-left md:text-right">
-          <p class="site-footer__meta">RSS 基础路径：{{ siteSettings.rssBasePath }}</p>
           <p v-if="siteSettings.downloadNotice" class="site-footer__meta">{{ siteSettings.downloadNotice }}</p>
         </div>
       </div>

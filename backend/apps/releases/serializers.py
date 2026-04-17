@@ -74,14 +74,21 @@ class ReleaseDetailSerializer(ReleaseSerializer):
 
 
 class ReleaseWriteSerializer(serializers.Serializer):
-    title = serializers.CharField(max_length=255)
+    title = serializers.CharField(max_length=255, allow_blank=True, required=False)
     subtitle = serializers.CharField(max_length=255, allow_blank=True, required=False)
     description = serializers.CharField(allow_blank=True, required=False)
     categorySlug = serializers.SlugRelatedField(
-        slug_field="slug", queryset=Category.objects.filter(is_active=True), source="category"
+        slug_field="slug",
+        queryset=Category.objects.filter(is_active=True),
+        source="category",
+        required=False,
     )
     tagSlugs = serializers.SlugRelatedField(
-        slug_field="slug", queryset=Tag.objects.all(), many=True, source="tags", required=False
+        slug_field="slug",
+        queryset=Tag.objects.all(),
+        many=True,
+        source="tags",
+        required=False,
     )
     torrentFile = serializers.FileField(source="torrent_file", required=False, allow_null=True)
     status = serializers.ChoiceField(choices=Release._meta.get_field("status").choices, required=False)
@@ -89,6 +96,8 @@ class ReleaseWriteSerializer(serializers.Serializer):
     def validate(self, attrs):
         if self.instance is None and "torrent_file" not in attrs:
             raise serializers.ValidationError({"torrentFile": ["上传资源时必须提供 torrent 文件。"]})
+        if self.instance is not None and "title" in attrs and not attrs["title"]:
+            raise serializers.ValidationError({"title": ["编辑资源时标题不能为空。"]})
         return attrs
 
 

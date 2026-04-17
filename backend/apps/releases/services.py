@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Q
@@ -7,7 +9,7 @@ from rest_framework.exceptions import PermissionDenied
 from apps.audit.services import AuditService
 from apps.common.exceptions import BusinessException
 from apps.common.torrent import parse_torrent
-from apps.releases.models import Release, ReleaseFile, ReleaseStatus
+from apps.releases.models import Category, Release, ReleaseFile, ReleaseStatus
 
 
 class ReleaseService:
@@ -73,15 +75,44 @@ class ReleaseService:
         release.torrent_file = stored_torrent
         return metadata
 
+    @staticmethod
+    def _get_default_category():
+        category = Category.objects.filter(is_active=True).order_by("sort_order", "id").first()
+        if category is None:
+            raise BusinessException("当前没有可用分类，请先在后台创建并启用至少一个分类。")
+        return category
+
+    @staticmethod
+    def _build_default_title(*, payload: dict, torrent_file, metadata) -> str:
+        explicit_title = (payload.get("title") or "").strip()
+        if explicit_title:
+            return explicit_title
+
+        metadata_name = (metadata.name or "").strip()
+        if metadata_name:
+            return metadata_name
+
+        original_name = Path(getattr(torrent_file, "name", "upload.torrent")).stem.strip()
+        if original_name:
+            return original_name
+
+        return f"资源 {metadata.infohash[:8]}"
+
     @classmethod
     @transaction.atomic
     def create_release(cls, *, actor, payload: dict):
+        payload = dict(payload)
         tags = payload.pop("tags", [])
         torrent_file = payload.pop("torrent_file")
         status = payload.get("status", ReleaseStatus.PUBLISHED)
 
-        release = Release(created_by=actor, **payload)
+        release = Release(created_by=actor)
         metadata = cls._apply_torrent_payload(release, torrent_file)
+        release.title = cls._build_default_title(payload=payload, torrent_file=torrent_file, metadata=metadata)
+        release.subtitle = payload.get("subtitle", "")
+        release.description = payload.get("description", "")
+        release.category = payload.get("category") or cls._get_default_category()
+        release.status = status
         if status == ReleaseStatus.PUBLISHED and not release.published_at:
             release.published_at = timezone.now()
         release.save()

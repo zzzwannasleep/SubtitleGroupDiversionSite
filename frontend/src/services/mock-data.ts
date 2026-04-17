@@ -367,23 +367,24 @@ export function resetPasskey(userId: number): AdminUser {
 }
 
 export function createReleaseFromPayload(payload: {
-  title: string;
-  subtitle: string;
-  description: string;
-  categorySlug: string;
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  categorySlug?: string;
   tagSlugs: string[];
   torrentFileName?: string;
   createdBy: CurrentUser;
   status?: 'draft' | 'published' | 'hidden';
 }): Release {
+  const fallbackTitle = payload.torrentFileName?.replace(/\.torrent$/i, '') || '新上传资源';
   const category = categories.find((item) => item.slug === payload.categorySlug) ?? categories[0];
   const releaseTags = tags.filter((item) => payload.tagSlugs.includes(item.slug));
   const createdAt = nowIso();
   const release: Release = {
     id: Date.now(),
-    title: payload.title,
-    subtitle: payload.subtitle,
-    description: payload.description,
+    title: payload.title?.trim() || fallbackTitle,
+    subtitle: payload.subtitle ?? '',
+    description: payload.description ?? '',
     category,
     tags: releaseTags,
     status: payload.status ?? 'published',

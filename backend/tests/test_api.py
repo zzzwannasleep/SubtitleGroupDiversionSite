@@ -295,6 +295,22 @@ class ApiFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 403, response.json())
 
+    def test_uploader_can_create_release_with_minimal_fields(self):
+        self.client.force_login(self.uploader)
+        torrent = SimpleUploadedFile("example.torrent", build_torrent_bytes(), content_type="application/x-bittorrent")
+        response = self.client.post(
+            "/api/releases/",
+            {
+                "torrentFile": torrent,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["data"]["title"], "Example.S01E01.mkv")
+        self.assertEqual(response.json()["data"]["subtitle"], "")
+        self.assertEqual(response.json()["data"]["description"], "")
+        self.assertEqual(response.json()["data"]["category"]["slug"], self.category.slug)
+
     def test_uploader_can_create_release_and_download_original_torrent(self):
         release = self.create_release()
         self.client.force_login(self.user)

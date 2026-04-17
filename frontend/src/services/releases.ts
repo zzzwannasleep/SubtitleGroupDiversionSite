@@ -1,5 +1,13 @@
 import type { CurrentUser } from '@/types/auth';
-import type { Category, DownloadRecord, PagedResult, Release, ReleaseFormPayload, ReleaseQuery, Tag } from '@/types/release';
+import type {
+  Category,
+  DownloadRecord,
+  PagedResult,
+  Release,
+  ReleaseFormPayload,
+  ReleaseQuery,
+  Tag,
+} from '@/types/release';
 import { apiRequest, buildApiUrl, isApiError } from './api';
 import {
   categories,
@@ -65,6 +73,31 @@ function applyQuery(items: Release[], query: ReleaseQuery = {}): PagedResult<Rel
     pageSize,
     results: results.slice(start, start + pageSize),
   };
+}
+
+function appendOptionalFormText(formData: FormData, key: string, value: string | undefined) {
+  if (value !== undefined) {
+    formData.set(key, value);
+  }
+}
+
+function buildReleaseFormData(payload: ReleaseFormPayload) {
+  const formData = new FormData();
+  appendOptionalFormText(formData, 'title', payload.title);
+  appendOptionalFormText(formData, 'subtitle', payload.subtitle);
+  appendOptionalFormText(formData, 'description', payload.description);
+  appendOptionalFormText(formData, 'categorySlug', payload.categorySlug);
+  formData.set('status', payload.status ?? 'published');
+
+  for (const tagSlug of payload.tagSlugs ?? []) {
+    formData.append('tagSlugs', tagSlug);
+  }
+
+  if (payload.torrentFile) {
+    formData.set('torrentFile', payload.torrentFile, payload.torrentFile.name);
+  }
+
+  return formData;
 }
 
 export async function listReleases(query: ReleaseQuery = {}): Promise<PagedResult<Release>> {
@@ -158,7 +191,7 @@ export async function createRelease(payload: ReleaseFormPayload, _user: CurrentU
         subtitle: payload.subtitle,
         description: payload.description,
         categorySlug: payload.categorySlug,
-        tagSlugs: payload.tagSlugs,
+        tagSlugs: payload.tagSlugs ?? [],
         torrentFileName: payload.torrentFile?.name ?? payload.torrentFileName,
         createdBy: _user,
         status: payload.status ?? 'published',
@@ -170,21 +203,9 @@ export async function createRelease(payload: ReleaseFormPayload, _user: CurrentU
     throw new Error('请选择要上传的 .torrent 文件');
   }
 
-  const formData = new FormData();
-  formData.set('title', payload.title);
-  formData.set('subtitle', payload.subtitle);
-  formData.set('description', payload.description);
-  formData.set('categorySlug', payload.categorySlug);
-  formData.set('status', payload.status ?? 'published');
-  formData.set('torrentFile', payload.torrentFile, payload.torrentFile.name);
-
-  for (const tagSlug of payload.tagSlugs) {
-    formData.append('tagSlugs', tagSlug);
-  }
-
   return apiRequest<Release>('/api/releases/', {
     method: 'POST',
-    body: formData,
+    body: buildReleaseFormData(payload),
   });
 }
 
@@ -192,30 +213,18 @@ export async function editRelease(releaseId: number, payload: ReleaseFormPayload
   if (useMockApi()) {
     return mockResolve(() =>
       updateReleaseData(releaseId, {
-        title: payload.title,
-        subtitle: payload.subtitle,
-        description: payload.description,
+        title: payload.title ?? '',
+        subtitle: payload.subtitle ?? '',
+        description: payload.description ?? '',
         status: payload.status ?? 'published',
       }),
     );
   }
 
   if (payload.torrentFile) {
-    const formData = new FormData();
-    formData.set('title', payload.title);
-    formData.set('subtitle', payload.subtitle);
-    formData.set('description', payload.description);
-    formData.set('categorySlug', payload.categorySlug);
-    formData.set('status', payload.status ?? 'published');
-    formData.set('torrentFile', payload.torrentFile, payload.torrentFile.name);
-
-    for (const tagSlug of payload.tagSlugs) {
-      formData.append('tagSlugs', tagSlug);
-    }
-
     return apiRequest<Release>(`/api/releases/${releaseId}/`, {
       method: 'PATCH',
-      body: formData,
+      body: buildReleaseFormData(payload),
     });
   }
 

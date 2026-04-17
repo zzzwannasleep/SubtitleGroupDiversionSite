@@ -70,11 +70,11 @@ export interface PagedResult<T> {
 }
 
 export interface ReleaseFormPayload {
-  title: string;
-  subtitle: string;
-  description: string;
-  categorySlug: string;
-  tagSlugs: string[];
+  title?: string;
+  subtitle?: string;
+  description?: string;
+  categorySlug?: string;
+  tagSlugs?: string[];
   torrentFile?: File | null;
   torrentFileName?: string;
   status?: ReleaseStatus;
