@@ -19,7 +19,7 @@ class LoginRateThrottle(SimpleRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": digest}
 
 
-class PasskeyOrIPRateThrottle(SimpleRateThrottle):
+class UserOrIPRateThrottle(SimpleRateThrottle):
     def get_cache_key(self, request, view):
         ident = self._build_ident(request)
         if not ident:
@@ -27,11 +27,6 @@ class PasskeyOrIPRateThrottle(SimpleRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": ident}
 
     def _build_ident(self, request) -> str | None:
-        passkey = request.query_params.get("passkey", "").strip()
-        if passkey:
-            digest = hashlib.sha256(passkey.encode("utf-8")).hexdigest()
-            return f"passkey:{digest}"
-
         user = getattr(request, "user", None)
         if getattr(user, "is_authenticated", False):
             return f"user:{user.pk}"
@@ -40,9 +35,9 @@ class PasskeyOrIPRateThrottle(SimpleRateThrottle):
         return f"ip:{ident}" if ident else None
 
 
-class RssFeedThrottle(PasskeyOrIPRateThrottle):
+class RssFeedThrottle(UserOrIPRateThrottle):
     scope = "rss"
 
 
-class TorrentDownloadThrottle(PasskeyOrIPRateThrottle):
+class TorrentDownloadThrottle(UserOrIPRateThrottle):
     scope = "download"

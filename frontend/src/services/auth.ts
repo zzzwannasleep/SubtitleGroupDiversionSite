@@ -7,7 +7,6 @@ import {
   getCurrentUserApiToken,
   getUserById,
   getUserByUsername,
-  resetPasskey as resetMockPasskey,
   resetUserApiToken,
   siteSettings,
   validateInviteCodeRecord,
@@ -146,21 +145,6 @@ export async function logout(): Promise<void> {
   }
 
   await apiRequest('/api/auth/logout/', { method: 'POST' });
-}
-
-export async function resetPasskey(_userId?: number): Promise<CurrentUser> {
-  if (useMockApi()) {
-    return mockResolve(() => {
-      const sessionId = getStoredSessionId();
-      if (!sessionId) {
-        throw new Error('当前未登录。');
-      }
-
-      return resetMockPasskey(sessionId);
-    });
-  }
-
-  return apiRequest<CurrentUser>('/api/me/reset-passkey/', { method: 'POST' });
 }
 
 export async function getMyApiToken(): Promise<ApiTokenPayload> {

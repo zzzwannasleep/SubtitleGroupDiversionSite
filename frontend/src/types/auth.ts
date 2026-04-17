@@ -11,7 +11,6 @@ export interface UserSummary {
 export interface CurrentUser extends UserSummary {
   email: string;
   status: UserStatus;
-  passkey: string;
   lastLoginAt: string;
   joinedAt: string;
 }

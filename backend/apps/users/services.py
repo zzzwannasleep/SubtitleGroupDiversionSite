@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.audit.services import AuditService
-from apps.common.utils import generate_passkey
+from apps.common.utils import generate_secret_token
 from apps.users.models import InviteCode, User, generate_invite_code, normalize_invite_code
 
 
@@ -24,7 +24,6 @@ class UserService:
                 display_name=display_name,
                 email=email,
                 role=role,
-                passkey=generate_passkey(),
             )
             user.set_password(effective_password)
             user.save(update_fields=["password"])
@@ -90,25 +89,9 @@ class UserService:
         return user
 
     @staticmethod
-    def reset_passkey(*, actor, user: User):
-        with transaction.atomic():
-            user.passkey = generate_passkey()
-            user.save(update_fields=["passkey"])
-            AuditService.log(
-                actor,
-                "重置 passkey",
-                "用户",
-                user.username,
-                detail="passkey 已重置，旧 RSS 与旧 torrent 将失效。",
-                payload={"user_id": user.id},
-            )
-
-        return user
-
-    @staticmethod
     def reset_api_token(*, actor, user: User):
         with transaction.atomic():
-            user.api_token = generate_passkey()
+            user.api_token = generate_secret_token()
             user.save(update_fields=["api_token"])
             AuditService.log(
                 actor,

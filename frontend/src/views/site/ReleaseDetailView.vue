@@ -254,7 +254,7 @@ watch(() => route.params.id, loadRelease, { immediate: true });
             </div>
             <ul class="space-y-2 leading-7">
               <li>下载前可先核对文件列表、分类和标签，避免误下错包。</li>
-              <li>如需通过 RSS 自动下载，可继续使用账户页中的 passkey 地址。</li>
+              <li>如需通过 RSS 自动下载，可直接使用站点提供的通用 RSS 地址。</li>
               <li>管理员隐藏资源时，不会删除文件和审计记录，只会收起前台入口。</li>
             </ul>
           </div>

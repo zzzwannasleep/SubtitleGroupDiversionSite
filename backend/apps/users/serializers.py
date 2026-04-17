@@ -23,7 +23,6 @@ class CurrentUserSerializer(UserSummarySerializer):
         fields = UserSummarySerializer.Meta.fields + (
             "email",
             "status",
-            "passkey",
             "lastLoginAt",
             "joinedAt",
         )

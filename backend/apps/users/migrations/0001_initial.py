@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                 ('display_name', models.CharField(max_length=100)),
                 ('role', models.CharField(choices=[('admin', '管理员'), ('uploader', '上传者'), ('user', '普通用户')], default='user', max_length=20)),
                 ('status', models.CharField(choices=[('active', '正常'), ('disabled', '禁用')], default='active', max_length=20)),
-                ('passkey', models.CharField(default=apps.common.utils.generate_passkey, max_length=32, unique=True)),
+                ('passkey', models.CharField(default=apps.common.utils.generate_secret_token, max_length=32, unique=True)),
                 ('groups', models.ManyToManyField(blank=True, help_text='The groups this user belongs to. A user will get all permissions granted to each of their groups.', related_name='user_set', related_query_name='user', to='auth.group', verbose_name='groups')),
                 ('user_permissions', models.ManyToManyField(blank=True, help_text='Specific permissions for this user.', related_name='user_set', related_query_name='user', to='auth.permission', verbose_name='user permissions')),
             ],

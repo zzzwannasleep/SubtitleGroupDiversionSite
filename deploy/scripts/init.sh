@@ -27,6 +27,6 @@ until docker compose exec -T mysql mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL
   sleep 2
 done
 
-docker compose up -d backend frontend nginx
+docker compose up -d backend
 
-echo "Run 'docker compose -f deploy/docker-compose.yml exec backend python manage.py createsuperuser' to create the first admin user."
+echo "Run 'cd deploy && docker compose exec backend python manage.py createsuperuser' to create the first admin user."

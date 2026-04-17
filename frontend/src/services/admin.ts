@@ -25,7 +25,6 @@ import {
   getUserById,
   inviteCodes,
   releases,
-  resetPasskey,
   revokeInviteCodeRecord,
   saveAnnouncement,
   saveCategory,
@@ -167,26 +166,6 @@ export async function changeUserStatus(payload: ToggleUserStatusPayload): Promis
   return apiRequest<AdminUser>(`/api/admin/users/${payload.userId}/status/`, {
     method: 'POST',
     body: { nextStatus: payload.nextStatus },
-  });
-}
-
-export async function resetUserPasskey(userId: number): Promise<AdminUser> {
-  if (useMockApi()) {
-    return mockResolve(() => {
-      const user = resetPasskey(userId);
-      appendAuditLog({
-        actorName: '站务总控',
-        action: '重置 passkey',
-        targetType: '用户',
-        targetName: user.username,
-        detail: '管理员手动触发了重置。',
-      });
-      return user;
-    });
-  }
-
-  return apiRequest<AdminUser>(`/api/admin/users/${userId}/reset-passkey/`, {
-    method: 'POST',
   });
 }
 

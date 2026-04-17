@@ -14,6 +14,7 @@ from torf import Torrent, _flatbencode as flatbencode
 from apps.announcements.models import SiteSetting
 from apps.audit.models import AuditLog
 from apps.common.throttles import LoginRateThrottle
+from apps.downloads.models import DownloadLog
 from apps.releases.models import Category, Release, Tag
 from apps.users.models import InviteCode, User
 
@@ -365,37 +366,21 @@ class ApiFlowTests(TestCase):
         self.assertFalse(stored_torrent.private)
         self.assertEqual(stored_torrent.trackers[0][0], "https://example.com/announce")
 
-    def test_rss_feed_uses_passkey_download_link(self):
+    def test_rss_feed_uses_public_download_link(self):
         release = self.create_release()
-        response = self.client.get(f"/rss/all?passkey={self.user.passkey}")
+        response = self.client.get("/rss/all")
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
         self.assertIn(release.title, body)
-        self.assertIn(self.user.passkey, body)
+        self.assertIn(f"/api/releases/{release.id}/download/", body)
+        self.assertNotIn("passkey=", body)
 
-    def test_rss_feed_accepts_token_query_alias(self):
+    def test_anonymous_user_can_download_published_release(self):
         release = self.create_release()
-        response = self.client.get(f"/rss/all?token={self.user.passkey}")
-        self.assertEqual(response.status_code, 200)
-        body = response.content.decode("utf-8")
-        self.assertIn(release.title, body)
-        self.assertIn(self.user.passkey, body)
-
-    def test_rss_feed_accepts_token_path_route(self):
-        release = self.create_release()
-        response = self.client.get(f"/rss/{self.user.passkey}/category/{self.category.slug}")
-        self.assertEqual(response.status_code, 200)
-        body = response.content.decode("utf-8")
-        self.assertIn(release.title, body)
-        self.assertIn(self.user.passkey, body)
-
-    def test_disabled_user_cannot_download_with_passkey(self):
-        release = self.create_release()
-        self.user.status = "disabled"
-        self.user.save(update_fields=["status"])
         client = APIClient()
-        response = client.get(f"/api/releases/{release.id}/download/?passkey={self.user.passkey}")
-        self.assertEqual(response.status_code, 403, response.json())
+        response = client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(DownloadLog.objects.filter(release=release, user__isnull=True).count(), 1)
 
     def test_draft_release_can_publish_without_tracker_side_effects(self):
         release = self.create_release(status="draft", execute_on_commit=True)
@@ -436,16 +421,6 @@ class ApiFlowTests(TestCase):
 
         release.refresh_from_db()
         self.assertEqual(release.status, "hidden")
-
-    def test_reset_passkey_returns_new_passkey(self):
-        self.client.force_login(self.user)
-        old_passkey = self.user.passkey
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post("/api/me/reset-passkey/")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        self.user.refresh_from_db()
-        self.assertNotEqual(self.user.passkey, old_passkey)
 
     def test_invalid_torrent_returns_unified_business_error(self):
         self.client.force_login(self.uploader)
@@ -681,17 +656,6 @@ class ApiFlowTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.status, "active")
 
-    def test_request_logging_redacts_passkey(self):
-        self.create_release()
-        with self.assertLogs("apps.request", level="INFO") as captured:
-            response = self.client.get(f"/rss/all?passkey={self.user.passkey}")
-        self.assertEqual(response.status_code, 200)
-
-        combined = "\n".join(captured.output)
-        self.assertIn("passkey=%2A%2A%2A", combined)
-        self.assertIn("actor=passkey:user", combined)
-        self.assertNotIn(self.user.passkey, combined)
-
     def test_request_logging_identifies_api_token_actor_without_exposing_secret(self):
         with self.assertLogs("apps.request", level="INFO") as captured:
             response = self.client.get("/api/auth/me/", HTTP_AUTHORIZATION=f"Token {self.user.api_token}")
@@ -799,7 +763,7 @@ class ApiFlowTests(TestCase):
         data = response.json()["data"]
         self.assertNotIn("trackerSync", data)
         self.assertNotIn("xbtUser", data)
-        self.assertEqual(data["passkey"], self.user.passkey)
+        self.assertNotIn("passkey", data)
 
     def test_release_detail_for_owner_excludes_tracker_sync_snapshot(self):
         release = self.create_release(execute_on_commit=True)

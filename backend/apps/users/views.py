@@ -293,41 +293,6 @@ class AdminUserEnableView(APIView):
 
 
 @extend_schema_view(
-    post=extend_schema(
-        operation_id="admin_users_reset_passkey",
-        summary="重置指定用户 passkey",
-        tags=["Admin Users"],
-        request=None,
-        responses=success_response_schema("AdminUserResetPasskeyResponse", AdminUserSerializer),
-    ),
-)
-class AdminUserResetPasskeyView(APIView):
-    permission_classes = [IsAdminRole]
-
-    def post(self, request, user_id: int):
-        user = get_object_or_404(User, pk=user_id)
-        user = UserService.reset_passkey(actor=request.user, user=user)
-        return success_response(AdminUserSerializer(user).data, message="passkey 已重置。")
-
-
-@extend_schema_view(
-    post=extend_schema(
-        operation_id="users_reset_own_passkey",
-        summary="重置当前登录用户 passkey",
-        tags=["Users"],
-        request=None,
-        responses=success_response_schema("UserSelfResetPasskeyResponse", AdminUserSerializer),
-    ),
-)
-class SelfPasskeyResetView(APIView):
-    permission_classes = [IsActiveAuthenticated]
-
-    def post(self, request):
-        user = UserService.reset_passkey(actor=request.user, user=request.user)
-        return success_response(AdminUserSerializer(user).data, message="passkey 已重置。")
-
-
-@extend_schema_view(
     get=extend_schema(
         operation_id="users_theme_retrieve",
         summary="获取当前用户主题",

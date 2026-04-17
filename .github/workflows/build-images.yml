@@ -22,13 +22,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - component: frontend
-            image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend
-            context: ./frontend
-            file: ./frontend/Dockerfile
           - component: backend
             image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend
-            context: ./backend
+            context: .
             file: ./backend/Dockerfile
 
     steps:

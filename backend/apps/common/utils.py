@@ -1,5 +1,5 @@
 import secrets
 
 
-def generate_passkey() -> str:
+def generate_secret_token() -> str:
     return secrets.token_hex(16)

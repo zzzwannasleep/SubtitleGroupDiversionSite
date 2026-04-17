@@ -1,0 +1,9 @@
+.git
+.github
+backend/__pycache__
+backend/db.sqlite3
+backend/media
+backend/staticfiles
+deploy/.env
+frontend/dist
+frontend/node_modules

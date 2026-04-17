@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
@@ -20,9 +20,6 @@ from apps.releases.models import Release
         operation_id="releases_download_torrent",
         summary="下载 torrent",
         tags=["Downloads"],
-        parameters=[
-            OpenApiParameter(name="passkey", description="未登录时可通过 passkey 下载 torrent。", type=str),
-        ],
         responses={
             (200, "application/x-bittorrent"): OpenApiResponse(
                 response=OpenApiTypes.BINARY,

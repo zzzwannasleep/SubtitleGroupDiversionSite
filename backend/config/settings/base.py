@@ -130,6 +130,8 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+FRONTEND_DIST_DIR = BASE_DIR / "frontend_dist"
+FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

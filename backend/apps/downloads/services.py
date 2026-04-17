@@ -1,10 +1,10 @@
 from pathlib import Path
 
 from django.db.models import F
-from rest_framework.exceptions import NotAuthenticated, PermissionDenied
+from rest_framework.exceptions import PermissionDenied
 
 from apps.downloads.models import DownloadLog
-from apps.users.models import User, UserStatus
+from apps.users.models import UserStatus
 
 
 class DownloadService:
@@ -15,14 +15,7 @@ class DownloadService:
             if getattr(user, "status", None) != UserStatus.ACTIVE:
                 raise PermissionDenied("当前账户已被禁用。")
             return user
-
-        passkey = request.query_params.get("passkey")
-        if not passkey:
-            raise NotAuthenticated("请先登录或提供 passkey。")
-        resolved_user = User.objects.filter(passkey=passkey, status=UserStatus.ACTIVE).first()
-        if not resolved_user:
-            raise PermissionDenied("passkey 无效或账户已被禁用。")
-        return resolved_user
+        return None
 
     @classmethod
     def build_download_torrent(cls, *, user, release, request):

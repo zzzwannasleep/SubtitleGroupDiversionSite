@@ -133,15 +133,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function resetPasskey() {
-    if (!currentUser.value) {
-      throw new Error('当前未登录。');
-    }
-
-    currentUser.value = await authService.resetPasskey(currentUser.value.id);
-    return currentUser.value;
-  }
-
   async function changePassword(currentPassword: string, nextPassword: string) {
     if (!currentUser.value) {
       throw new Error('当前未登录。');
@@ -162,7 +153,6 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
-    resetPasskey,
     changePassword,
   };
 });

@@ -1,12 +1,12 @@
 from django.db import migrations, models
 
-from apps.common.utils import generate_passkey
+from apps.common.utils import generate_secret_token
 
 
 def populate_api_tokens(apps, schema_editor):
     User = apps.get_model("users", "User")
     for user in User.objects.filter(api_token__isnull=True).iterator():
-        user.api_token = generate_passkey()
+        user.api_token = generate_secret_token()
         user.save(update_fields=["api_token"])
 
 
@@ -25,6 +25,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="user",
             name="api_token",
-            field=models.CharField(default=generate_passkey, max_length=32, unique=True),
+            field=models.CharField(default=generate_secret_token, max_length=32, unique=True),
         ),
     ]

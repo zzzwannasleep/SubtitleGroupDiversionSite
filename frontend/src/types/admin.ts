@@ -95,15 +95,8 @@ export interface SaveSiteSettingsPayload {
   loginBackgroundCss: string;
 }
 
-export interface RssFeedLink {
-  label: string;
-  url: string;
-}
-
 export interface RssOverview {
   generalFeed: string;
-  categoryFeeds: RssFeedLink[];
-  tagFeeds: RssFeedLink[];
   recentReleaseTitles: string[];
 }
 

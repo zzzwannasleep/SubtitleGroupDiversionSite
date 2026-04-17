@@ -5,7 +5,7 @@ import hashlib
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
-SENSITIVE_QUERY_KEYS = {"passkey", "token", "rss_token", "torrent_pass"}
+SENSITIVE_QUERY_KEYS = set()
 
 
 def fingerprint_secret(value: str) -> str:
@@ -55,15 +55,5 @@ def get_request_actor(request) -> str:
     user = getattr(request, "user", None)
     if getattr(user, "is_authenticated", False):
         return getattr(user, "username", "authenticated")
-
-    if hasattr(request, "GET"):
-        passkey = (request.GET.get("passkey") or "").strip()
-        if passkey:
-            from apps.users.models import User
-
-            username = User.objects.filter(passkey=passkey).values_list("username", flat=True).first()
-            if username:
-                return f"passkey:{username}"
-            return f"passkey:{fingerprint_secret(passkey)}"
 
     return "anonymous"

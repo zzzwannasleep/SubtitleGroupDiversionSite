@@ -25,17 +25,14 @@ const apiToken = ref('');
 const apiTokenLoading = ref(false);
 const apiTokenDialogOpen = ref(false);
 const resettingApiToken = ref(false);
-const resettingPasskey = ref(false);
 const savingPassword = ref(false);
 
 async function loadRssFeed() {
-  if (!authStore.currentUser) return;
-
   errorMessage.value = '';
   rssLoading.value = true;
 
   try {
-    const overview = await getRssOverview(authStore.currentUser);
+    const overview = await getRssOverview();
     rssFeed.value = overview.generalFeed;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '加载 RSS 信息失败';
@@ -105,22 +102,6 @@ async function handleResetApiToken() {
   }
 }
 
-async function handleResetPasskey() {
-  errorMessage.value = '';
-  feedback.value = '';
-  resettingPasskey.value = true;
-
-  try {
-    await authStore.resetPasskey();
-    feedback.value = 'passkey 已重置，旧 RSS 地址和旧种子都会失效。';
-    await loadRssFeed();
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '重置 passkey 失败';
-  } finally {
-    resettingPasskey.value = false;
-  }
-}
-
 async function handleChangePassword() {
   if (!passwordForm.currentPassword || !passwordForm.nextPassword) {
     errorMessage.value = '请填写当前密码和新密码。';
@@ -148,7 +129,7 @@ onMounted(loadAccountData);
 </script>
 
 <template>
-  <AppPageHeader title="我的账户" description="展示角色、登录状态、passkey、API Token、RSS 与账户相关操作。" />
+  <AppPageHeader title="我的账户" description="展示角色、登录状态、API Token、RSS 与账户相关操作。" />
 
   <AppAlert v-if="feedback" variant="success" :title="feedback" />
   <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
@@ -190,14 +171,8 @@ onMounted(loadAccountData);
     </AppCard>
 
     <div class="space-y-6">
-      <AppCard title="passkey 与 RSS" description="RSS 地址会随 passkey 一起轮换。">
+      <AppCard title="RSS 订阅" description="当前站点提供统一的公开 RSS 地址，可直接用于自动化订阅。">
         <div class="space-y-4">
-          <div>
-            <p class="mb-2 text-sm text-slate-500">当前 passkey</p>
-            <p class="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              {{ authStore.currentUser?.passkey }}
-            </p>
-          </div>
           <div>
             <p class="mb-2 text-sm text-slate-500">通用 RSS 地址</p>
             <p class="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -209,9 +184,6 @@ onMounted(loadAccountData);
           <div class="flex flex-wrap gap-2">
             <UiButton variant="secondary" :disabled="!rssFeed || rssLoading" @click="copyRssFeed">复制 RSS</UiButton>
             <UiButton to="/rss" variant="ghost">前往 RSS 页</UiButton>
-            <UiButton variant="danger" :disabled="resettingPasskey" @click="handleResetPasskey">
-              {{ resettingPasskey ? '重置中...' : '重置 passkey' }}
-            </UiButton>
           </div>
         </template>
       </AppCard>

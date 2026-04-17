@@ -5,7 +5,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 
-from apps.common.utils import generate_passkey
+from apps.common.utils import generate_secret_token
 
 
 INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -41,8 +41,7 @@ class User(AbstractUser):
     display_name = models.CharField(max_length=100)
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.USER)
     status = models.CharField(max_length=20, choices=UserStatus.choices, default=UserStatus.ACTIVE)
-    passkey = models.CharField(max_length=32, unique=True, default=generate_passkey)
-    api_token = models.CharField(max_length=32, unique=True, default=generate_passkey)
+    api_token = models.CharField(max_length=32, unique=True, default=generate_secret_token)
     theme_mode = models.CharField(max_length=20, default="system")
     theme_custom_css = models.TextField(blank=True, default="")
 
@@ -53,10 +52,8 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         if not self.display_name:
             self.display_name = self.username
-        if not self.passkey:
-            self.passkey = generate_passkey()
         if not self.api_token:
-            self.api_token = generate_passkey()
+            self.api_token = generate_secret_token()
         super().save(*args, **kwargs)
 
     @property

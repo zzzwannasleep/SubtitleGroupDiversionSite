@@ -4,11 +4,9 @@
 
 默认会启动：
 
-- `frontend`
 - `backend`
 - `mysql`
 - `redis`
-- `nginx`
 
 ## 准备配置
 
@@ -32,14 +30,12 @@ cp .env.example .env
 适合已经 `git clone` 整个仓库、需要自行构建镜像的场景。先在仓库根目录执行：
 
 ```bash
-docker build -t subtitle-group-diversion-site/frontend:local ./frontend
-docker build -t subtitle-group-diversion-site/backend:local ./backend
+docker build -f backend/Dockerfile -t subtitle-group-diversion-site/backend:local .
 ```
 
 然后回到 `deploy/.env`，把镜像来源改成：
 
 ```env
-FRONTEND_IMAGE=subtitle-group-diversion-site/frontend:local
 BACKEND_IMAGE=subtitle-group-diversion-site/backend:local
 IMAGE_PULL_POLICY=never
 ```
@@ -65,7 +61,6 @@ docker compose exec \
 
 适合只保留 `deploy/` 目录、直接拉取现成镜像的场景。默认会使用：
 
-- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend:latest`
 - `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest`
 
 启动服务：
@@ -94,7 +89,7 @@ sh scripts/init.sh
 ## 查看日志
 
 ```bash
-docker compose logs -f backend nginx mysql redis
+docker compose logs -f backend mysql redis
 ```
 
 ## 备份
@@ -105,7 +100,7 @@ sh scripts/backup.sh
 
 ## 说明
 
-- `backend` 与 `nginx` 共享 `/media` 和 `/staticfiles`
+- `backend` 容器会直接提供前端页面、`/api`、`/static` 和 `/media`
 - 首次启动会自动执行数据库迁移与静态文件收集
-- `FRONTEND_IMAGE` / `BACKEND_IMAGE` 可覆盖默认镜像地址，`IMAGE_PULL_POLICY=never` 可关闭拉取并改用本地镜像
+- `BACKEND_IMAGE` 可覆盖默认镜像地址，`IMAGE_PULL_POLICY=never` 可关闭拉取并改用本地镜像
 - 当前部署方案不再包含私有 Tracker / XBT 服务

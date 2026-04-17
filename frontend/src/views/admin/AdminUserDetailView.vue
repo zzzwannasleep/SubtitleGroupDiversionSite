@@ -12,7 +12,7 @@ import AppStatusBadge from '@/components/app/AppStatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
-import { changeUserStatus, getUserDetail, resetUserPasskey, updateUser } from '@/services/admin';
+import { changeUserStatus, getUserDetail, updateUser } from '@/services/admin';
 import type { AdminUser, UpdateUserPayload } from '@/types/admin';
 import { formatDateTime } from '@/utils/format';
 
@@ -21,8 +21,8 @@ const state = ref<'loading' | 'ready' | 'not-found' | 'error'>('loading');
 const user = ref<AdminUser | null>(null);
 const feedback = ref('');
 const errorMessage = ref('');
-const pendingAction = ref<'save-profile' | 'toggle-status' | 'reset-passkey' | null>(null);
-const activeDialog = ref<'toggle-status' | 'reset-passkey' | null>(null);
+const pendingAction = ref<'save-profile' | 'toggle-status' | null>(null);
+const activeDialog = ref<'toggle-status' | null>(null);
 const form = reactive({
   displayName: '',
   email: '',
@@ -169,25 +169,6 @@ async function toggleStatus() {
   }
 }
 
-async function handleResetPasskey() {
-  if (!user.value) return;
-
-  feedback.value = '';
-  errorMessage.value = '';
-  pendingAction.value = 'reset-passkey';
-
-  try {
-    await resetUserPasskey(user.value.id);
-    await refreshUserDetailSilently();
-    feedback.value = 'passkey 已重置，旧 RSS 地址和旧下载链接将失效。';
-    activeDialog.value = null;
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '重置 passkey 失败。';
-  } finally {
-    pendingAction.value = null;
-  }
-}
-
 watch(() => route.params.id, loadUserDetail, { immediate: true });
 </script>
 
@@ -200,7 +181,7 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
     </template>
   </AppError>
   <template v-else>
-    <AppPageHeader :title="user.displayName" description="这里保留用户资料编辑、状态切换和 passkey 管理。">
+    <AppPageHeader :title="user.displayName" description="这里保留用户资料编辑和状态切换。">
       <template #actions>
         <UiButton variant="ghost" @click="loadUserDetail">刷新详情</UiButton>
       </template>
@@ -271,13 +252,7 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
       </div>
 
       <div class="space-y-6">
-        <AppCard title="passkey" description="主要用于 RSS 访问与自动化下载链接。">
-          <p class="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            {{ user.passkey }}
-          </p>
-        </AppCard>
-
-        <AppCard title="管理动作" description="状态切换和 passkey 重置会即时生效。">
+        <AppCard title="管理动作" description="状态切换会即时生效。">
           <div class="flex flex-wrap gap-2">
             <UiButton
               :variant="user.status === 'active' ? 'danger' : 'primary'"
@@ -285,13 +260,6 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
               @click="activeDialog = 'toggle-status'"
             >
               {{ user.status === 'active' ? '禁用用户' : '启用用户' }}
-            </UiButton>
-            <UiButton
-              variant="secondary"
-              :disabled="pendingAction !== null"
-              @click="activeDialog = 'reset-passkey'"
-            >
-              重置 passkey
             </UiButton>
           </div>
         </AppCard>
@@ -309,19 +277,6 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
       @confirm="toggleStatus"
     >
       <p>管理员动作会立即写入用户状态，并影响前台权限、RSS 和下载入口。</p>
-    </AppConfirmDialog>
-
-    <AppConfirmDialog
-      :open="activeDialog === 'reset-passkey'"
-      title="确认重置 passkey"
-      description="旧 passkey 会立刻失效，用户需要更新 RSS 客户端或相关自动化配置。"
-      confirm-label="确认重置"
-      tone="warning"
-      :pending="pendingAction === 'reset-passkey'"
-      @close="activeDialog = null"
-      @confirm="handleResetPasskey"
-    >
-      <p>这个操作适合泄露排查或凭据轮换场景，完成后建议同步通知对应成员。</p>
     </AppConfirmDialog>
   </template>
 </template>

@@ -3,19 +3,10 @@ from xml.sax.saxutils import escape
 from django.conf import settings
 
 from apps.announcements.models import SiteSetting
-from apps.releases.models import Category, Release, Tag
-from apps.users.models import User, UserStatus
+from apps.releases.models import Release
 
 
 class RssService:
-    @staticmethod
-    def resolve_access_user(token_or_passkey: str):
-        return User.objects.filter(passkey=token_or_passkey, status=UserStatus.ACTIVE).first()
-
-    @classmethod
-    def resolve_passkey_user(cls, passkey: str):
-        return cls.resolve_access_user(passkey)
-
     @staticmethod
     def get_rss_base_url():
         setting = SiteSetting.get_current()
@@ -25,30 +16,22 @@ class RssService:
         return f"{settings.SITE_BASE_URL.rstrip('/')}/{base_path.lstrip('/')}"
 
     @classmethod
-    def build_overview(cls, user):
+    def build_overview(cls):
         base = cls.get_rss_base_url()
         recent_titles = list(
             Release.objects.filter(status="published").order_by("-published_at", "-id").values_list("title", flat=True)[:4]
         )
         return {
-            "generalFeed": f"{base}/all?passkey={user.passkey}",
-            "categoryFeeds": [
-                {"label": category.name, "url": f"{base}/category/{category.slug}?passkey={user.passkey}"}
-                for category in Category.objects.filter(is_active=True).order_by("sort_order", "id")
-            ],
-            "tagFeeds": [
-                {"label": tag.name, "url": f"{base}/tag/{tag.slug}?passkey={user.passkey}"}
-                for tag in Tag.objects.order_by("name", "id")[:5]
-            ],
+            "generalFeed": f"{base}/all",
             "recentReleaseTitles": recent_titles,
         }
 
     @staticmethod
-    def build_feed(title: str, releases, passkey: str):
+    def build_feed(title: str, releases):
         base = settings.SITE_BASE_URL.rstrip("/")
         items = []
         for release in releases[:50]:
-            download_link = f"{base}/api/releases/{release.id}/download/?passkey={passkey}"
+            download_link = f"{base}/api/releases/{release.id}/download/"
             items.append(
                 "<item>"
                 f"<title>{escape(release.title)}</title>"

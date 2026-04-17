@@ -16,12 +16,12 @@ import { DEFAULT_LOGIN_BACKGROUND_CSS } from '@/utils/site-branding';
 
 const inviteCodeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-function createPasskey() {
+function createSecretToken() {
   return Math.random().toString(36).slice(2).padEnd(32, 'x').slice(0, 32);
 }
 
 function createApiToken() {
-  return `${createPasskey()}${createPasskey()}`;
+  return `${createSecretToken()}${createSecretToken()}`;
 }
 
 function createInitialPassword() {
@@ -78,7 +78,6 @@ export const users: AdminUser[] = [
     email: 'admin@subtitle.local',
     role: 'admin',
     status: 'active',
-    passkey: createPasskey(),
     lastLoginAt: '2026-04-10T10:20:00+08:00',
     joinedAt: '2025-11-15T10:00:00+08:00',
     createdReleaseCount: 3,
@@ -90,7 +89,6 @@ export const users: AdminUser[] = [
     email: 'uploader@subtitle.local',
     role: 'uploader',
     status: 'active',
-    passkey: createPasskey(),
     lastLoginAt: '2026-04-10T09:40:00+08:00',
     joinedAt: '2025-12-01T09:10:00+08:00',
     createdReleaseCount: 6,
@@ -102,7 +100,6 @@ export const users: AdminUser[] = [
     email: 'user@subtitle.local',
     role: 'user',
     status: 'active',
-    passkey: createPasskey(),
     lastLoginAt: '2026-04-10T08:30:00+08:00',
     joinedAt: '2026-01-03T11:10:00+08:00',
     createdReleaseCount: 0,
@@ -222,7 +219,7 @@ export const auditLogs: AuditLog[] = [
   {
     id: 1,
     actorName: '站务总控',
-    action: '重置 passkey',
+    action: '重置 API token',
     targetType: '用户',
     targetName: 'user',
     createdAt: '2026-04-10T08:30:00+08:00',
@@ -356,16 +353,6 @@ export function updateUserRecord(userId: number, patch: Partial<UpdateUserPayloa
   return user;
 }
 
-export function resetPasskey(userId: number): AdminUser {
-  const user = getUserById(userId);
-  if (!user) {
-    throw new Error('用户不存在。');
-  }
-
-  user.passkey = createPasskey();
-  return user;
-}
-
 export function createReleaseFromPayload(payload: {
   title?: string;
   subtitle?: string;
@@ -441,7 +428,6 @@ export function createUserRecord(payload: {
     email: payload.email,
     role: payload.role,
     status: 'active',
-    passkey: createPasskey(),
     lastLoginAt: now,
     joinedAt: now,
     createdReleaseCount: 0,

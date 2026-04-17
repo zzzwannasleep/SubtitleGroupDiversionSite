@@ -10,14 +10,14 @@
 - 后端：`Django 5 + DRF + drf-spectacular`
 - 数据库：`MySQL 8`
 - 缓存：`Redis`
-- 部署：`Docker Compose + Nginx`
+- 部署：`Docker Compose + Django 单容器入口`
 
 ## 当前能力
 
 - 用户登录、注册、邀请码、权限控制
 - 资源发布、编辑、隐藏、列表和详情
 - 发布时直接上传 torrent，编辑时可直接替换 torrent
-- RSS 订阅与基于 `passkey` 的下载鉴权
+- RSS 订阅与公开下载链接
 - 公告、分类、标签、审计日志、站点设置
 - Swagger / OpenAPI 文档
 
@@ -78,14 +78,12 @@ cp deploy/.env.example deploy/.env
 构建本地镜像：
 
 ```bash
-docker build -t subtitle-group-diversion-site/frontend:local ./frontend
-docker build -t subtitle-group-diversion-site/backend:local ./backend
+docker build -f backend/Dockerfile -t subtitle-group-diversion-site/backend:local .
 ```
 
 然后把 `deploy/.env` 中的镜像配置改成：
 
 ```env
-FRONTEND_IMAGE=subtitle-group-diversion-site/frontend:local
 BACKEND_IMAGE=subtitle-group-diversion-site/backend:local
 IMAGE_PULL_POLICY=never
 ```
@@ -131,26 +129,23 @@ docker compose exec \
 
 默认会直接拉取：
 
-- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend:latest`
 - `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest`
 
 如果是完整仓库部署，也可以直接运行 `sh deploy/scripts/init.sh` 完成首启。
 
 默认 Compose 服务包括：
 
-- `frontend`
 - `backend`
 - `mysql`
 - `redis`
-- `nginx`
 
 ## 关键配置
 
 - `SITE_BASE_URL`：站点基础地址，用于拼接 RSS 和下载链接
 - `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_ROOT_PASSWORD`：MySQL 配置
 - `REDIS_URL`：可选，启用 Redis 缓存与会话
-- `HTTP_PORT`：Nginx 对外端口
-- `FRONTEND_IMAGE` / `BACKEND_IMAGE`：可选，覆盖默认镜像地址；源码部署时可指向本地构建镜像
+- `HTTP_PORT`：站点对外端口，由 `backend` 容器直接提供前端、API、静态文件和下载
+- `BACKEND_IMAGE`：可选，覆盖默认镜像地址；源码部署时可指向本地构建镜像
 - `IMAGE_PULL_POLICY`：可选，默认 `always`；源码部署时建议改为 `never`
 
 更多日志、备份与目录内执行方式见 [deploy/README.md](deploy/README.md)。

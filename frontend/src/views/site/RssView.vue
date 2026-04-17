@@ -7,10 +7,8 @@ import AppLoading from '@/components/app/AppLoading.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { getRssOverview } from '@/services/rss';
-import { useAuthStore } from '@/stores/auth';
 import type { RssOverview } from '@/types/admin';
 
-const authStore = useAuthStore();
 const loading = ref(true);
 const failed = ref(false);
 const feedback = ref('');
@@ -18,12 +16,11 @@ const errorMessage = ref('');
 const rssOverview = ref<RssOverview | null>(null);
 
 async function loadData() {
-  if (!authStore.currentUser) return;
   loading.value = true;
   failed.value = false;
 
   try {
-    rssOverview.value = await getRssOverview(authStore.currentUser);
+    rssOverview.value = await getRssOverview();
   } catch {
     failed.value = true;
   } finally {
