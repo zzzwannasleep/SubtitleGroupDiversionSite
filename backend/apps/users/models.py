@@ -1,7 +1,7 @@
 import secrets
 
 from django.conf import settings
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.db import models
 from django.utils import timezone
 
@@ -37,7 +37,17 @@ class UserStatus(models.TextChoices):
     DISABLED = "disabled", "禁用"
 
 
+class UserManager(DjangoUserManager):
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        # Align the project-specific role model with Django's superuser creation flow.
+        extra_fields.setdefault("role", UserRole.ADMIN)
+        extra_fields.setdefault("status", UserStatus.ACTIVE)
+        return super().create_superuser(username, email=email, password=password, **extra_fields)
+
+
 class User(AbstractUser):
+    objects = UserManager()
+
     display_name = models.CharField(max_length=100)
     role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.USER)
     status = models.CharField(max_length=20, choices=UserStatus.choices, default=UserStatus.ACTIVE)

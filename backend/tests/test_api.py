@@ -101,6 +101,18 @@ class ApiFlowTests(TestCase):
         self.assertEqual(me.status_code, 200, me.json())
         self.assertEqual(me.json()["data"]["username"], "admin")
 
+    def test_create_superuser_sets_site_admin_role(self):
+        superuser = User.objects.create_superuser(
+            username="root",
+            password="Root12345!",
+            email="root@example.com",
+        )
+
+        self.assertEqual(superuser.role, "admin")
+        self.assertEqual(superuser.status, "active")
+        self.assertTrue(superuser.is_staff)
+        self.assertTrue(superuser.is_superuser)
+
     def test_public_site_settings_is_available_without_login(self):
         setting = SiteSetting.get_current()
         setting.site_name = "StarGate Subs"
