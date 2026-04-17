@@ -30,10 +30,6 @@ jobs:
             image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend
             context: ./backend
             file: ./backend/Dockerfile
-          - component: xbt
-            image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/xbt
-            context: .
-            file: ./tracker/Dockerfile
 
     steps:
       - name: Checkout
