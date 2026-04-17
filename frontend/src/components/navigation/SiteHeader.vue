@@ -91,6 +91,17 @@ watch(
           </div>
         </RouterLink>
 
+        <nav class="site-header__desktop-nav" aria-label="主导航">
+          <RouterLink
+            v-for="item in navItems"
+            :key="item.to"
+            :to="item.to"
+            :class="['site-header__nav-item', isActive(item.to) ? 'site-header__nav-item--active' : '']"
+          >
+            {{ item.label }}
+          </RouterLink>
+        </nav>
+
         <div class="site-header__top-actions">
           <RouterLink to="/me" class="site-header__account">
             <span class="site-header__account-name">{{ currentUser?.displayName }}</span>
@@ -111,17 +122,6 @@ watch(
           </button>
         </div>
       </div>
-
-      <nav class="site-header__desktop-nav" aria-label="主导航">
-        <RouterLink
-          v-for="item in navItems"
-          :key="item.to"
-          :to="item.to"
-          :class="['site-header__nav-item', isActive(item.to) ? 'site-header__nav-item--active' : '']"
-        >
-          {{ item.label }}
-        </RouterLink>
-      </nav>
     </div>
 
     <div v-if="isMobileMenuOpen" class="site-header__mobile-shell">
@@ -182,9 +182,9 @@ watch(
 }
 
 .site-header__top {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(14rem, auto) minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   padding-top: 0.9rem;
   padding-bottom: 0.85rem;
@@ -258,10 +258,49 @@ watch(
   color: rgb(100 116 139);
 }
 
+.site-header__desktop-nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.site-header__desktop-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.site-header__nav-item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.66rem 0.9rem;
+  font-size: 0.92rem;
+  color: rgb(71 85 105);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.site-header__nav-item:hover {
+  background: rgb(241 245 249);
+  color: rgb(15 23 42);
+}
+
+.site-header__nav-item--active {
+  background: linear-gradient(135deg, rgb(37 99 235), rgb(96 165 250));
+  color: white;
+  box-shadow: 0 10px 24px rgb(37 99 235 / 0.18);
+}
+
 .site-header__top-actions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.75rem;
 }
 
@@ -301,39 +340,6 @@ watch(
   color: rgb(51 65 85);
 }
 
-.site-header__desktop-nav {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.55rem;
-  border-top: 1px solid rgb(241 245 249);
-  padding-top: 0.8rem;
-  padding-bottom: 0.95rem;
-}
-
-.site-header__nav-item {
-  white-space: nowrap;
-  border-radius: 999px;
-  padding: 0.66rem 1rem;
-  font-size: 0.92rem;
-  color: rgb(71 85 105);
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.site-header__nav-item:hover {
-  background: rgb(241 245 249);
-  color: rgb(15 23 42);
-}
-
-.site-header__nav-item--active {
-  background: linear-gradient(135deg, rgb(37 99 235), rgb(96 165 250));
-  color: white;
-  box-shadow: 0 10px 24px rgb(37 99 235 / 0.18);
-}
-
 .site-header__mobile-shell {
   display: none;
   border-top: 1px solid rgb(226 232 240);
@@ -370,6 +376,10 @@ watch(
 }
 
 @media (max-width: 1180px) {
+  .site-header__top {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .site-header__menu-button {
     display: inline-flex;
   }
