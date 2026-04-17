@@ -12,7 +12,14 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-docker compose pull
+set -a
+. ./.env
+set +a
+
+if [ "${IMAGE_PULL_POLICY:-always}" != "never" ]; then
+  docker compose pull
+fi
+
 docker compose up -d mysql redis
 
 echo "Waiting for MySQL to become ready..."

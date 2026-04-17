@@ -8,8 +8,8 @@ x-logging: &default-logging
 
 services:
   frontend:
-    image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend:latest
-    pull_policy: always
+    image: ${FRONTEND_IMAGE:-ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend:latest}
+    pull_policy: ${IMAGE_PULL_POLICY:-always}
     restart: unless-stopped
     expose:
       - "80"
@@ -18,8 +18,8 @@ services:
     logging: *default-logging
 
   backend:
-    image: ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest
-    pull_policy: always
+    image: ${BACKEND_IMAGE:-ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest}
+    pull_policy: ${IMAGE_PULL_POLICY:-always}
     restart: unless-stopped
     env_file:
       - ./.env

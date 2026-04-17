@@ -54,11 +54,67 @@ python backend/manage.py runserver
 
 ## 生产部署
 
+生产环境建议准备一台已安装 `Docker Engine` 与 `Docker Compose` 插件的服务器。当前支持两种部署方式，并且都使用同一份 [deploy/docker-compose.yml](deploy/docker-compose.yml)。
+
+### 方式一：克隆仓库后部署
+
+适合需要查看源码、自行构建镜像或按自己的代码版本发布的场景。
+
 ```bash
-Copy-Item deploy/.env.example deploy/.env
+git clone https://github.com/zzzwannasleep/SubtitleGroupDiversionSite.git
+cd SubtitleGroupDiversionSite
+cp deploy/.env.example deploy/.env
+# PowerShell: Copy-Item deploy/.env.example deploy/.env
+```
+
+先编辑 `deploy/.env`，至少确认这些配置已经改成你的生产值：
+
+- `DJANGO_SECRET_KEY`
+- `DJANGO_ALLOWED_HOSTS`
+- `SITE_BASE_URL`
+- `MYSQL_PASSWORD`
+- `MYSQL_ROOT_PASSWORD`
+
+构建本地镜像：
+
+```bash
+docker build -t subtitle-group-diversion-site/frontend:local ./frontend
+docker build -t subtitle-group-diversion-site/backend:local ./backend
+```
+
+然后把 `deploy/.env` 中的镜像配置改成：
+
+```env
+FRONTEND_IMAGE=subtitle-group-diversion-site/frontend:local
+BACKEND_IMAGE=subtitle-group-diversion-site/backend:local
+IMAGE_PULL_POLICY=never
+```
+
+最后启动服务并创建管理员账号：
+
+```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend python manage.py createsuperuser
 ```
+
+### 方式二：直接使用 `deploy/docker-compose.yml` 部署
+
+适合只想拉取预构建镜像，不关心源码构建的场景。把 `deploy/` 目录整体复制到服务器后执行：
+
+```bash
+cd deploy
+cp .env.example .env
+# PowerShell: Copy-Item .env.example .env
+docker compose up -d
+docker compose exec backend python manage.py createsuperuser
+```
+
+默认会直接拉取：
+
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/frontend:latest`
+- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest`
+
+如果是完整仓库部署，也可以直接运行 `sh deploy/scripts/init.sh` 完成首启。
 
 默认 Compose 服务包括：
 
@@ -74,6 +130,10 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend 
 - `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_ROOT_PASSWORD`：MySQL 配置
 - `REDIS_URL`：可选，启用 Redis 缓存与会话
 - `HTTP_PORT`：Nginx 对外端口
+- `FRONTEND_IMAGE` / `BACKEND_IMAGE`：可选，覆盖默认镜像地址；源码部署时可指向本地构建镜像
+- `IMAGE_PULL_POLICY`：可选，默认 `always`；源码部署时建议改为 `never`
+
+更多日志、备份与目录内执行方式见 [deploy/README.md](deploy/README.md)。
 
 ## 验证
 
