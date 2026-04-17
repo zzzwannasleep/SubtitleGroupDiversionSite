@@ -51,6 +51,16 @@ docker compose up -d
 docker compose exec backend python manage.py createsuperuser
 ```
 
+如果想直接指定超级用户的用户名、邮箱和密码，也可以执行：
+
+```bash
+docker compose exec \
+  -e DJANGO_SUPERUSER_USERNAME=admin \
+  -e DJANGO_SUPERUSER_EMAIL=admin@example.com \
+  -e DJANGO_SUPERUSER_PASSWORD=change-me \
+  backend python manage.py createsuperuser --noinput
+```
+
 ## 方式二：预构建镜像部署
 
 适合只保留 `deploy/` 目录、直接拉取现成镜像的场景。默认会使用：
@@ -63,6 +73,16 @@ docker compose exec backend python manage.py createsuperuser
 ```bash
 docker compose up -d
 docker compose exec backend python manage.py createsuperuser
+```
+
+如果想直接指定超级用户的用户名、邮箱和密码，也可以执行：
+
+```bash
+docker compose exec \
+  -e DJANGO_SUPERUSER_USERNAME=admin \
+  -e DJANGO_SUPERUSER_EMAIL=admin@example.com \
+  -e DJANGO_SUPERUSER_PASSWORD=change-me \
+  backend python manage.py createsuperuser --noinput
 ```
 
 如果希望按初始化顺序自动启动，也可以执行：

@@ -97,6 +97,16 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend python manage.py createsuperuser
 ```
 
+如果想直接指定超级用户的用户名、邮箱和密码，也可以执行：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec \
+  -e DJANGO_SUPERUSER_USERNAME=admin \
+  -e DJANGO_SUPERUSER_EMAIL=admin@example.com \
+  -e DJANGO_SUPERUSER_PASSWORD=change-me \
+  backend python manage.py createsuperuser --noinput
+```
+
 ### 方式二：直接使用 `deploy/docker-compose.yml` 部署
 
 适合只想拉取预构建镜像，不关心源码构建的场景。把 `deploy/` 目录整体复制到服务器后执行：
@@ -107,6 +117,16 @@ cp .env.example .env
 # PowerShell: Copy-Item .env.example .env
 docker compose up -d
 docker compose exec backend python manage.py createsuperuser
+```
+
+如果想直接指定超级用户的用户名、邮箱和密码，也可以执行：
+
+```bash
+docker compose exec \
+  -e DJANGO_SUPERUSER_USERNAME=admin \
+  -e DJANGO_SUPERUSER_EMAIL=admin@example.com \
+  -e DJANGO_SUPERUSER_PASSWORD=change-me \
+  backend python manage.py createsuperuser --noinput
 ```
 
 默认会直接拉取：
