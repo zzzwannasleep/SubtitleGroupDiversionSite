@@ -368,7 +368,7 @@ export function createReleaseFromPayload(payload: {
   const releaseTags = tags.filter((item) => payload.tagSlugs.includes(item.slug));
   const createdAt = nowIso();
   const release: Release = {
-    id: Date.now(),
+    id: Date.now() + Math.floor(Math.random() * 1000),
     title: payload.title?.trim() || fallbackTitle,
     subtitle: payload.subtitle ?? '',
     description: payload.description ?? '',
