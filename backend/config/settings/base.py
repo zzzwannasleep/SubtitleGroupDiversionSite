@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -37,14 +38,55 @@ def env(name: str, default: str | None = None) -> str | None:
     return value if value not in (None, "") else default
 
 
+def split_csv(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def normalize_host(value: str | None) -> str | None:
+    if not value:
+        return None
+
+    candidate = value.strip()
+    if not candidate:
+        return None
+    if candidate == "*":
+        return candidate
+
+    parsed = urlsplit(candidate if "://" in candidate else f"//{candidate}")
+    return parsed.hostname or candidate
+
+
+def build_allowed_hosts(raw_hosts: str | None, site_base_url: str) -> list[str]:
+    hosts: list[str] = []
+    for item in split_csv(raw_hosts):
+        host = normalize_host(item)
+        if host and host not in hosts:
+            hosts.append(host)
+
+    site_host = normalize_host(site_base_url)
+    if site_host and site_host not in hosts:
+        hosts.append(site_host)
+
+    return hosts or ["*"]
+
+
+def build_csrf_trusted_origins(raw_origins: str | None, site_base_url: str) -> list[str]:
+    origins = split_csv(raw_origins)
+    parsed = urlsplit(site_base_url)
+    if parsed.scheme and parsed.netloc:
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin not in origins:
+            origins.append(origin)
+    return origins
+
+
 SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-only-secret-key-change-me")
 DEBUG = env("DJANGO_DEBUG", "false").lower() == "true"
-ALLOWED_HOSTS = [host.strip() for host in env("DJANGO_ALLOWED_HOSTS", "*").split(",") if host.strip()]
-CSRF_TRUSTED_ORIGINS = [
-    item.strip() for item in env("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if item.strip()
-]
-
 SITE_BASE_URL = env("SITE_BASE_URL", "http://localhost:8000").rstrip("/")
+ALLOWED_HOSTS = build_allowed_hosts(env("DJANGO_ALLOWED_HOSTS"), SITE_BASE_URL)
+CSRF_TRUSTED_ORIGINS = build_csrf_trusted_origins(env("DJANGO_CSRF_TRUSTED_ORIGINS"), SITE_BASE_URL)
 LOG_LEVEL = env("LOG_LEVEL", "INFO")
 REDIS_URL = env("REDIS_URL")
 
