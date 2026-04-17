@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppEmpty from '@/components/app/AppEmpty.vue';
 import AppError from '@/components/app/AppError.vue';
@@ -36,9 +35,7 @@ const sortLabels: Record<'latest' | 'downloads' | 'completions', string> = {
 };
 
 const pageCount = computed(() => Math.max(1, Math.ceil(count.value / PAGE_SIZE)));
-const resultDescription = computed(() =>
-  `共 ${count.value} 条结果，本页展示 ${releases.value.length} 条，当前按「${sortLabels[filters.sort]}」排序。`,
-);
+const resultSummary = computed(() => `共 ${count.value} 条，当前按${sortLabels[filters.sort]}排序`);
 const activeFilters = computed(() => {
   const items: Array<{ key: 'q' | 'category' | 'tag'; label: string }> = [];
 
@@ -72,7 +69,7 @@ async function loadList() {
   failed.value = false;
 
   try {
-    const data = await listReleases(filters.toQuery());
+    const data = await listReleases({ ...filters.toQuery(), pageSize: PAGE_SIZE });
     releases.value = data.results;
     count.value = data.count;
   } catch {
@@ -135,16 +132,15 @@ watch(() => route.fullPath, syncFromRoute, { immediate: true });
 </script>
 
 <template>
-  <AppPageHeader title="资源列表" description="统一筛选条、列表卡片和分页区，保持浏览与下载路径清晰。">
+  <AppPageHeader title="资源">
     <template #actions>
       <UiButton
         v-if="authStore.currentUser?.role === 'uploader' || authStore.currentUser?.role === 'admin'"
         to="/upload"
         variant="primary"
       >
-        上传资源
+        上传种子
       </UiButton>
-      <UiButton to="/rss" variant="secondary">查看 RSS</UiButton>
     </template>
   </AppPageHeader>
 
@@ -163,18 +159,7 @@ watch(() => route.fullPath, syncFromRoute, { immediate: true });
     @reset="resetFilters"
   />
 
-  <AppAlert
-    v-if="activeFilters.length"
-    variant="info"
-    title="已应用筛选条件"
-    :description="`当前结果会同时受到 ${activeFilters.length} 个条件影响。`"
-  >
-    <template #actions>
-      <UiButton variant="ghost" size="sm" @click="resetFilters">清空全部</UiButton>
-    </template>
-  </AppAlert>
-
-  <div v-if="activeFilters.length" class="flex flex-wrap gap-2">
+  <div v-if="activeFilters.length" class="flex flex-wrap items-center gap-2">
     <button
       v-for="item in activeFilters"
       :key="item.label"
@@ -185,18 +170,23 @@ watch(() => route.fullPath, syncFromRoute, { immediate: true });
       {{ item.label }}
       <span class="text-xs text-slate-500">移除</span>
     </button>
+    <UiButton variant="ghost" size="sm" @click="resetFilters">清空</UiButton>
   </div>
 
   <AppLoading v-if="loading" />
-  <AppError v-else-if="failed" title="资源列表加载失败" description="请稍后重试，或检查资源接口状态。" />
-  <AppCard v-else-if="!releases.length" title="资源结果" description="当前筛选条件下没有可展示的条目。">
-    <AppEmpty title="没有匹配结果" description="调整关键词、分类或标签后再试一次。">
+  <AppError v-else-if="failed" title="资源加载失败" description="请稍后重试。" />
+  <AppCard v-else-if="!releases.length" title="资源列表">
+    <AppEmpty title="没有匹配结果" description="调整筛选后再试。">
       <template #actions>
         <UiButton variant="secondary" @click="resetFilters">重置筛选</UiButton>
       </template>
     </AppEmpty>
   </AppCard>
-  <AppCard v-else title="资源结果" :description="resultDescription">
+  <AppCard v-else title="资源列表">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+      <p>{{ resultSummary }}</p>
+      <p>第 {{ filters.page }} / {{ pageCount }} 页</p>
+    </div>
     <ReleaseListTable :releases="releases">
       <template #actions="{ release }">
         <UiButton variant="secondary" size="sm" @click="downloadRelease(release.id)">下载</UiButton>

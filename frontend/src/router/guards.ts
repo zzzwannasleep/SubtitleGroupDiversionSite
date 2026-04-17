@@ -21,7 +21,7 @@ export function registerRouterGuards(router: Router) {
     }
 
     if (to.meta.guestOnly && authStore.isAuthenticated) {
-      return { name: 'home' };
+      return { name: 'release-list' };
     }
 
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {

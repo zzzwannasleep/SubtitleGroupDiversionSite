@@ -23,6 +23,7 @@ const filteredReleases = computed(() =>
     ? releases.value
     : releases.value.filter((item) => item.status === statusFilter.value),
 );
+const summary = computed(() => `共 ${filteredReleases.value.length} / ${releases.value.length} 条`);
 
 async function loadReleases() {
   if (!authStore.currentUser) return;
@@ -42,11 +43,15 @@ onMounted(loadReleases);
 </script>
 
 <template>
-  <AppPageHeader title="我的发布" description="上传者和管理员都在前台查看自己的资源，不误入后台。" />
+  <AppPageHeader title="我的发布">
+    <template #actions>
+      <UiButton to="/upload" variant="primary">上传种子</UiButton>
+    </template>
+  </AppPageHeader>
   <AppLoading v-if="loading" />
-  <AppError v-else-if="failed" title="我的发布加载失败" description="请稍后再试，或检查资源接口状态。" />
-  <AppCard v-else title="我发布的资源" :description="`共 ${releases.length} 条，当前筛选后 ${filteredReleases.length} 条。`">
-    <div class="mb-4 flex flex-wrap gap-3">
+  <AppError v-else-if="failed" title="我的发布加载失败" description="请稍后重试。" />
+  <AppCard v-else title="资源列表">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <UiSelect
         v-model="statusFilter"
         :options="[
@@ -56,9 +61,12 @@ onMounted(loadReleases);
           { label: '已隐藏', value: 'hidden' },
         ]"
       />
-      <UiButton variant="ghost" @click="statusFilter = 'all'">重置筛选</UiButton>
+      <div class="flex items-center gap-2">
+        <p class="text-sm text-slate-500">{{ summary }}</p>
+        <UiButton variant="ghost" @click="statusFilter = 'all'">重置</UiButton>
+      </div>
     </div>
-    <AppEmpty v-if="!filteredReleases.length" title="当前筛选下没有资源" description="切换状态筛选后再看一次。" />
+    <AppEmpty v-if="!filteredReleases.length" title="暂无资源" description="当前筛选下没有内容。" />
     <ReleaseListTable v-else :releases="filteredReleases" show-status>
       <template #actions="{ release }">
         <UiButton :to="`/my/releases/${release.id}/edit`" size="sm">编辑</UiButton>

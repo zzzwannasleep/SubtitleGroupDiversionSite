@@ -34,13 +34,12 @@ const brandMonogram = computed(() => buildSiteMonogram(siteSettings.value.siteNa
 
 const navItems = computed(() => {
   const items = [
-    { label: '首页', to: '/' },
     { label: '资源', to: '/releases' },
     { label: 'RSS', to: '/rss' },
   ];
 
   if (canManageReleases.value) {
-    items.push({ label: '上传资源', to: '/upload' });
+    items.push({ label: '上传种子', to: '/upload' });
     items.push({ label: '我的发布', to: '/my/releases' });
   }
 
@@ -55,7 +54,7 @@ const navItems = computed(() => {
 });
 
 function isActive(path: string) {
-  return route.path === path || (path !== '/' && route.path.startsWith(path));
+  return route.path === path || route.path.startsWith(`${path}/`);
 }
 
 async function handleLogout() {
@@ -76,7 +75,7 @@ watch(
   <header class="site-header">
     <div class="site-header__container">
       <div class="site-header__top">
-        <RouterLink to="/" class="site-header__brand">
+        <RouterLink to="/releases" class="site-header__brand">
           <div :class="['site-header__brand-icon', brandIconUrl ? 'site-header__brand-icon--plain' : '']">
             <img
               v-if="brandIconUrl"
@@ -128,7 +127,13 @@ watch(
     <div v-if="isMobileMenuOpen" class="site-header__mobile-shell">
       <div class="site-header__container site-header__mobile-panel">
         <div class="site-header__mobile-account">
-          <div :class="['site-header__brand-icon', 'site-header__brand-icon--mobile', brandIconUrl ? 'site-header__brand-icon--plain' : '']">
+          <div
+            :class="[
+              'site-header__brand-icon',
+              'site-header__brand-icon--mobile',
+              brandIconUrl ? 'site-header__brand-icon--plain' : '',
+            ]"
+          >
             <img
               v-if="brandIconUrl"
               :src="brandIconUrl"

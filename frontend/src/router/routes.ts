@@ -18,7 +18,6 @@ import EditMyReleaseView from '@/views/upload/EditMyReleaseView.vue';
 import MyReleasesView from '@/views/upload/MyReleasesView.vue';
 import UploadView from '@/views/upload/UploadView.vue';
 import CategoryView from '@/views/site/CategoryView.vue';
-import HomeView from '@/views/site/HomeView.vue';
 import MeView from '@/views/site/MeView.vue';
 import MyDownloadsView from '@/views/site/MyDownloadsView.vue';
 import ReleaseDetailView from '@/views/site/ReleaseDetailView.vue';
@@ -59,15 +58,15 @@ export const routes: RouteRecordRaw[] = [
     path: '/',
     component: SiteLayout,
     children: [
-      { path: '', name: 'home', component: HomeView, meta: { requiresAuth: true, title: '首页' } },
-      { path: 'releases', name: 'release-list', component: ReleaseListView, meta: { requiresAuth: true, title: '资源列表' } },
+      { path: '', redirect: { name: 'release-list' } },
+      { path: 'releases', name: 'release-list', component: ReleaseListView, meta: { requiresAuth: true, title: '资源' } },
       { path: 'releases/:id', name: 'release-detail', component: ReleaseDetailView, meta: { requiresAuth: true, title: '资源详情' } },
-      { path: 'categories/:slug', name: 'category-detail', component: CategoryView, meta: { requiresAuth: true, title: '分类页' } },
-      { path: 'tags/:slug', name: 'tag-detail', component: TagView, meta: { requiresAuth: true, title: '标签页' } },
+      { path: 'categories/:slug', name: 'category-detail', component: CategoryView, meta: { requiresAuth: true, title: '分类' } },
+      { path: 'tags/:slug', name: 'tag-detail', component: TagView, meta: { requiresAuth: true, title: '标签' } },
       { path: 'rss', name: 'rss', component: RssView, meta: { requiresAuth: true, title: 'RSS' } },
       { path: 'me', name: 'me', component: MeView, meta: { requiresAuth: true, title: '我的账户' } },
       { path: 'me/downloads', name: 'my-downloads', component: MyDownloadsView, meta: { requiresAuth: true, title: '我的下载' } },
-      { path: 'upload', name: 'upload', component: UploadView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '上传资源' } },
+      { path: 'upload', name: 'upload', component: UploadView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '上传种子' } },
       { path: 'my/releases', name: 'my-releases', component: MyReleasesView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '我的发布' } },
       { path: 'my/releases/:id/edit', name: 'my-release-edit', component: EditMyReleaseView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '编辑资源' } },
     ],

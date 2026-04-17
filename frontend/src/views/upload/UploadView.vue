@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { FileUp } from 'lucide-vue-next';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
@@ -63,10 +62,10 @@ async function submit() {
       },
       authStore.currentUser,
     );
-    feedback.value = `种子已发布：${release.title}`;
+    feedback.value = `已发布：${release.title}`;
     resetForm();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '发布种子失败。';
+    errorMessage.value = error instanceof Error ? error.message : '发布失败。';
   } finally {
     submitting.value = false;
   }
@@ -74,31 +73,14 @@ async function submit() {
 </script>
 
 <template>
-  <AppPageHeader
-    title="上传资源"
-    description="这个页面现在只用来发布种子。标题、分类、简介和标签都会由系统自动补全，不再需要手动填写。"
-  />
+  <AppPageHeader title="上传种子" />
 
   <AppAlert v-if="feedback" variant="success" :title="feedback" />
   <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
-  <div class="mx-auto max-w-4xl">
-    <AppCard title="发布种子" description="上传 .torrent 文件后会直接创建资源，用于分流时尽量保持流程最短。">
-      <div class="space-y-6">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div class="flex items-start gap-3">
-            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
-              <FileUp class="h-5 w-5" />
-            </div>
-            <div class="space-y-1">
-              <h3 class="text-base font-semibold text-slate-900">只传种子就行</h3>
-              <p class="text-sm leading-6 text-slate-600">
-                系统会自动读取种子内容，优先用种子名称生成标题，并自动落到默认分类，避免再填一堆无关字段。
-              </p>
-            </div>
-          </div>
-        </div>
-
+  <div class="mx-auto max-w-3xl">
+    <AppCard title="上传 .torrent">
+      <div class="space-y-5">
         <div>
           <label class="app-field-label">torrent 文件</label>
           <input
@@ -109,22 +91,15 @@ async function submit() {
             @change="handleTorrentChange"
           />
           <p class="app-field-help">
-            {{
-              form.torrentFileName
-                ? `已选择：${form.torrentFileName}`
-                : '请选择一个 .torrent 文件，提交后会直接生成可下载的分流资源。'
-            }}
+            {{ form.torrentFileName ? `已选择：${form.torrentFileName}` : '选择文件后直接发布。' }}
           </p>
         </div>
       </div>
 
       <template #footer>
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-sm text-slate-500">发布权限仍然只开放给上传者和管理员。</p>
-          <UiButton variant="primary" :disabled="!canSubmit" @click="submit">
-            {{ submitting ? '正在发布...' : '发布种子' }}
-          </UiButton>
-        </div>
+        <UiButton variant="primary" :disabled="!canSubmit" @click="submit">
+          {{ submitting ? '正在发布...' : '发布' }}
+        </UiButton>
       </template>
     </AppCard>
   </div>

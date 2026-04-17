@@ -131,22 +131,6 @@ export async function getReleaseById(releaseId: number): Promise<Release | null>
   }
 }
 
-export async function getHomeData(): Promise<{
-  latestReleases: Release[];
-  categories: Category[];
-  tags: Tag[];
-}> {
-  if (useMockApi()) {
-    return mockResolve(() => ({
-      latestReleases: releases.filter((item) => item.status === 'published').slice(0, 5),
-      categories,
-      tags,
-    }));
-  }
-
-  return apiRequest('/api/home/');
-}
-
 export async function listCategories(): Promise<Category[]> {
   if (useMockApi()) {
     return mockResolve(() => categories);
