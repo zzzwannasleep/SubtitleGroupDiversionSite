@@ -5,7 +5,7 @@
     <p class="mt-2 text-sm text-slate-500">MVP 阶段建议优先显示页内错误态，必要时再统一跳转到这里。</p>
     <div class="mt-6 flex justify-center gap-2">
       <UiButton to="/" variant="primary">返回首页</UiButton>
-      <UiButton to="/admin/tracker-sync" variant="secondary">查看同步状态</UiButton>
+      <UiButton to="/admin" variant="secondary">前往后台</UiButton>
     </div>
   </div>
 </template>
@@ -13,4 +13,3 @@
 <script setup lang="ts">
 import UiButton from '@/components/ui/UiButton.vue';
 </script>
-

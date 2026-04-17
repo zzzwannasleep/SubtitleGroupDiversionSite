@@ -1,31 +1,13 @@
-import type { CurrentUser, UserRole, UserStatus } from './auth';
-import type { ReleaseStatus, XbtFileSnapshot } from './release';
+import type { CurrentUser } from './auth';
 
 export type SyncStatus = 'success' | 'warning' | 'failed';
 export type AnnouncementStatus = 'online' | 'draft' | 'offline';
-export type XbtUserState = 'enabled' | 'disabled' | 'missing' | 'unavailable';
 export type LoginBackgroundType = 'api' | 'file' | 'css';
 export type InviteCodeStatus = 'available' | 'used' | 'expired' | 'revoked';
-
-export interface TrackerSyncSnapshot {
-  status: SyncStatus;
-  message: string;
-  updatedAt: string;
-}
-
-export interface XbtUserSnapshot {
-  state: XbtUserState;
-  canLeech: boolean | null;
-  downloaded: number | null;
-  uploaded: number | null;
-  completed: number | null;
-}
 
 export interface AdminUser extends CurrentUser {
   createdReleaseCount: number;
   initialPassword?: string;
-  trackerSync?: TrackerSyncSnapshot | null;
-  xbtUser?: XbtUserSnapshot | null;
 }
 
 export interface ApiTokenPayload {
@@ -39,78 +21,6 @@ export interface Announcement {
   status: AnnouncementStatus;
   audience: 'all' | 'uploader' | 'admin';
   updatedAt: string;
-}
-
-export interface TrackerSyncLog {
-  id: number;
-  scope: 'user' | 'release' | 'full';
-  targetName: string;
-  status: SyncStatus;
-  message: string;
-  updatedAt: string;
-  userId: number | null;
-  releaseId: number | null;
-  retryable: boolean;
-}
-
-export interface TrackerSyncLogFilters {
-  scope?: TrackerSyncLog['scope'];
-  status?: SyncStatus;
-  userId?: number;
-  releaseId?: number;
-  q?: string;
-  limit?: number;
-}
-
-export interface TrackerSyncOverviewSummary {
-  xbtSyncEnabled: boolean;
-  xbtDatabaseAlias: string;
-  totalLogs: number;
-  successCount: number;
-  warningCount: number;
-  failedCount: number;
-  pendingCount: number;
-  lastSuccessAt: string | null;
-  lastFailureAt: string | null;
-  lastFullSyncAt: string | null;
-}
-
-export interface TrackerSyncOverview {
-  summary: TrackerSyncOverviewSummary;
-  latestLogs: TrackerSyncLog[];
-  failedLogs: TrackerSyncLog[];
-}
-
-export interface TrackerSyncUserTarget {
-  id: number;
-  username: string;
-  displayName: string;
-  role: UserRole;
-  status: UserStatus;
-  passkey: string;
-}
-
-export interface TrackerSyncUserDetail {
-  user: TrackerSyncUserTarget;
-  trackerSync: TrackerSyncSnapshot | null;
-  xbtUser: XbtUserSnapshot;
-  recentLogs: TrackerSyncLog[];
-}
-
-export interface TrackerSyncReleaseTarget {
-  id: number;
-  title: string;
-  status: ReleaseStatus;
-  infohash: string;
-  publishedAt: string;
-  createdById: number;
-}
-
-export interface TrackerSyncReleaseDetail {
-  release: TrackerSyncReleaseTarget;
-  trackerSync: TrackerSyncSnapshot | null;
-  xbtFile: XbtFileSnapshot;
-  recentLogs: TrackerSyncLog[];
 }
 
 export interface AuditLog {
@@ -127,7 +37,7 @@ export interface AdminDashboardStats {
   userCount: number;
   releaseCount: number;
   activeReleaseCount: number;
-  pendingSyncCount: number;
+  draftReleaseCount: number;
   activeAnnouncementCount: number;
 }
 
@@ -201,17 +111,17 @@ export interface CreateUserPayload {
   username: string;
   displayName: string;
   email: string;
-  role: UserRole;
+  role: 'admin' | 'uploader' | 'user';
   password?: string;
 }
 
 export interface UpdateUserPayload {
   displayName: string;
   email: string;
-  role: UserRole;
+  role: 'admin' | 'uploader' | 'user';
 }
 
 export interface ToggleUserStatusPayload {
   userId: number;
-  nextStatus: UserStatus;
+  nextStatus: 'active' | 'disabled';
 }

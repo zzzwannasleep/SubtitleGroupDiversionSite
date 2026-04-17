@@ -17,17 +17,16 @@ import { apiRequest, isApiError } from './api';
 import {
   announcements,
   appendAuditLog,
-  appendTrackerSyncLog,
   auditLogs,
   categories,
   createInviteCodeRecords,
   createUserRecord,
   getDashboardStats,
-  inviteCodes,
   getUserById,
+  inviteCodes,
   releases,
-  revokeInviteCodeRecord,
   resetPasskey,
+  revokeInviteCodeRecord,
   saveAnnouncement,
   saveCategory,
   saveSettings,
@@ -63,10 +62,7 @@ export async function getAdminDashboard(): Promise<{
 }
 
 export async function listUsers(filters: ListUsersOptions | string = {}): Promise<AdminUser[]> {
-  const normalized =
-    typeof filters === 'string'
-      ? { keyword: filters }
-      : filters;
+  const normalized = typeof filters === 'string' ? { keyword: filters } : filters;
 
   if (useMockApi()) {
     return mockResolve(() => {
@@ -120,7 +116,7 @@ export async function updateUser(
         action: '更新用户',
         targetType: '用户',
         targetName: user.username,
-        detail: `已更新字段：${Object.keys(payload).join('、') || '基础资料'}`,
+        detail: Object.keys(payload).length ? `已更新字段：${Object.keys(payload).join('、')}` : '基础资料更新',
       });
       return user;
     });
@@ -164,14 +160,6 @@ export async function changeUserStatus(payload: ToggleUserStatusPayload): Promis
         targetName: user.username,
         detail: `状态切换为 ${payload.nextStatus}`,
       });
-      appendTrackerSyncLog({
-        scope: 'user',
-        targetName: user.username,
-        status: 'success',
-        message: '用户状态已同步到 XBT',
-        userId: user.id,
-        releaseId: null,
-      });
       return user;
     });
   }
@@ -191,7 +179,7 @@ export async function resetUserPasskey(userId: number): Promise<AdminUser> {
         action: '重置 passkey',
         targetType: '用户',
         targetName: user.username,
-        detail: '管理员手动触发重置。',
+        detail: '管理员手动触发了重置。',
       });
       return user;
     });

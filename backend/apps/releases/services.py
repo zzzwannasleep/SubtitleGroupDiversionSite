@@ -6,9 +6,8 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.audit.services import AuditService
 from apps.common.exceptions import BusinessException
-from apps.common.torrent import parse_torrent, rewrite_torrent
+from apps.common.torrent import parse_torrent
 from apps.releases.models import Release, ReleaseFile, ReleaseStatus
-from apps.tracker_sync.services import TrackerSyncService
 
 
 class ReleaseService:
@@ -61,7 +60,7 @@ class ReleaseService:
     @staticmethod
     def _apply_torrent_payload(release: Release, torrent_file):
         original_name = getattr(torrent_file, "name", "upload.torrent")
-        torrent_bytes = rewrite_torrent(torrent_file.read(), private=True)
+        torrent_bytes = torrent_file.read()
         metadata = parse_torrent(torrent_bytes)
         duplicated = Release.objects.exclude(pk=release.pk).filter(infohash=metadata.infohash).exists()
         if duplicated:
@@ -102,7 +101,6 @@ class ReleaseService:
             detail="上传 torrent 并写入文件列表。",
             payload={"release_id": release.id},
         )
-        transaction.on_commit(lambda: TrackerSyncService.sync_release_by_id(release.id))
         return release
 
     @classmethod
@@ -136,7 +134,6 @@ class ReleaseService:
             detail="资源元数据已更新。",
             payload={"release_id": release.id},
         )
-        transaction.on_commit(lambda: TrackerSyncService.sync_release_by_id(release.id))
         return release
 
     @classmethod
@@ -154,5 +151,4 @@ class ReleaseService:
             detail=f"资源状态切换为 {status}。",
             payload={"release_id": release.id},
         )
-        transaction.on_commit(lambda: TrackerSyncService.sync_release_by_id(release.id))
         return release

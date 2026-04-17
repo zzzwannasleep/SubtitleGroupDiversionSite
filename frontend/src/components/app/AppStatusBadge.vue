@@ -7,20 +7,10 @@ import {
   roleLabels,
   syncStatusLabels,
   userStatusLabels,
-  xbtFileStateLabels,
-  xbtUserStateLabels,
 } from '@/utils/labels';
 
 const props = defineProps<{
-  type:
-    | 'role'
-    | 'user-status'
-    | 'release-status'
-    | 'sync-status'
-    | 'announcement-status'
-    | 'audience'
-    | 'xbt-user-state'
-    | 'xbt-file-state';
+  type: 'role' | 'user-status' | 'release-status' | 'sync-status' | 'announcement-status' | 'audience';
   value: string;
 }>();
 
@@ -54,18 +44,6 @@ const meta = computed(() => {
       all: [audienceLabels.all, 'bg-blue-100 text-blue-700'],
       uploader: [audienceLabels.uploader, 'bg-violet-100 text-violet-700'],
       admin: [audienceLabels.admin, 'bg-slate-900 text-white'],
-    },
-    'xbt-user-state': {
-      enabled: [xbtUserStateLabels.enabled, 'bg-green-100 text-green-700'],
-      disabled: [xbtUserStateLabels.disabled, 'bg-red-100 text-red-700'],
-      missing: [xbtUserStateLabels.missing, 'bg-slate-200 text-slate-700'],
-      unavailable: [xbtUserStateLabels.unavailable, 'bg-amber-100 text-amber-700'],
-    },
-    'xbt-file-state': {
-      whitelisted: [xbtFileStateLabels.whitelisted, 'bg-green-100 text-green-700'],
-      deleted: [xbtFileStateLabels.deleted, 'bg-red-100 text-red-700'],
-      missing: [xbtFileStateLabels.missing, 'bg-slate-200 text-slate-700'],
-      unavailable: [xbtFileStateLabels.unavailable, 'bg-amber-100 text-amber-700'],
     },
   } as const;
 

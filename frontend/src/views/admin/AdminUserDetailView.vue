@@ -12,19 +12,16 @@ import AppStatusBadge from '@/components/app/AppStatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
-import UiTable from '@/components/ui/UiTable.vue';
 import { changeUserStatus, getUserDetail, resetUserPasskey, updateUser } from '@/services/admin';
-import { getTrackerSyncUserDetail, runTrackerSyncForUser } from '@/services/trackerSync';
-import type { AdminUser, TrackerSyncUserDetail, UpdateUserPayload } from '@/types/admin';
-import { formatBytes, formatDateTime } from '@/utils/format';
+import type { AdminUser, UpdateUserPayload } from '@/types/admin';
+import { formatDateTime } from '@/utils/format';
 
 const route = useRoute();
 const state = ref<'loading' | 'ready' | 'not-found' | 'error'>('loading');
 const user = ref<AdminUser | null>(null);
-const trackerDetail = ref<TrackerSyncUserDetail | null>(null);
 const feedback = ref('');
 const errorMessage = ref('');
-const pendingAction = ref<'save-profile' | 'toggle-status' | 'reset-passkey' | 'sync-user' | null>(null);
+const pendingAction = ref<'save-profile' | 'toggle-status' | 'reset-passkey' | null>(null);
 const activeDialog = ref<'toggle-status' | 'reset-passkey' | null>(null);
 const form = reactive({
   displayName: '',
@@ -50,33 +47,6 @@ const statusActionMeta = computed(() => {
       : `启用后，用户 ${user.value.displayName} 将恢复正常访问权限。`,
     tone: isDisabling ? ('danger' as const) : ('primary' as const),
   };
-});
-
-const currentTrackerSync = computed(() => trackerDetail.value?.trackerSync ?? user.value?.trackerSync ?? null);
-const currentXbtUser = computed(() => trackerDetail.value?.xbtUser ?? user.value?.xbtUser ?? null);
-const recentLogs = computed(() => trackerDetail.value?.recentLogs ?? []);
-
-const trackerFacts = computed(() => {
-  if (!currentXbtUser.value) return [];
-
-  return [
-    {
-      label: '可下载',
-      value: currentXbtUser.value.canLeech === null ? '-' : currentXbtUser.value.canLeech ? '是' : '否',
-    },
-    {
-      label: '已下载',
-      value: currentXbtUser.value.downloaded === null ? '-' : formatBytes(currentXbtUser.value.downloaded),
-    },
-    {
-      label: '已上传',
-      value: currentXbtUser.value.uploaded === null ? '-' : formatBytes(currentXbtUser.value.uploaded),
-    },
-    {
-      label: '完成数',
-      value: currentXbtUser.value.completed === null ? '-' : `${currentXbtUser.value.completed}`,
-    },
-  ];
 });
 
 const fullProfilePayload = computed<UpdateUserPayload>(() => ({
@@ -121,48 +91,36 @@ function syncFormFromUser(nextUser: AdminUser) {
   form.role = nextUser.role;
 }
 
-async function fetchUserData(userId: number) {
-  const [nextUser, nextTrackerDetail] = await Promise.all([
-    getUserDetail(userId),
-    getTrackerSyncUserDetail(userId),
-  ]);
-
-  return { nextUser, nextTrackerDetail };
-}
-
 async function loadUserDetail() {
   const userId = Number(route.params.id);
 
   state.value = 'loading';
   user.value = null;
-  trackerDetail.value = null;
   feedback.value = '';
   errorMessage.value = '';
 
   try {
-    const { nextUser, nextTrackerDetail } = await fetchUserData(userId);
-    if (!nextUser || !nextTrackerDetail) {
+    const nextUser = await getUserDetail(userId);
+    if (!nextUser) {
       state.value = 'not-found';
       return;
     }
 
     user.value = nextUser;
-    trackerDetail.value = nextTrackerDetail;
     syncFormFromUser(nextUser);
     state.value = 'ready';
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '用户详情加载失败';
+    errorMessage.value = error instanceof Error ? error.message : '用户详情加载失败。';
     state.value = 'error';
   }
 }
 
 async function refreshUserDetailSilently() {
   const userId = Number(route.params.id);
-  const { nextUser, nextTrackerDetail } = await fetchUserData(userId);
+  const nextUser = await getUserDetail(userId);
 
-  if (nextUser && nextTrackerDetail) {
+  if (nextUser) {
     user.value = nextUser;
-    trackerDetail.value = nextTrackerDetail;
     syncFormFromUser(nextUser);
     state.value = 'ready';
   }
@@ -183,7 +141,7 @@ async function handleSaveProfile() {
     await refreshUserDetailSilently();
     feedback.value = method === 'PUT' ? '用户资料已完整更新。' : '用户资料已局部更新。';
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '更新用户资料失败';
+    errorMessage.value = error instanceof Error ? error.message : '更新用户资料失败。';
   } finally {
     pendingAction.value = null;
   }
@@ -205,7 +163,7 @@ async function toggleStatus() {
     feedback.value = `用户状态已切换为 ${user.value?.status ?? '-'}`;
     activeDialog.value = null;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '切换用户状态失败';
+    errorMessage.value = error instanceof Error ? error.message : '切换用户状态失败。';
   } finally {
     pendingAction.value = null;
   }
@@ -221,28 +179,10 @@ async function handleResetPasskey() {
   try {
     await resetUserPasskey(user.value.id);
     await refreshUserDetailSilently();
-    feedback.value = 'passkey 已重置，并已同步刷新该用户的 XBT 状态。';
+    feedback.value = 'passkey 已重置，旧 RSS 地址和旧下载链接将失效。';
     activeDialog.value = null;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '重置 passkey 失败';
-  } finally {
-    pendingAction.value = null;
-  }
-}
-
-async function handleRunUserSync() {
-  if (!user.value) return;
-
-  feedback.value = '';
-  errorMessage.value = '';
-  pendingAction.value = 'sync-user';
-
-  try {
-    await runTrackerSyncForUser(user.value.id);
-    await refreshUserDetailSilently();
-    feedback.value = '已手动触发该用户的 XBT 同步。';
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '手动同步用户到 XBT 失败';
+    errorMessage.value = error instanceof Error ? error.message : '重置 passkey 失败。';
   } finally {
     pendingAction.value = null;
   }
@@ -260,7 +200,7 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
     </template>
   </AppError>
   <template v-else>
-    <AppPageHeader :title="user.displayName" description="用户详情页已接入资料编辑、单用户 XBT 同步与最近同步日志。">
+    <AppPageHeader :title="user.displayName" description="这里保留用户资料编辑、状态切换和 passkey 管理。">
       <template #actions>
         <UiButton variant="ghost" @click="loadUserDetail">刷新详情</UiButton>
       </template>
@@ -316,7 +256,7 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
           <template #footer>
             <div class="flex flex-wrap items-center justify-between gap-3">
               <span class="text-sm text-slate-500">
-                本页会在仅改动部分字段时走 `PATCH`，全部字段改动时走 `PUT`。
+                本页在仅改动部分字段时走 `PATCH`，全部字段改动时走 `PUT`。
               </span>
               <UiButton
                 variant="primary"
@@ -331,86 +271,14 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
       </div>
 
       <div class="space-y-6">
-        <AppCard title="passkey">
+        <AppCard title="passkey" description="主要用于 RSS 访问与自动化下载链接。">
           <p class="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
             {{ user.passkey }}
           </p>
         </AppCard>
 
-        <AppCard title="XBT 状态" description="这里接入了单用户同步详情接口，可查看镜像状态和最近日志。">
-          <div class="space-y-4">
-            <div>
-              <p class="mb-2 text-sm text-slate-500">最近同步</p>
-              <div v-if="currentTrackerSync" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div class="flex items-center justify-between gap-3">
-                  <AppStatusBadge type="sync-status" :value="currentTrackerSync.status" />
-                  <span class="text-xs text-slate-500">{{ formatDateTime(currentTrackerSync.updatedAt) }}</span>
-                </div>
-                <p class="mt-3 text-sm leading-6 text-slate-600">{{ currentTrackerSync.message }}</p>
-              </div>
-              <p v-else class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                暂无同步记录。
-              </p>
-            </div>
-
-            <div>
-              <div class="mb-2 flex items-center justify-between gap-3">
-                <p class="text-sm text-slate-500">XBT 镜像状态</p>
-                <AppStatusBadge
-                  v-if="currentXbtUser"
-                  type="xbt-user-state"
-                  :value="currentXbtUser.state"
-                />
-              </div>
-              <div v-if="currentXbtUser" class="grid gap-3 sm:grid-cols-2">
-                <div
-                  v-for="item in trackerFacts"
-                  :key="item.label"
-                  class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-                >
-                  <p class="text-xs text-slate-500">{{ item.label }}</p>
-                  <p class="mt-2 text-sm font-medium text-slate-900">{{ item.value }}</p>
-                </div>
-              </div>
-              <p v-else class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                当前没有可展示的 XBT 镜像状态。
-              </p>
-            </div>
-
-            <div>
-              <p class="mb-2 text-sm text-slate-500">最近同步日志</p>
-              <UiTable v-if="recentLogs.length">
-                <thead>
-                  <tr>
-                    <th>状态</th>
-                    <th>说明</th>
-                    <th>时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in recentLogs" :key="item.id">
-                    <td><AppStatusBadge type="sync-status" :value="item.status" /></td>
-                    <td>{{ item.message }}</td>
-                    <td class="whitespace-nowrap text-slate-500">{{ formatDateTime(item.updatedAt) }}</td>
-                  </tr>
-                </tbody>
-              </UiTable>
-              <p v-else class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                还没有单用户同步日志。
-              </p>
-            </div>
-          </div>
-        </AppCard>
-
-        <AppCard title="管理动作" description="状态切换、passkey 重置和单用户同步都会即时触发对应联动。">
+        <AppCard title="管理动作" description="状态切换和 passkey 重置会即时生效。">
           <div class="flex flex-wrap gap-2">
-            <UiButton
-              variant="secondary"
-              :disabled="pendingAction !== null"
-              @click="handleRunUserSync"
-            >
-              {{ pendingAction === 'sync-user' ? '同步中...' : '手动同步到 XBT' }}
-            </UiButton>
             <UiButton
               :variant="user.status === 'active' ? 'danger' : 'primary'"
               :disabled="pendingAction !== null"
@@ -440,13 +308,13 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
       @close="activeDialog = null"
       @confirm="toggleStatus"
     >
-      <p>管理员动作会立即写入用户状态，并影响前台权限、RSS 和后续 XBT 同步。</p>
+      <p>管理员动作会立即写入用户状态，并影响前台权限、RSS 和下载入口。</p>
     </AppConfirmDialog>
 
     <AppConfirmDialog
       :open="activeDialog === 'reset-passkey'"
       title="确认重置 passkey"
-      description="旧 passkey 会立刻失效，用户需要更新下载器或 RSS 客户端中的认证信息。"
+      description="旧 passkey 会立刻失效，用户需要更新 RSS 客户端或相关自动化配置。"
       confirm-label="确认重置"
       tone="warning"
       :pending="pendingAction === 'reset-passkey'"

@@ -62,29 +62,3 @@ def _build_metadata(torrent: Torrent) -> TorrentMetadata:
 
 def parse_torrent(data: bytes) -> TorrentMetadata:
     return _build_metadata(_read_torrent(data))
-
-
-def rewrite_torrent(
-    data: bytes,
-    *,
-    announce_url: str | None = None,
-    private: bool | None = None,
-) -> bytes:
-    torrent = _read_torrent(data)
-    if private is not None:
-        torrent.private = bool(private)
-    if announce_url:
-        torrent.trackers = [[announce_url]]
-    try:
-        return torrent.dump(validate=True)
-    except (MetainfoError, ReadError, TorfError, TypeError, ValueError) as exc:
-        raise BusinessException("无法生成修改后的 torrent 文件。") from exc
-
-
-def inject_announce(data: bytes, announce_url: str) -> bytes:
-    return rewrite_torrent(data, announce_url=announce_url)
-
-
-def privatize_torrent(data: bytes, announce_url: str) -> tuple[bytes, TorrentMetadata]:
-    rewritten = rewrite_torrent(data, announce_url=announce_url, private=True)
-    return rewritten, parse_torrent(rewritten)

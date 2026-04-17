@@ -19,7 +19,6 @@ urlpatterns = [
     path("api/", include("apps.downloads.urls")),
     path("api/", include("apps.announcements.urls")),
     path("api/", include("apps.audit.urls")),
-    path("api/", include("apps.tracker_sync.urls")),
     path("api/", include("apps.rss.api_urls")),
     path("rss/", include("apps.rss.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

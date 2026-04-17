@@ -129,7 +129,7 @@ onMounted(loadOptions);
 <template>
   <AppPageHeader
     title="上传资源"
-    description="这里只负责站内资源发布。上传的 torrent 会在后端自动转成 private 模板，不要求你手动先处理。"
+    description="发布页现在直接接收 torrent 文件，上传后即可保存为站内资源。"
   />
 
   <AppLoading v-if="loading" />
@@ -138,7 +138,7 @@ onMounted(loadOptions);
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
     <div class="mx-auto max-w-5xl">
-      <AppCard title="发布表单" description="保留真正影响浏览和下载的信息，把发布动作尽量压缩到一屏内。">
+      <AppCard title="发布表单" description="把真正影响浏览和下载的信息收在一页里，上传时直接附带 torrent 文件。">
         <div class="space-y-6">
           <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div class="flex items-start gap-3">
@@ -146,9 +146,9 @@ onMounted(loadOptions);
                 <FileUp class="h-5 w-5" />
               </div>
               <div class="space-y-1">
-                <h3 class="text-base font-semibold text-slate-900">发布时自动私有化</h3>
+                <h3 class="text-base font-semibold text-slate-900">直接上传 torrent</h3>
                 <p class="text-sm leading-6 text-slate-600">
-                  这里上传的 torrent 不再要求你手动先做成 private。后端会自动改写后再入库。
+                  系统会直接保存你上传的 torrent，并解析文件列表用于站内展示。
                 </p>
               </div>
             </div>
@@ -158,7 +158,7 @@ onMounted(loadOptions);
             <div>
               <label class="app-field-label">标题</label>
               <UiInput v-model="form.title" placeholder="例如：孤独摇滚！TV 01-12 合集" />
-              <p class="app-field-help">标题会直接出现在首页、列表页和详情页。</p>
+              <p class="app-field-help">标题会直接显示在首页、列表页和详情页。</p>
             </div>
 
             <div>
@@ -193,7 +193,7 @@ onMounted(loadOptions);
                   {{
                     form.torrentFileName
                       ? `已选择：${form.torrentFileName}`
-                      : '请选择一个 .torrent 文件，系统会自动转成 private 模板。'
+                      : '请选择一个 .torrent 文件，站内会直接使用这份文件。'
                   }}
                 </p>
               </div>
@@ -226,7 +226,7 @@ onMounted(loadOptions);
               <label class="app-field-label">简介</label>
               <UiTextarea v-model="form.description" placeholder="简要说明版本、字幕、片源和注意事项" />
               <p class="app-field-help">
-                {{ validationMessage || '提交前请确认标题、分类、简介和 torrent 文件已填写完整。' }}
+                {{ validationMessage || '提交前请确认标题、分类、简介和 torrent 文件都已填写完整。' }}
               </p>
             </div>
           </div>

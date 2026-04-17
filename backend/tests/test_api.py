@@ -3,12 +3,9 @@ import os
 import tempfile
 from datetime import timedelta
 from io import StringIO
-from unittest.mock import patch
-
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
 from django.core.management import call_command
-from django.db import connection
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -18,16 +15,13 @@ from apps.announcements.models import SiteSetting
 from apps.audit.models import AuditLog
 from apps.common.throttles import LoginRateThrottle
 from apps.releases.models import Category, Release, Tag
-from apps.tracker_sync.models import TrackerSyncLog
-from apps.tracker_sync.services import TrackerSyncService
-from apps.tracker_sync.models import XbtFileCompatMirror, XbtFileMirror, XbtUserMirror
 from apps.users.models import InviteCode, User
 
 
 def build_torrent_bytes(*, private: bool = True) -> bytes:
     return flatbencode.encode(
         {
-            b"announce": b"https://tracker.example/announce",
+            b"announce": b"https://example.com/announce",
             b"info": {
                 b"name": b"Example.S01E01.mkv",
                 b"piece length": 262144,
@@ -44,60 +38,9 @@ class ApiFlowTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        existing_tables = set(connection.introspection.table_names())
-        with connection.cursor() as cursor:
-            if XbtUserMirror._meta.db_table not in existing_tables:
-                cursor.execute(
-                    """
-                    CREATE TABLE xbt_users (
-                        uid INTEGER PRIMARY KEY,
-                        torrent_pass VARCHAR(32) NOT NULL UNIQUE,
-                        can_leech BOOLEAN NOT NULL DEFAULT 1,
-                        downloaded BIGINT NOT NULL DEFAULT 0,
-                        uploaded BIGINT NOT NULL DEFAULT 0,
-                        completed INTEGER NOT NULL DEFAULT 0
-                    )
-                    """
-                )
-                existing_tables.add(XbtUserMirror._meta.db_table)
-            if XbtFileMirror._meta.db_table not in existing_tables:
-                cursor.execute(
-                    """
-                    CREATE TABLE xbt_torrents (
-                        tid INTEGER PRIMARY KEY AUTOINCREMENT,
-                        info_hash BLOB NOT NULL UNIQUE,
-                        leechers INTEGER NOT NULL DEFAULT 0,
-                        seeders INTEGER NOT NULL DEFAULT 0,
-                        completed INTEGER NOT NULL DEFAULT 0,
-                        flags INTEGER NOT NULL DEFAULT 0,
-                        mtime INTEGER NOT NULL DEFAULT 0,
-                        ctime INTEGER NOT NULL DEFAULT 0
-                    )
-                    """
-                )
-                existing_tables.add(XbtFileMirror._meta.db_table)
-            if XbtFileCompatMirror._meta.db_table not in existing_tables:
-                cursor.execute(
-                    """
-                    CREATE TABLE xbt_files (
-                        tid INTEGER PRIMARY KEY AUTOINCREMENT,
-                        info_hash BLOB NOT NULL UNIQUE,
-                        leechers INTEGER NOT NULL DEFAULT 0,
-                        seeders INTEGER NOT NULL DEFAULT 0,
-                        completed INTEGER NOT NULL DEFAULT 0,
-                        flags INTEGER NOT NULL DEFAULT 0,
-                        mtime INTEGER NOT NULL DEFAULT 0,
-                        ctime INTEGER NOT NULL DEFAULT 0
-                    )
-                    """
-                )
-                existing_tables.add(XbtFileCompatMirror._meta.db_table)
 
     def setUp(self):
         self.client = APIClient()
-        XbtFileMirror.objects.all().delete()
-        XbtFileCompatMirror.objects.all().delete()
-        XbtUserMirror.objects.all().delete()
         self.category = Category.objects.create(name="鍔ㄧ敾", slug="anime", sort_order=1, is_active=True)
         self.tag = Tag.objects.create(name="1080p", slug="1080p")
         self.admin = User.objects.create_user(
@@ -124,35 +67,6 @@ class ApiFlowTests(TestCase):
             status="active",
             email="user@example.com",
         )
-
-    def recreate_xbt_users_table(self, *, include_can_leech: bool):
-        with connection.cursor() as cursor:
-            cursor.execute("DROP TABLE IF EXISTS xbt_users")
-            if include_can_leech:
-                cursor.execute(
-                    """
-                    CREATE TABLE xbt_users (
-                        uid INTEGER PRIMARY KEY,
-                        torrent_pass VARCHAR(32) NOT NULL UNIQUE,
-                        can_leech BOOLEAN NOT NULL DEFAULT 1,
-                        downloaded BIGINT NOT NULL DEFAULT 0,
-                        uploaded BIGINT NOT NULL DEFAULT 0,
-                        completed INTEGER NOT NULL DEFAULT 0
-                    )
-                    """
-                )
-            else:
-                cursor.execute(
-                    """
-                    CREATE TABLE xbt_users (
-                        uid INTEGER PRIMARY KEY,
-                        torrent_pass VARCHAR(32) NOT NULL UNIQUE,
-                        downloaded BIGINT NOT NULL DEFAULT 0,
-                        uploaded BIGINT NOT NULL DEFAULT 0,
-                        completed INTEGER NOT NULL DEFAULT 0
-                    )
-                    """
-                )
 
     def create_release(self, *, status: str = "published", execute_on_commit: bool = False, torrent_bytes: bytes | None = None):
         self.client.force_login(self.uploader)
@@ -331,11 +245,11 @@ class ApiFlowTests(TestCase):
 
     def test_admin_endpoint_accepts_x_api_key_header(self):
         response = self.client.get(
-            "/api/admin/tracker-sync/overview/",
+            "/api/admin/dashboard/",
             HTTP_X_API_KEY=self.admin.api_token,
         )
         self.assertEqual(response.status_code, 200, response.json())
-        self.assertTrue(response.json()["data"]["summary"]["xbtSyncEnabled"])
+        self.assertIn("stats", response.json()["data"])
 
     def test_login_throttle_returns_unified_error(self):
         original_rates = LoginRateThrottle.THROTTLE_RATES
@@ -381,64 +295,59 @@ class ApiFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 403, response.json())
 
-    def test_uploader_can_create_release_and_download_personalized_torrent(self):
+    def test_uploader_can_create_release_and_download_original_torrent(self):
         release = self.create_release()
         self.client.force_login(self.user)
         response = self.client.get(f"/api/releases/{release.id}/download/")
         self.assertEqual(response.status_code, 200)
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual(
-            torrent.trackers[0][0],
-            f"http://localhost:8000/{self.user.passkey}/announce",
-        )
+        self.assertEqual(torrent.trackers[0][0], "https://example.com/announce")
         self.assertTrue(torrent.private)
 
-    def test_uploader_create_release_auto_converts_public_torrent_to_private(self):
+    def test_uploader_create_release_preserves_public_torrent_metadata(self):
         release = self.create_release(torrent_bytes=build_torrent_bytes(private=False))
         self.assertEqual(release.status, "published")
 
         with release.torrent_file.open("rb") as torrent_handle:
             stored_torrent = Torrent.read_stream(torrent_handle.read(), validate=False)
 
-        self.assertTrue(stored_torrent.private)
+        self.assertFalse(stored_torrent.private)
+        self.assertEqual(stored_torrent.trackers[0][0], "https://example.com/announce")
         self.assertEqual(release.files.count(), 1)
 
-    def test_uploader_can_upload_torrent_and_export_private_personalized_version(self):
+    def test_uploader_can_replace_torrent_file_on_edit(self):
+        release = self.create_release()
+        old_infohash = release.infohash
+
         self.client.force_login(self.uploader)
-        response = self.client.post(
-            "/api/torrents/privatize/",
+        response = self.client.patch(
+            f"/api/releases/{release.id}/",
             {
+                "title": "更新后的资源标题",
+                "subtitle": "WEB-DL 1080p",
+                "description": "更新后的资源说明",
+                "categorySlug": self.category.slug,
+                "tagSlugs": [self.tag.slug],
+                "status": "published",
                 "torrentFile": SimpleUploadedFile(
-                    "public.torrent",
-                    build_torrent_bytes(private=False),
+                    "replacement.torrent",
+                    build_torrent_bytes(private=False).replace(b"Example.S01E01.mkv", b"Example.S01E02.mkv"),
                     content_type="application/x-bittorrent",
-                )
+                ),
             },
             format="multipart",
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, response.json())
 
-        torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertTrue(torrent.private)
-        self.assertEqual(torrent.trackers, [[f"http://localhost:8000/{self.uploader.passkey}/announce"]])
-        self.assertTrue(
-            AuditLog.objects.filter(action="私有化 torrent", target_type="torrent 工具", actor=self.uploader).exists()
-        )
+        release.refresh_from_db()
+        self.assertNotEqual(release.infohash, old_infohash)
+        self.assertEqual(release.title, "更新后的资源标题")
 
-    def test_regular_user_cannot_use_torrent_privatize_tool(self):
-        self.client.force_login(self.user)
-        response = self.client.post(
-            "/api/torrents/privatize/",
-            {
-                "torrentFile": SimpleUploadedFile(
-                    "public.torrent",
-                    build_torrent_bytes(private=False),
-                    content_type="application/x-bittorrent",
-                )
-            },
-            format="multipart",
-        )
-        self.assertEqual(response.status_code, 403, response.content)
+        with release.torrent_file.open("rb") as torrent_handle:
+            stored_torrent = Torrent.read_stream(torrent_handle.read(), validate=False)
+
+        self.assertFalse(stored_torrent.private)
+        self.assertEqual(stored_torrent.trackers[0][0], "https://example.com/announce")
 
     def test_rss_feed_uses_passkey_download_link(self):
         release = self.create_release()
@@ -472,10 +381,9 @@ class ApiFlowTests(TestCase):
         response = client.get(f"/api/releases/{release.id}/download/?passkey={self.user.passkey}")
         self.assertEqual(response.status_code, 403, response.json())
 
-    def test_draft_release_only_syncs_to_xbt_after_publish(self):
+    def test_draft_release_can_publish_without_tracker_side_effects(self):
         release = self.create_release(status="draft", execute_on_commit=True)
-        info_hash = bytes.fromhex(release.infohash)
-        self.assertFalse(XbtFileMirror.objects.filter(info_hash=info_hash).exists())
+        self.assertEqual(release.status, "draft")
 
         self.client.force_login(self.uploader)
         with self.captureOnCommitCallbacks(execute=True):
@@ -485,12 +393,11 @@ class ApiFlowTests(TestCase):
                 format="json",
             )
         self.assertEqual(response.status_code, 200, response.json())
-        self.assertTrue(XbtFileMirror.objects.filter(info_hash=info_hash, flags=0).exists())
+        release.refresh_from_db()
+        self.assertEqual(release.status, "published")
 
-    def test_hidden_release_marks_xbt_whitelist_record_deleted(self):
+    def test_hidden_release_marks_release_hidden(self):
         release = self.create_release(execute_on_commit=True)
-        info_hash = bytes.fromhex(release.infohash)
-        self.assertTrue(XbtFileMirror.objects.filter(info_hash=info_hash, flags=0).exists())
 
         self.client.force_login(self.admin)
         with self.captureOnCommitCallbacks(execute=True):
@@ -500,11 +407,11 @@ class ApiFlowTests(TestCase):
                 format="json",
             )
         self.assertEqual(response.status_code, 200, response.json())
-        self.assertEqual(XbtFileMirror.objects.get(info_hash=info_hash).flags, 1)
+        release.refresh_from_db()
+        self.assertEqual(release.status, "hidden")
 
     def test_hide_alias_marks_release_hidden(self):
         release = self.create_release(execute_on_commit=True)
-        info_hash = bytes.fromhex(release.infohash)
 
         self.client.force_login(self.admin)
         with self.captureOnCommitCallbacks(execute=True):
@@ -513,9 +420,8 @@ class ApiFlowTests(TestCase):
 
         release.refresh_from_db()
         self.assertEqual(release.status, "hidden")
-        self.assertEqual(XbtFileMirror.objects.get(info_hash=info_hash).flags, 1)
 
-    def test_reset_passkey_updates_xbt_user_mirror(self):
+    def test_reset_passkey_returns_new_passkey(self):
         self.client.force_login(self.user)
         old_passkey = self.user.passkey
         with self.captureOnCommitCallbacks(execute=True):
@@ -524,7 +430,6 @@ class ApiFlowTests(TestCase):
 
         self.user.refresh_from_db()
         self.assertNotEqual(self.user.passkey, old_passkey)
-        self.assertEqual(XbtUserMirror.objects.get(uid=self.user.id).torrent_pass, self.user.passkey)
 
     def test_invalid_torrent_returns_unified_business_error(self):
         self.client.force_login(self.uploader)
@@ -591,7 +496,6 @@ class ApiFlowTests(TestCase):
 
         created_user = User.objects.get(username="custom-member")
         self.assertTrue(created_user.check_password("Custom12345!"))
-        self.assertEqual(XbtUserMirror.objects.get(uid=created_user.id).torrent_pass, created_user.passkey)
 
         self.client.logout()
         login = self.client.post(
@@ -622,24 +526,6 @@ class ApiFlowTests(TestCase):
 
         created_user = User.objects.get(username="generated-member")
         self.assertTrue(created_user.check_password(data["initialPassword"]))
-
-    def test_create_superuser_syncs_to_xbt_on_commit(self):
-        with self.captureOnCommitCallbacks(execute=True):
-            manager_user = User.objects.create_superuser(
-                username="ops-admin",
-                email="ops-admin@example.com",
-                password="OpsAdmin12345!",
-                display_name="ops-admin",
-            )
-
-        self.assertEqual(XbtUserMirror.objects.get(uid=manager_user.id).torrent_pass, manager_user.passkey)
-
-    def test_direct_user_save_updates_xbt_user_mirror_on_commit(self):
-        with self.captureOnCommitCallbacks(execute=True):
-            self.user.passkey = "1" * 32
-            self.user.save(update_fields=["passkey"])
-
-        self.assertEqual(XbtUserMirror.objects.get(uid=self.user.id).torrent_pass, self.user.passkey)
 
     def test_admin_can_update_user_profile_fields(self):
         self.client.force_login(self.admin)
@@ -771,7 +657,6 @@ class ApiFlowTests(TestCase):
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.status, "disabled")
-        self.assertFalse(XbtUserMirror.objects.get(uid=self.user.id).can_leech)
 
         with self.captureOnCommitCallbacks(execute=True):
             enable = self.client.post(f"/api/admin/users/{self.user.id}/enable/")
@@ -779,7 +664,6 @@ class ApiFlowTests(TestCase):
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.status, "active")
-        self.assertTrue(XbtUserMirror.objects.get(uid=self.user.id).can_leech)
 
     def test_request_logging_redacts_passkey(self):
         self.create_release()
@@ -891,19 +775,17 @@ class ApiFlowTests(TestCase):
         self.assertEqual(public_categories.status_code, 200, public_categories.json())
         self.assertIn("documentary", [item["slug"] for item in public_categories.json()["data"]])
 
-    def test_admin_user_detail_includes_tracker_sync_snapshot(self):
-        TrackerSyncService.sync_user(self.user)
-
+    def test_admin_user_detail_excludes_tracker_sync_snapshot(self):
         self.client.force_login(self.admin)
         response = self.client.get(f"/api/admin/users/{self.user.id}/")
         self.assertEqual(response.status_code, 200, response.json())
 
         data = response.json()["data"]
-        self.assertEqual(data["trackerSync"]["status"], "success")
-        self.assertEqual(data["xbtUser"]["state"], "enabled")
-        self.assertEqual(data["xbtUser"]["canLeech"], True)
+        self.assertNotIn("trackerSync", data)
+        self.assertNotIn("xbtUser", data)
+        self.assertEqual(data["passkey"], self.user.passkey)
 
-    def test_release_detail_for_owner_includes_xbt_snapshot(self):
+    def test_release_detail_for_owner_excludes_tracker_sync_snapshot(self):
         release = self.create_release(execute_on_commit=True)
 
         self.client.force_login(self.uploader)
@@ -911,186 +793,9 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200, response.json())
 
         data = response.json()["data"]
-        self.assertEqual(data["trackerSync"]["status"], "success")
-        self.assertEqual(data["xbtFile"]["state"], "whitelisted")
-        self.assertIsNotNone(data["xbtFile"]["updatedAt"])
-
-    def test_admin_can_get_tracker_sync_overview(self):
-        release = self.create_release(execute_on_commit=True)
-        TrackerSyncLog.objects.create(
-            scope="release",
-            target_name=release.title,
-            status="failed",
-            message="manual failure",
-            release=release,
-        )
-
-        self.client.force_login(self.admin)
-        response = self.client.get("/api/admin/tracker-sync/overview/")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        data = response.json()["data"]
-        self.assertTrue(data["summary"]["xbtSyncEnabled"])
-        self.assertEqual(data["summary"]["failedCount"], 1)
-        self.assertGreaterEqual(data["summary"]["successCount"], 1)
-        self.assertEqual(
-            data["summary"]["pendingCount"],
-            data["summary"]["warningCount"] + data["summary"]["failedCount"],
-        )
-        self.assertTrue(any(item["scope"] == "release" for item in data["latestLogs"]))
-        self.assertEqual(data["failedLogs"][0]["releaseId"], release.id)
-        self.assertTrue(data["failedLogs"][0]["retryable"])
-
-    def test_admin_can_get_tracker_sync_user_detail(self):
-        TrackerSyncService.sync_user(self.user)
-
-        self.client.force_login(self.admin)
-        response = self.client.get(f"/api/admin/tracker-sync/users/{self.user.id}/")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        data = response.json()["data"]
-        self.assertEqual(data["user"]["id"], self.user.id)
-        self.assertEqual(data["user"]["username"], self.user.username)
-        self.assertEqual(data["user"]["displayName"], self.user.display_name)
-        self.assertEqual(data["trackerSync"]["status"], "success")
-        self.assertEqual(data["xbtUser"]["state"], "enabled")
-        self.assertEqual(data["recentLogs"][0]["userId"], self.user.id)
-        self.assertTrue(data["recentLogs"][0]["retryable"])
-
-    def test_admin_can_run_tracker_sync_for_user(self):
-        self.client.force_login(self.admin)
-        response = self.client.post(f"/api/admin/tracker-sync/users/{self.user.id}/")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        data = response.json()["data"]
-        self.assertEqual(data["scope"], "user")
-        self.assertEqual(data["userId"], self.user.id)
-        self.assertTrue(data["retryable"])
-        self.assertEqual(XbtUserMirror.objects.get(uid=self.user.id).torrent_pass, self.user.passkey)
-
-    def test_tracker_sync_user_supports_legacy_xbt_users_schema_without_can_leech(self):
-        self.recreate_xbt_users_table(include_can_leech=False)
-        self.addCleanup(self.recreate_xbt_users_table, include_can_leech=True)
-
-        active_log = TrackerSyncService.sync_user(self.user)
-        self.assertEqual(active_log.status, "success")
-
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT uid, torrent_pass FROM xbt_users WHERE uid = %s", [self.user.id])
-            active_row = cursor.fetchone()
-        self.assertEqual(active_row, (self.user.id, self.user.passkey))
-
-        snapshot = TrackerSyncService.get_user_sync_snapshot(self.user)
-        self.assertEqual(snapshot["xbtUser"]["state"], "enabled")
-        self.assertEqual(snapshot["xbtUser"]["canLeech"], True)
-
-        self.user.status = "disabled"
-        self.user.save(update_fields=["status"])
-
-        disabled_log = TrackerSyncService.sync_user(self.user)
-        self.assertEqual(disabled_log.status, "success")
-
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM xbt_users WHERE uid = %s", [self.user.id])
-            remaining_rows = cursor.fetchone()[0]
-        self.assertEqual(remaining_rows, 0)
-
-    def test_admin_can_get_tracker_sync_release_detail(self):
-        release = self.create_release(execute_on_commit=True)
-
-        self.client.force_login(self.admin)
-        response = self.client.get(f"/api/admin/tracker-sync/releases/{release.id}/")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        data = response.json()["data"]
-        self.assertEqual(data["release"]["id"], release.id)
-        self.assertEqual(data["release"]["title"], release.title)
-        self.assertEqual(data["release"]["infohash"], release.infohash)
-        self.assertEqual(data["trackerSync"]["status"], "success")
-        self.assertEqual(data["xbtFile"]["state"], "whitelisted")
-        self.assertEqual(data["recentLogs"][0]["releaseId"], release.id)
-        self.assertTrue(data["recentLogs"][0]["retryable"])
-
-    def test_release_sync_can_write_to_xbt_files_compatible_table(self):
-        release = self.create_release(status="published")
-        info_hash = bytes.fromhex(release.infohash)
-
-        with patch.object(TrackerSyncService, "_xbt_file_model", return_value=XbtFileCompatMirror):
-            log = TrackerSyncService.sync_release(release)
-
-        self.assertEqual(log.status, "success")
-        self.assertTrue(XbtFileCompatMirror.objects.filter(info_hash=info_hash, flags=0).exists())
-
-        release.status = "hidden"
-        release.save(update_fields=["status"])
-        with patch.object(TrackerSyncService, "_xbt_file_model", return_value=XbtFileCompatMirror):
-            log = TrackerSyncService.sync_release(release)
-
-        self.assertEqual(log.status, "success")
-        self.assertTrue(XbtFileCompatMirror.objects.filter(info_hash=info_hash, flags=1).exists())
-
-    def test_admin_can_retry_tracker_sync_log_for_release(self):
-        release = self.create_release(execute_on_commit=True)
-        info_hash = bytes.fromhex(release.infohash)
-        XbtFileMirror.objects.filter(info_hash=info_hash).delete()
-        failed_log = TrackerSyncLog.objects.create(
-            scope="release",
-            target_name=release.title,
-            status="failed",
-            message="manual failure",
-            release=release,
-        )
-
-        self.client.force_login(self.admin)
-        response = self.client.post(f"/api/admin/tracker-sync/logs/{failed_log.id}/retry/")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        data = response.json()["data"]
-        self.assertEqual(data["scope"], "release")
-        self.assertEqual(data["releaseId"], release.id)
-        self.assertTrue(data["retryable"])
-        self.assertTrue(XbtFileMirror.objects.filter(info_hash=info_hash, flags=0).exists())
-
-    def test_tracker_sync_log_list_exposes_retry_metadata(self):
-        release = self.create_release(execute_on_commit=True)
-
-        self.client.force_login(self.admin)
-        response = self.client.get("/api/admin/tracker-sync/logs/?scope=release")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        item = response.json()["data"][0]
-        self.assertEqual(item["scope"], "release")
-        self.assertEqual(item["releaseId"], release.id)
-        self.assertTrue(item["retryable"])
-
-    def test_tracker_sync_log_list_can_filter_by_user_id(self):
-        TrackerSyncService.sync_user(self.user)
-        TrackerSyncService.sync_user(self.uploader)
-
-        self.client.force_login(self.admin)
-        response = self.client.get(f"/api/admin/tracker-sync/logs/?scope=user&userId={self.user.id}")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        data = response.json()["data"]
-        self.assertTrue(data)
-        self.assertTrue(all(item["userId"] == self.user.id for item in data))
-
-    def test_tracker_sync_log_list_can_filter_by_release_id(self):
-        release = self.create_release(execute_on_commit=True)
-        second_release = self.create_release(
-            status="draft",
-            execute_on_commit=True,
-            torrent_bytes=build_torrent_bytes(private=True).replace(b"Example.S01E01.mkv", b"Example.S01E02.mkv"),
-        )
-
-        self.client.force_login(self.admin)
-        response = self.client.get(f"/api/admin/tracker-sync/logs/?scope=release&releaseId={release.id}")
-        self.assertEqual(response.status_code, 200, response.json())
-
-        data = response.json()["data"]
-        self.assertTrue(data)
-        self.assertTrue(all(item["releaseId"] == release.id for item in data))
-        self.assertNotIn(second_release.id, [item["releaseId"] for item in data if item["releaseId"] is not None])
+        self.assertNotIn("trackerSync", data)
+        self.assertNotIn("xbtFile", data)
+        self.assertEqual(data["infohash"], release.infohash)
 
     def test_user_can_get_own_theme(self):
         self.user.theme_mode = "dark"
@@ -1160,26 +865,23 @@ class ApiFlowTests(TestCase):
                 os.remove(schema_path)
 
         self.assertIn("/api/releases/", schema["paths"])
-        self.assertIn("/api/torrents/privatize/", schema["paths"])
-        self.assertIn("/api/admin/tracker-sync/full/", schema["paths"])
-        self.assertIn("/api/admin/tracker-sync/overview/", schema["paths"])
-        self.assertIn("get", schema["paths"]["/api/admin/tracker-sync/users/{user_id}/"])
-        self.assertIn("get", schema["paths"]["/api/admin/tracker-sync/releases/{release_id}/"])
-        self.assertIn("/api/admin/tracker-sync/logs/{log_id}/retry/", schema["paths"])
+        self.assertIn("/api/releases/{release_id}/download/", schema["paths"])
+        self.assertIn("/api/admin/dashboard/", schema["paths"])
         self.assertIn("sessionCookieAuth", schema["components"]["securitySchemes"])
         self.assertIn("userApiTokenAuth", schema["components"]["securitySchemes"])
         self.assertIn("userApiKeyAuth", schema["components"]["securitySchemes"])
         self.assertIn("multipart/form-data", schema["paths"]["/api/releases/"]["post"]["requestBody"]["content"])
-        self.assertIn("multipart/form-data", schema["paths"]["/api/torrents/privatize/"]["post"]["requestBody"]["content"])
+        self.assertNotIn("/api/torrents/privatize/", schema["paths"])
+        self.assertNotIn("/api/admin/tracker-sync/overview/", schema["paths"])
 
     def test_redoc_route_is_available(self):
         response = self.client.get("/api/docs/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("<redoc ", response.content.decode("utf-8"))
 
-    def test_regular_user_cannot_access_admin_tracker_sync_overview(self):
+    def test_regular_user_cannot_access_admin_dashboard(self):
         self.client.force_login(self.user)
-        response = self.client.get("/api/admin/tracker-sync/overview/")
+        response = self.client.get("/api/admin/dashboard/")
         self.assertEqual(response.status_code, 403, response.json())
         self.assertEqual(response.json()["code"], "permission_denied")
 

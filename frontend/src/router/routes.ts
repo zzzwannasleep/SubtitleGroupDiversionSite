@@ -12,10 +12,8 @@ import AdminInviteCodesView from '@/views/admin/AdminInviteCodesView.vue';
 import AdminReleasesView from '@/views/admin/AdminReleasesView.vue';
 import AdminSettingsView from '@/views/admin/AdminSettingsView.vue';
 import AdminTagsView from '@/views/admin/AdminTagsView.vue';
-import AdminTrackerSyncView from '@/views/admin/AdminTrackerSyncView.vue';
 import AdminUserDetailView from '@/views/admin/AdminUserDetailView.vue';
 import AdminUsersView from '@/views/admin/AdminUsersView.vue';
-import TorrentToolView from '@/views/tools/TorrentToolView.vue';
 import EditMyReleaseView from '@/views/upload/EditMyReleaseView.vue';
 import MyReleasesView from '@/views/upload/MyReleasesView.vue';
 import UploadView from '@/views/upload/UploadView.vue';
@@ -69,7 +67,6 @@ export const routes: RouteRecordRaw[] = [
       { path: 'rss', name: 'rss', component: RssView, meta: { requiresAuth: true, title: 'RSS' } },
       { path: 'me', name: 'me', component: MeView, meta: { requiresAuth: true, title: '我的账户' } },
       { path: 'me/downloads', name: 'my-downloads', component: MyDownloadsView, meta: { requiresAuth: true, title: '我的下载' } },
-      { path: 'torrent-tool', name: 'torrent-tool', component: TorrentToolView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '改种工具' } },
       { path: 'upload', name: 'upload', component: UploadView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '上传资源' } },
       { path: 'my/releases', name: 'my-releases', component: MyReleasesView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '我的发布' } },
       { path: 'my/releases/:id/edit', name: 'my-release-edit', component: EditMyReleaseView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '编辑资源' } },
@@ -87,7 +84,6 @@ export const routes: RouteRecordRaw[] = [
       { path: 'categories', name: 'admin-categories', component: AdminCategoriesView, meta: { requiresAuth: true, roles: ['admin'], title: '分类管理' } },
       { path: 'tags', name: 'admin-tags', component: AdminTagsView, meta: { requiresAuth: true, roles: ['admin'], title: '标签管理' } },
       { path: 'announcements', name: 'admin-announcements', component: AdminAnnouncementsView, meta: { requiresAuth: true, roles: ['admin'], title: '公告管理' } },
-      { path: 'tracker-sync', name: 'admin-tracker-sync', component: AdminTrackerSyncView, meta: { requiresAuth: true, roles: ['admin'], title: 'XBT 同步' } },
       { path: 'audit-logs', name: 'admin-audit-logs', component: AdminAuditLogsView, meta: { requiresAuth: true, roles: ['admin'], title: '审计日志' } },
       { path: 'settings', name: 'admin-settings', component: AdminSettingsView, meta: { requiresAuth: true, roles: ['admin'], title: '系统设置' } },
     ],

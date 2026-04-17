@@ -4,15 +4,11 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema
 from rest_framework.views import APIView
 
 from apps.announcements.models import Announcement
-from apps.audit.services import AuditService
 from apps.common.permissions import IsActiveAuthenticated, IsAdminRole
 from apps.common.responses import success_response
 from apps.common.schema import success_response_schema
 from apps.releases.models import Release
 from apps.releases.serializers import ReleaseSerializer
-from apps.tracker_sync.models import TrackerSyncLog
-from apps.tracker_sync.serializers import TrackerSyncLogSerializer, TrackerSyncUserDetailSerializer
-from apps.tracker_sync.services import TrackerSyncService
 from apps.users.models import InviteCode, User, UserRole, UserStatus
 from apps.users.serializers import (
     AdminDashboardStatsSerializer,
@@ -64,7 +60,7 @@ class AdminDashboardView(APIView):
             "userCount": User.objects.count(),
             "releaseCount": Release.objects.count(),
             "activeReleaseCount": Release.objects.filter(status="published").count(),
-            "pendingSyncCount": TrackerSyncLog.objects.filter(status__in=["warning", "failed"]).count(),
+            "draftReleaseCount": Release.objects.filter(status="draft").count(),
             "activeAnnouncementCount": Announcement.objects.filter(status="online").count(),
         }
         return success_response(
@@ -386,40 +382,3 @@ class SelfApiTokenView(APIView):
             SelfApiTokenSerializer({"apiToken": user.api_token}).data,
             message="API token 已重置。",
         )
-
-
-@extend_schema_view(
-    get=extend_schema(
-        operation_id="tracker_sync_user_detail",
-        summary="获取指定用户的 XBT 同步详情",
-        tags=["Tracker Sync"],
-        responses=success_response_schema("TrackerSyncUserDetailResponse", TrackerSyncUserDetailSerializer),
-    ),
-    post=extend_schema(
-        operation_id="tracker_sync_user_run",
-        summary="手动同步指定用户到 XBT",
-        tags=["Tracker Sync"],
-        request=None,
-        responses=success_response_schema("TrackerSyncUserActionResponse", TrackerSyncLogSerializer),
-    ),
-)
-class AdminTrackerSyncUserView(APIView):
-    permission_classes = [IsAdminRole]
-
-    def get(self, request, user_id: int):
-        user = get_object_or_404(User, pk=user_id)
-        serializer = TrackerSyncUserDetailSerializer(TrackerSyncService.build_user_detail(user))
-        return success_response(serializer.data)
-
-    def post(self, request, user_id: int):
-        user = get_object_or_404(User, pk=user_id)
-        log = TrackerSyncService.sync_user(user)
-        AuditService.log(
-            request.user,
-            "手动同步用户到 XBT",
-            "用户",
-            user.username,
-            detail=f"同步结果：{log.status}",
-            payload={"user_id": user.id, "tracker_sync_log_id": log.id},
-        )
-        return success_response(TrackerSyncLogSerializer(log).data)

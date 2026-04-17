@@ -35,7 +35,7 @@ onMounted(loadDownloads);
 </script>
 
 <template>
-  <AppPageHeader title="我的下载" description="记录个性化 torrent 下载，便于问题排查与简单审计。" />
+  <AppPageHeader title="我的下载" description="记录 torrent 下载，便于问题排查与简单审计。" />
   <AppLoading v-if="loading" />
   <AppError v-else-if="failed" title="下载记录加载失败" description="请稍后再试，或检查下载记录接口状态。" />
   <AppCard v-else title="下载记录" :description="`共 ${downloads.length} 条。`">

@@ -2,16 +2,15 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_view
-from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
-from apps.common.permissions import IsActiveAuthenticated, IsUploaderOrAdmin
+from apps.common.permissions import IsActiveAuthenticated
 from apps.common.responses import success_response
 from apps.common.schema import success_response_schema
 from apps.common.throttles import TorrentDownloadThrottle
 from apps.downloads.models import DownloadLog
-from apps.downloads.serializers import DownloadLogSerializer, TorrentPrivatizeSerializer
+from apps.downloads.serializers import DownloadLogSerializer
 from apps.downloads.services import DownloadService
 from apps.releases.models import Release
 
@@ -19,15 +18,15 @@ from apps.releases.models import Release
 @extend_schema_view(
     get=extend_schema(
         operation_id="releases_download_torrent",
-        summary="下载个性化 torrent",
+        summary="下载 torrent",
         tags=["Downloads"],
         parameters=[
-            OpenApiParameter(name="passkey", description="未登录时可通过 passkey 下载个性化 torrent。", type=str),
+            OpenApiParameter(name="passkey", description="未登录时可通过 passkey 下载 torrent。", type=str),
         ],
         responses={
             (200, "application/x-bittorrent"): OpenApiResponse(
                 response=OpenApiTypes.BINARY,
-                description="已注入个人 announce 地址的 torrent 文件。",
+                description="torrent 文件。",
             )
         },
     ),
@@ -39,39 +38,7 @@ class ReleaseDownloadView(APIView):
     def get(self, request, release_id: int):
         release = get_object_or_404(Release.objects.select_related("created_by"), pk=release_id)
         user = DownloadService.resolve_user(request)
-        torrent_bytes, filename = DownloadService.build_personalized_torrent(
-            user=user, release=release, request=request
-        )
-        response = HttpResponse(torrent_bytes, content_type="application/x-bittorrent")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-        return response
-
-
-@extend_schema_view(
-    post=extend_schema(
-        operation_id="torrents_privatize",
-        summary="上传并导出私有化 torrent",
-        tags=["Torrent Tools"],
-        request=TorrentPrivatizeSerializer,
-        responses={
-            (200, "application/x-bittorrent"): OpenApiResponse(
-                response=OpenApiTypes.BINARY,
-                description="已改为私有种子并注入当前用户个人 tracker 的 torrent 文件。",
-            )
-        },
-    ),
-)
-class TorrentPrivatizeView(APIView):
-    permission_classes = [IsUploaderOrAdmin]
-    parser_classes = [FormParser, MultiPartParser]
-
-    def post(self, request):
-        serializer = TorrentPrivatizeSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        torrent_bytes, filename = DownloadService.build_private_torrent_from_upload(
-            user=request.user,
-            torrent_file=serializer.validated_data["torrent_file"],
-        )
+        torrent_bytes, filename = DownloadService.build_download_torrent(user=user, release=release, request=request)
         response = HttpResponse(torrent_bytes, content_type="application/x-bittorrent")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response

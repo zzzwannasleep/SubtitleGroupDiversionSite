@@ -3,10 +3,6 @@ from rest_framework import serializers
 from apps.downloads.models import DownloadLog
 
 
-class TorrentPrivatizeSerializer(serializers.Serializer):
-    torrentFile = serializers.FileField(source="torrent_file")
-
-
 class DownloadLogSerializer(serializers.ModelSerializer):
     releaseId = serializers.IntegerField(source="release_id")
     releaseTitle = serializers.CharField(source="release.title")

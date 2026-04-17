@@ -40,7 +40,6 @@ const navItems = computed(() => {
   ];
 
   if (canManageReleases.value) {
-    items.push({ label: '改种工具', to: '/torrent-tool' });
     items.push({ label: '上传资源', to: '/upload' });
     items.push({ label: '我的发布', to: '/my/releases' });
   }

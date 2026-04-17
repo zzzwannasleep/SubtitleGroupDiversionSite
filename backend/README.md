@@ -1,29 +1,33 @@
-# Subtitle Group Diversion Site Backend
+# Backend
 
-基于 `Django + DRF` 的后端实现，覆盖：
+后端基于 `Django + DRF`，负责：
 
-- Session 登录与权限
-- 用户、资源、公告、审计、站点设置
+- 用户、邀请码、权限和审计日志
+- 资源发布、编辑、隐藏和下载
 - RSS 输出
-- 个性化 torrent 下载
-- XBT 用户与白名单同步
+- 站点设置、公告、分类、标签管理
 - Swagger / OpenAPI
+
+当前实现已移除私有 Tracker / XBT 同步逻辑，torrent 文件按上传内容原样保存，下载接口直接返回站内保存的 torrent。
 
 ## 本地启动
 
-1. 复制环境模板：`Copy-Item backend/.env.example backend/.env`
-2. 按需修改 `backend/.env` 中的少量配置
-3. 安装依赖：`python -m pip install -r backend/requirements.txt`
-4. 迁移数据库：`python backend/manage.py migrate`
-5. 创建管理员：`python backend/manage.py createsuperuser`
-6. 启动服务：`python backend/manage.py runserver`
+```bash
+Copy-Item backend/.env.example backend/.env
+python -m pip install -r backend/requirements.txt
+python backend/manage.py migrate
+python backend/manage.py createsuperuser
+python backend/manage.py runserver
+```
 
-默认使用 `SQLite + LocMemCache`，配置 `MYSQL_DATABASE` 等变量后可切换到 `MySQL 8`。
+## 常用配置
 
-后端会自动读取 `backend/.env`，不需要额外引入 `python-dotenv` 或手动导出环境变量。
+- `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG`
+- `DJANGO_ALLOWED_HOSTS`
+- `SITE_BASE_URL`
+- `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_HOST` / `MYSQL_PORT`
+- `REDIS_URL`
+- `LOG_LEVEL`
 
-## 可选配置
-
-- `REDIS_URL`：启用 Redis 作为 Django 缓存后端，用于 Session 缓存和限流共享状态。
-- `SITE_BASE_URL`：站点基础地址，用于生成 RSS 与下载链接。
-- `TRACKER_ANNOUNCE_BASE_URL`：Tracker 的公网基础地址，后端会生成 `/<passkey>/announce` 形式的个人 announce URL。
+未配置 MySQL / Redis 时，可先用本地默认配置完成开发联调。

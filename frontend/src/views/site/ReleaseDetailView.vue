@@ -34,43 +34,14 @@ const siteSettings = computed(() => siteSettingsStore.settings);
 
 const canEdit = computed(() => canEditRelease(authStore.currentUser, release.value));
 const canHide = computed(() => authStore.currentUser?.role === 'admin');
-const canViewTrackerPanel = computed(() => {
-  if (!authStore.currentUser || !release.value) return false;
-  return authStore.currentUser.role === 'admin' || authStore.currentUser.id === release.value.createdBy.id;
-});
-const hasTrackerPanel = computed(
-  () => canViewTrackerPanel.value && Boolean(release.value?.trackerSync || release.value?.xbtFile),
-);
 const detailMetrics = computed(() => {
   if (!release.value) return [];
 
   return [
-    { label: '文件数', value: `${release.value.files.length} 个`, hint: 'torrent 解析后的资源文件列表' },
-    { label: '下载次数', value: release.value.downloadCount, hint: '个性化种子下载记录' },
-    { label: '完成次数', value: release.value.completionCount, hint: '用于衡量分发完成情况' },
-    { label: '活跃 peers', value: release.value.activePeers, hint: '便于快速判断资源健康度' },
-  ];
-});
-const trackerFacts = computed(() => {
-  if (!release.value?.xbtFile) return [];
-
-  return [
-    {
-      label: 'Seeders',
-      value: release.value.xbtFile.seeders === null ? '-' : `${release.value.xbtFile.seeders}`,
-    },
-    {
-      label: 'Leechers',
-      value: release.value.xbtFile.leechers === null ? '-' : `${release.value.xbtFile.leechers}`,
-    },
-    {
-      label: '完成数',
-      value: release.value.xbtFile.completed === null ? '-' : `${release.value.xbtFile.completed}`,
-    },
-    {
-      label: '白名单写入',
-      value: release.value.xbtFile.createdAt ? formatDateTime(release.value.xbtFile.createdAt) : '-',
-    },
+    { label: '文件数', value: `${release.value.files.length} 个`, hint: '根据上传的 torrent 自动解析' },
+    { label: '下载次数', value: release.value.downloadCount, hint: '站内下载记录统计' },
+    { label: '完成次数', value: release.value.completionCount, hint: '保留字段，便于后续扩展' },
+    { label: '活跃 peers', value: release.value.activePeers, hint: '保留字段，便于后续扩展' },
   ];
 });
 const hiddenNotice = computed(() => {
@@ -108,7 +79,7 @@ async function loadRelease() {
       return;
     }
 
-    pageErrorMessage.value = error instanceof Error ? error.message : '资源详情加载失败';
+    pageErrorMessage.value = error instanceof Error ? error.message : '资源详情加载失败。';
     state.value = 'error';
   }
 }
@@ -128,7 +99,7 @@ async function toggleVisibility() {
     feedback.value = nextStatus === 'hidden' ? '资源已隐藏，前台入口已移除。' : '资源已恢复为前台可见。';
     visibilityDialogOpen.value = false;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '更新资源状态失败';
+    errorMessage.value = error instanceof Error ? error.message : '更新资源状态失败。';
   } finally {
     pendingVisibilityAction.value = false;
   }
@@ -136,7 +107,7 @@ async function toggleVisibility() {
 
 function handleDownload() {
   if (!release.value) return;
-  feedback.value = '正在生成带个人 passkey 的 torrent 下载文件。';
+  feedback.value = '正在下载站内保存的 torrent 文件。';
   errorMessage.value = '';
   downloadRelease(release.value.id);
 }
@@ -156,7 +127,7 @@ watch(() => route.params.id, loadRelease, { immediate: true });
   <template v-else>
     <AppPageHeader :title="release.title" :description="release.subtitle">
       <template #actions>
-        <UiButton variant="primary" @click="handleDownload">下载种子</UiButton>
+        <UiButton variant="primary" @click="handleDownload">下载 torrent</UiButton>
         <UiButton v-if="canEdit" :to="`/my/releases/${release.id}/edit`" variant="secondary">编辑资源</UiButton>
         <UiButton v-if="canHide" variant="ghost" :disabled="pendingVisibilityAction" @click="visibilityDialogOpen = true">
           {{ release.status === 'hidden' ? '恢复前台可见' : '隐藏资源' }}
@@ -270,18 +241,10 @@ watch(() => route.params.id, loadRelease, { immediate: true });
               <dt class="text-slate-500">下载次数</dt>
               <dd>{{ release.downloadCount }}</dd>
             </div>
-            <div class="flex items-center justify-between gap-3">
-              <dt class="text-slate-500">完成次数</dt>
-              <dd>{{ release.completionCount }}</dd>
-            </div>
-            <div class="flex items-center justify-between gap-3">
-              <dt class="text-slate-500">活跃 peers</dt>
-              <dd>{{ release.activePeers }}</dd>
-            </div>
           </dl>
         </AppCard>
 
-        <AppCard title="下载说明" description="下载的 torrent 会携带个人 passkey，请勿外传。">
+        <AppCard title="下载说明" description="当前下载会直接返回站内保存的 torrent 文件。">
           <div class="space-y-4 text-sm text-slate-600">
             <div>
               <p class="mb-2 text-slate-500">Infohash</p>
@@ -291,59 +254,9 @@ watch(() => route.params.id, loadRelease, { immediate: true });
             </div>
             <ul class="space-y-2 leading-7">
               <li>下载前可先核对文件列表、分类和标签，避免误下错包。</li>
-              <li>若 RSS 地址或种子泄露，可在“我的账户”中重置 passkey。</li>
+              <li>如需通过 RSS 自动下载，可继续使用账户页中的 passkey 地址。</li>
               <li>管理员隐藏资源时，不会删除文件和审计记录，只会收起前台入口。</li>
             </ul>
-          </div>
-        </AppCard>
-
-        <AppCard
-          v-if="hasTrackerPanel"
-          title="Tracker 状态"
-          description="发布者和管理员可直接看到白名单状态，便于判断同步是否完成。"
-        >
-          <div class="space-y-4">
-            <div>
-              <div class="mb-2 flex items-center justify-between gap-3">
-                <p class="text-sm text-slate-500">最近同步</p>
-                <AppStatusBadge
-                  v-if="release.trackerSync"
-                  type="sync-status"
-                  :value="release.trackerSync.status"
-                />
-              </div>
-              <div v-if="release.trackerSync" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p class="text-sm leading-6 text-slate-700">{{ release.trackerSync.message }}</p>
-                <p class="mt-2 text-xs text-slate-500">{{ formatDateTime(release.trackerSync.updatedAt) }}</p>
-              </div>
-            </div>
-
-            <div>
-              <div class="mb-2 flex items-center justify-between gap-3">
-                <p class="text-sm text-slate-500">XBT 白名单</p>
-                <AppStatusBadge
-                  v-if="release.xbtFile"
-                  type="xbt-file-state"
-                  :value="release.xbtFile.state"
-                />
-              </div>
-              <div v-if="release.xbtFile" class="grid gap-3 sm:grid-cols-2">
-                <div
-                  v-for="item in trackerFacts"
-                  :key="item.label"
-                  class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-                >
-                  <p class="text-xs text-slate-500">{{ item.label }}</p>
-                  <p class="mt-2 text-sm font-medium text-slate-900">{{ item.value }}</p>
-                </div>
-              </div>
-              <p
-                v-if="release.xbtFile?.updatedAt"
-                class="text-xs text-slate-500"
-              >
-                最近白名单更新时间：{{ formatDateTime(release.xbtFile.updatedAt) }}
-              </p>
-            </div>
           </div>
         </AppCard>
       </div>

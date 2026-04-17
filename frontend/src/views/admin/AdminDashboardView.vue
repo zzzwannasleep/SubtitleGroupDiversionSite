@@ -38,9 +38,9 @@ const metricCards = computed(() => {
       hint: 'Published 状态资源',
     },
     {
-      label: '待处理同步',
-      value: stats.value.pendingSyncCount,
-      hint: '失败或警告记录需要关注',
+      label: '待完善草稿',
+      value: stats.value.draftReleaseCount,
+      hint: '仍未发布的资源数量',
     },
     {
       label: '在线公告',
@@ -55,18 +55,18 @@ const systemWatchItems = computed(() => {
 
   return [
     {
-      label: '同步状态',
-      status: stats.value.pendingSyncCount ? 'warning' : 'success',
-      description: stats.value.pendingSyncCount
-        ? `当前有 ${stats.value.pendingSyncCount} 条同步记录需要处理。`
-        : '当前没有堆积的同步告警。',
+      label: '草稿状态',
+      status: stats.value.draftReleaseCount ? 'warning' : 'success',
+      description: stats.value.draftReleaseCount
+        ? `当前有 ${stats.value.draftReleaseCount} 条草稿资源还未发布。`
+        : '当前没有堆积中的草稿资源。',
     },
     {
       label: '公告状态',
       status: stats.value.activeAnnouncementCount ? 'success' : 'warning',
       description: stats.value.activeAnnouncementCount
         ? '前台公告条正在展示线上公告。'
-        : '当前没有线上公告，适合维护窗口结束后保持静默。',
+        : '当前没有线上公告，适合保持安静展示。',
     },
   ] as const;
 });
@@ -91,10 +91,10 @@ onMounted(loadData);
 </script>
 
 <template>
-  <AppPageHeader title="后台首页" description="前后台共用同一套设计语言，但后台更强调管理动作、状态判断和快速确认。">
+  <AppPageHeader title="后台首页" description="后台首页更聚焦用户、资源和公告等日常管理动作。">
     <template #actions>
       <UiButton to="/admin/users" variant="primary">用户管理</UiButton>
-      <UiButton to="/admin/tracker-sync" variant="secondary">XBT 同步</UiButton>
+      <UiButton to="/admin/releases" variant="secondary">资源管理</UiButton>
     </template>
   </AppPageHeader>
 
@@ -203,10 +203,10 @@ onMounted(loadData);
               资源管理
             </RouterLink>
             <RouterLink
-              to="/admin/tracker-sync"
+              to="/admin/announcements"
               class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-white hover:text-slate-900"
             >
-              XBT 同步
+              公告管理
             </RouterLink>
             <RouterLink
               to="/admin/settings"

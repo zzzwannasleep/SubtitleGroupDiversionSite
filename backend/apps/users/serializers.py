@@ -4,7 +4,6 @@ from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.tracker_sync.serializers import TrackerSyncSnapshotSerializer, XbtUserSnapshotSerializer
 from apps.users.models import InviteCode, User, UserRole, UserStatus
 
 
@@ -31,8 +30,6 @@ class CurrentUserSerializer(UserSummarySerializer):
 
     @extend_schema_field(serializers.DateTimeField())
     def get_lastLoginAt(self, obj) -> str:
-        # Frontend date formatting assumes a string value, so we fall back to joined time
-        # for users who have not logged in yet.
         return (obj.last_login or obj.date_joined).isoformat()
 
 
@@ -55,30 +52,7 @@ class AdminUserCreateSerializer(AdminUserSerializer):
 
 
 class AdminUserDetailSerializer(AdminUserSerializer):
-    trackerSync = serializers.SerializerMethodField()
-    xbtUser = serializers.SerializerMethodField()
-
-    class Meta(AdminUserSerializer.Meta):
-        fields = AdminUserSerializer.Meta.fields + ("trackerSync", "xbtUser")
-
-    def _get_sync_snapshot(self, obj):
-        cache = getattr(self, "_sync_snapshot_cache", None)
-        if cache is None:
-            cache = {}
-            self._sync_snapshot_cache = cache
-        if obj.pk not in cache:
-            from apps.tracker_sync.services import TrackerSyncService
-
-            cache[obj.pk] = TrackerSyncService.get_user_sync_snapshot(obj)
-        return cache[obj.pk]
-
-    @extend_schema_field(TrackerSyncSnapshotSerializer)
-    def get_trackerSync(self, obj):
-        return self._get_sync_snapshot(obj)["trackerSync"]
-
-    @extend_schema_field(XbtUserSnapshotSerializer)
-    def get_xbtUser(self, obj):
-        return self._get_sync_snapshot(obj)["xbtUser"]
+    pass
 
 
 class CreateUserSerializer(serializers.Serializer):
@@ -144,7 +118,7 @@ class AdminDashboardStatsSerializer(serializers.Serializer):
     userCount = serializers.IntegerField()
     releaseCount = serializers.IntegerField()
     activeReleaseCount = serializers.IntegerField()
-    pendingSyncCount = serializers.IntegerField()
+    draftReleaseCount = serializers.IntegerField()
     activeAnnouncementCount = serializers.IntegerField()
 
 

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Logs,
   Megaphone,
-  RefreshCw,
   Settings,
   Tags,
   Users,
@@ -31,7 +30,6 @@ const navItems = computed(() => [
   { label: '分类管理', to: '/admin/categories', icon: Blocks },
   { label: '标签管理', to: '/admin/tags', icon: Tags },
   { label: '公告管理', to: '/admin/announcements', icon: Megaphone },
-  { label: 'XBT 同步', to: '/admin/tracker-sync', icon: RefreshCw },
   { label: '审计日志', to: '/admin/audit-logs', icon: Logs },
   { label: '系统设置', to: '/admin/settings', icon: Settings },
 ]);

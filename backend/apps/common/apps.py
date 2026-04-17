@@ -1,7 +1,7 @@
 import logging
 
-from django.conf import settings
 from django.apps import AppConfig
+from django.conf import settings
 
 
 class CommonConfig(AppConfig):
@@ -16,9 +16,8 @@ class CommonConfig(AppConfig):
 
         logger = logging.getLogger("apps.startup")
         logger.info(
-            "backend startup configuration loaded debug=%s site_base_url=%s xbt_sync_enabled=%s",
+            "backend startup configuration loaded debug=%s site_base_url=%s",
             settings.DEBUG,
             settings.SITE_BASE_URL,
-            settings.XBT_SYNC_ENABLED,
         )
         CommonConfig._startup_logged = True

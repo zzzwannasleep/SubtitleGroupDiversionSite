@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { ArrowRight, FolderKanban, Radio, Sparkles, Upload, Wrench } from 'lucide-vue-next';
+import { ArrowRight, FolderKanban, Radio, Sparkles, Upload } from 'lucide-vue-next';
 import AppError from '@/components/app/AppError.vue';
 import AppLoading from '@/components/app/AppLoading.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -35,14 +35,8 @@ const quickActions = computed(() => [
   ...(canManageReleases.value
     ? [
         {
-          label: '改种工具',
-          description: '先处理种子再分发，减少重复操作。',
-          to: '/torrent-tool',
-          icon: Wrench,
-        },
-        {
           label: '上传资源',
-          description: '发布新资源，首页入口直接到位。',
+          description: '直接上传 torrent 并完成发布。',
           to: '/upload',
           icon: Upload,
         },
@@ -68,8 +62,8 @@ const workflowTips = computed(() => [
     description: '从分类、标签或最新资源进入，先看清楚再下载或继续处理。',
   },
   {
-    title: '改种与上传分开',
-    description: '需要处理种子时先在工具页完成，再按需继续发布或分发。',
+    title: '发布流程更直接',
+    description: '上传页现在可以直接提交 torrent 文件，不再需要额外处理。',
   },
   {
     title: '高频入口放在首屏',
@@ -107,7 +101,7 @@ onMounted(loadData);
         <h1 class="home-hero__title">{{ settings.siteName }}</h1>
         <p class="home-hero__description">
           {{ settings.siteDescription }}
-          首页把浏览、下载、改种和订阅入口重新整合到一个更清爽的首屏里。
+          首页把浏览、下载、上传和订阅入口重新整合到一个更清爽的首屏里。
         </p>
 
         <div class="home-hero__overview">

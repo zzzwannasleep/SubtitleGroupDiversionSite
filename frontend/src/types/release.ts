@@ -2,22 +2,6 @@ import type { UserSummary } from './auth';
 
 export type ReleaseStatus = 'draft' | 'published' | 'hidden';
 export type ReleaseSort = 'latest' | 'downloads' | 'completions';
-export type XbtFileState = 'whitelisted' | 'deleted' | 'missing' | 'unavailable';
-
-export interface TrackerSyncSnapshot {
-  status: 'success' | 'warning' | 'failed';
-  message: string;
-  updatedAt: string;
-}
-
-export interface XbtFileSnapshot {
-  state: XbtFileState;
-  seeders: number | null;
-  leechers: number | null;
-  completed: number | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
 
 export interface Category {
   id: number;
@@ -56,8 +40,6 @@ export interface Release {
   downloadCount: number;
   completionCount: number;
   activePeers: number;
-  trackerSync?: TrackerSyncSnapshot | null;
-  xbtFile?: XbtFileSnapshot | null;
 }
 
 export interface DownloadRecord {

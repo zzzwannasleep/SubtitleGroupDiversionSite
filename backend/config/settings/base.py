@@ -45,7 +45,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 SITE_BASE_URL = env("SITE_BASE_URL", "http://localhost:8000").rstrip("/")
-TRACKER_ANNOUNCE_BASE_URL = env("TRACKER_ANNOUNCE_BASE_URL", SITE_BASE_URL).rstrip("/")
 LOG_LEVEL = env("LOG_LEVEL", "INFO")
 REDIS_URL = env("REDIS_URL")
 
@@ -67,7 +66,6 @@ INSTALLED_APPS = [
     "apps.rss",
     "apps.announcements",
     "apps.audit",
-    "apps.tracker_sync",
 ]
 
 MIDDLEWARE = [
@@ -183,8 +181,6 @@ SPECTACULAR_SETTINGS = {
         "ReleaseStatusEnum": [("draft", "草稿"), ("published", "已发布"), ("hidden", "已隐藏")],
         "AnnouncementStatusEnum": [("online", "上线"), ("draft", "草稿"), ("offline", "下线")],
         "AnnouncementAudienceEnum": [("all", "全部"), ("uploader", "上传者"), ("admin", "管理员")],
-        "TrackerSyncScopeEnum": [("user", "用户"), ("release", "资源"), ("full", "全量")],
-        "TrackerSyncStatusEnum": [("success", "成功"), ("warning", "警告"), ("failed", "失败")],
     },
 }
 
@@ -197,9 +193,6 @@ AUTH_PASSWORD_VALIDATORS = [
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-
-XBT_SYNC_DATABASE_ALIAS = env("XBT_SYNC_DATABASE_ALIAS", "default")
-XBT_SYNC_ENABLED = env("XBT_SYNC_ENABLED", "true").lower() == "true"
 
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 os.makedirs(STATIC_ROOT, exist_ok=True)
