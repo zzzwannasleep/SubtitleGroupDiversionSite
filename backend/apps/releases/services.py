@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -83,18 +83,60 @@ class ReleaseService:
         return category
 
     @staticmethod
+    def _default_title_from_torrent_metadata(metadata) -> str | None:
+        """
+        由种子元数据推导默认标题（不含显式 payload.title 时）：
+        - 单文件：取该文件路径的文件名并去掉扩展名（与 info.name 一致）。
+        - 多文件且路径中存在子目录（任一路径含 '/'）：视为「文件夹套多文件」，取 info.name（根目录名）去扩展名。
+        - 多文件且路径均为单层（根下多个文件）：取首个文件路径的文件名去扩展名。
+        """
+        files = getattr(metadata, "files", None) or []
+        info_name = (getattr(metadata, "name", None) or "").strip()
+
+        if not files:
+            if not info_name:
+                return None
+            return PurePosixPath(info_name).stem.strip() or None
+
+        if len(files) == 1:
+            path = (files[0].path or "").strip() or info_name
+            if not path:
+                return None
+            stem = PurePosixPath(path).stem.strip()
+            return stem or None
+
+        paths = [(f.path or "").strip() for f in files if (f.path or "").strip()]
+        if not paths:
+            if not info_name:
+                return None
+            return PurePosixPath(info_name).stem.strip() or None
+
+        any_nested = any("/" in p for p in paths)
+        if any_nested:
+            if not info_name:
+                return PurePosixPath(paths[0]).stem.strip() or None
+            return PurePosixPath(info_name).stem.strip() or None
+
+        first_stem = PurePosixPath(paths[0]).stem.strip()
+        if first_stem:
+            return first_stem
+        if info_name:
+            return PurePosixPath(info_name).stem.strip() or None
+        return None
+
+    @staticmethod
     def _build_default_title(*, payload: dict, torrent_file, metadata) -> str:
         explicit_title = (payload.get("title") or "").strip()
         if explicit_title:
-            return explicit_title
+            return explicit_title[:255]
 
-        metadata_name = (metadata.name or "").strip()
-        if metadata_name:
-            return metadata_name
+        from_meta = ReleaseService._default_title_from_torrent_metadata(metadata)
+        if from_meta:
+            return from_meta[:255]
 
         original_name = Path(getattr(torrent_file, "name", "upload.torrent")).stem.strip()
         if original_name:
-            return original_name
+            return original_name[:255]
 
         return f"资源 {metadata.infohash[:8]}"
 

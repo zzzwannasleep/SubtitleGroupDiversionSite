@@ -34,6 +34,44 @@ def build_torrent_bytes(*, private: bool = True) -> bytes:
     )
 
 
+def build_multi_file_torrent_bytes_flat(*, private: bool = True) -> bytes:
+    """多文件、路径均在根目录（无子目录），标题应取首个文件主文件名。"""
+    return flatbencode.encode(
+        {
+            b"announce": b"https://example.com/announce",
+            b"info": {
+                b"name": b"RootFolder",
+                b"piece length": 262144,
+                b"pieces": b"01234567890123456789",
+                b"private": 1 if private else 0,
+                b"files": [
+                    {b"length": 100, b"path": [b"alpha.mkv"]},
+                    {b"length": 100, b"path": [b"beta.mkv"]},
+                ],
+            },
+        }
+    )
+
+
+def build_multi_file_torrent_bytes_nested(*, private: bool = True) -> bytes:
+    """多文件且路径含子目录，标题应取 info.name 根文件夹名。"""
+    return flatbencode.encode(
+        {
+            b"announce": b"https://example.com/announce",
+            b"info": {
+                b"name": b"MyFolder",
+                b"piece length": 262144,
+                b"pieces": b"01234567890123456789",
+                b"private": 1 if private else 0,
+                b"files": [
+                    {b"length": 100, b"path": [b"sub", b"a.mkv"]},
+                    {b"length": 100, b"path": [b"sub", b"b.mkv"]},
+                ],
+            },
+        }
+    )
+
+
 @override_settings(MEDIA_ROOT="test-media")
 class ApiFlowTests(TestCase):
     @classmethod
@@ -322,10 +360,40 @@ class ApiFlowTests(TestCase):
             format="multipart",
         )
         self.assertEqual(response.status_code, 201, response.json())
-        self.assertEqual(response.json()["data"]["title"], "Example.S01E01.mkv")
+        self.assertEqual(response.json()["data"]["title"], "Example.S01E01")
         self.assertEqual(response.json()["data"]["subtitle"], "")
         self.assertEqual(response.json()["data"]["description"], "")
         self.assertEqual(response.json()["data"]["category"]["slug"], self.category.slug)
+
+    def test_uploader_can_create_release_multi_file_flat_title_uses_first_file_stem(self):
+        self.client.force_login(self.uploader)
+        torrent = SimpleUploadedFile(
+            "multi-flat.torrent",
+            build_multi_file_torrent_bytes_flat(),
+            content_type="application/x-bittorrent",
+        )
+        response = self.client.post(
+            "/api/releases/",
+            {"torrentFile": torrent},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["data"]["title"], "alpha")
+
+    def test_uploader_can_create_release_multi_file_nested_title_uses_folder_name(self):
+        self.client.force_login(self.uploader)
+        torrent = SimpleUploadedFile(
+            "multi-nested.torrent",
+            build_multi_file_torrent_bytes_nested(),
+            content_type="application/x-bittorrent",
+        )
+        response = self.client.post(
+            "/api/releases/",
+            {"torrentFile": torrent},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["data"]["title"], "MyFolder")
 
     def test_uploader_can_create_release_and_download_original_torrent(self):
         release = self.create_release()

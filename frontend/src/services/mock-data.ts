@@ -364,13 +364,25 @@ export function createReleaseFromPayload(payload: {
   createdBy: CurrentUser;
   status?: 'draft' | 'published' | 'hidden';
 }): Release {
-  const fallbackTitle = payload.torrentFileName?.replace(/\.torrent$/i, '') || '新上传资源';
+  function filenameStem(name: string): string {
+    const normalized = name.replace(/\\/g, '/');
+    const base = normalized.split('/').pop() ?? name;
+    const dot = base.lastIndexOf('.');
+    if (dot <= 0) return base;
+    return base.slice(0, dot);
+  }
+
+  const torrentName = payload.torrentFileName ?? 'upload.torrent';
+  const stem = torrentName.replace(/\.torrent$/i, '');
+  const innerPath = stem.includes('/') ? stem.replace(/\\/g, '/') : `${stem}.mkv`;
+  const simulatedInfoName = innerPath;
+  const titleFromInfoName = filenameStem(simulatedInfoName) || stem || '新上传资源';
   const category = categories.find((item) => item.slug === payload.categorySlug) ?? categories[0];
   const releaseTags = tags.filter((item) => payload.tagSlugs.includes(item.slug));
   const createdAt = nowIso();
   const release: Release = {
     id: Date.now() + Math.floor(Math.random() * 1000),
-    title: payload.title?.trim() || fallbackTitle,
+    title: payload.title?.trim() || titleFromInfoName,
     subtitle: payload.subtitle ?? '',
     description: payload.description ?? '',
     category,
@@ -386,7 +398,7 @@ export function createReleaseFromPayload(payload: {
       displayName: payload.createdBy.displayName,
       role: payload.createdBy.role,
     },
-    files: [{ path: payload.torrentFileName ?? 'new-upload.torrent', sizeBytes: 9800000000 }],
+    files: [{ path: innerPath, sizeBytes: 9800000000 }],
     downloadCount: 0,
     completionCount: 0,
     activePeers: 0,
