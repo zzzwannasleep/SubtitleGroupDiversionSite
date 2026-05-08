@@ -104,10 +104,12 @@ cp tracker/tracker.example.toml tracker/tracker.toml
 - `TRACKER_ENABLED=true`
 - `TRACKER_ANNOUNCE_URL=http://你的域名或服务器IP:7070/announce`
 - `TORRUST_API_URL=http://tracker:1212`
-- `TORRUST_API_TOKEN=<你自己的管理 token>`
+- `TORRUST_API_TOKEN=your-admin-token`
+- `deploy/tracker/tracker.toml` 里要保留新版 Torrust 必需的 `[metadata]` 段，例如 `schema_version = "2.0.0"`
 
 这里要特别注意：
 
+- `.env` 每一行都必须是 `KEY=value`，不要在行首加空格，也不要写成 `KEY = value`
 - `TRACKER_ANNOUNCE_URL` 是写进用户下载到的 `.torrent` 里的，必须是 **外部 BT 客户端也能访问到的地址**
 - `TORRUST_API_URL` 才是 Django 容器访问 Torrust 管理 API 的 **容器内网地址**
 

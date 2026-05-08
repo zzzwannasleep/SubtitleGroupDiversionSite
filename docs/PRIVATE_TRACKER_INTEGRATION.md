@@ -59,6 +59,8 @@
 
 部署时要特别区分两个地址：
 
+- `.env` 必须严格写成 `KEY=value`，不要在行首留空格，也不要把 `=` 两边写出空格
+- `deploy/tracker/tracker.toml` 需要带上新版 Torrust 的 `[metadata]` 段，至少包含 `schema_version = "2.0.0"`
 - `TRACKER_ANNOUNCE_URL`
   这是写进用户下载到的 `.torrent` 里的地址，必须填公网可访问地址，例如 `http://example.com:7070/announce`
 - `TORRUST_API_URL`
