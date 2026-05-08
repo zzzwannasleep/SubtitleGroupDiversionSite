@@ -89,6 +89,34 @@ ALLOWED_HOSTS = build_allowed_hosts(env("DJANGO_ALLOWED_HOSTS"), SITE_BASE_URL)
 CSRF_TRUSTED_ORIGINS = build_csrf_trusted_origins(env("DJANGO_CSRF_TRUSTED_ORIGINS"), SITE_BASE_URL)
 LOG_LEVEL = env("LOG_LEVEL", "INFO")
 REDIS_URL = env("REDIS_URL")
+TRACKER_ENABLED = env("TRACKER_ENABLED", "false").lower() == "true"
+TRACKER_ANNOUNCE_URL = env("TRACKER_ANNOUNCE_URL", "").rstrip("/")
+TRACKER_AUTH_MODE = env("TRACKER_AUTH_MODE", "per_user")
+TRACKER_REQUIRE_AUTH_DOWNLOADS = env(
+    "TRACKER_REQUIRE_AUTH_DOWNLOADS",
+    "true" if TRACKER_ENABLED else "false",
+).lower() == "true"
+TRACKER_FORCE_PRIVATE_TORRENTS = env(
+    "TRACKER_FORCE_PRIVATE_TORRENTS",
+    "true" if TRACKER_ENABLED else "false",
+).lower() == "true"
+TRACKER_SYNC_STRICT = env("TRACKER_SYNC_STRICT", "false").lower() == "true"
+TORRUST_API_URL = env("TORRUST_API_URL", "").rstrip("/")
+TORRUST_API_TOKEN = env("TORRUST_API_TOKEN", "")
+TORRUST_SHARED_AUTH_KEY = env("TORRUST_SHARED_AUTH_KEY", "")
+TORRUST_KEY_TTL_SECONDS = int(env("TORRUST_KEY_TTL_SECONDS", "315360000") or "315360000")
+TORRUST_KEY_RENEWAL_WINDOW_SECONDS = int(
+    env("TORRUST_KEY_RENEWAL_WINDOW_SECONDS", "86400") or "86400"
+)
+TORRUST_API_TIMEOUT_SECONDS = float(env("TORRUST_API_TIMEOUT_SECONDS", "5") or "5")
+TORRUST_API_CREATE_KEY_PATH_TEMPLATE = env(
+    "TORRUST_API_CREATE_KEY_PATH_TEMPLATE",
+    "/api/v1/key/{duration_in_seconds}",
+)
+TORRUST_API_WHITELIST_PATH_TEMPLATE = env(
+    "TORRUST_API_WHITELIST_PATH_TEMPLATE",
+    "/api/v1/whitelist/{infohash}",
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -105,6 +133,7 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.releases",
     "apps.downloads",
+    "apps.tracker",
     "apps.rss",
     "apps.announcements",
     "apps.audit",

@@ -10,6 +10,7 @@ from apps.audit.services import AuditService
 from apps.common.exceptions import BusinessException
 from apps.common.torrent import parse_torrent
 from apps.releases.models import Category, Release, ReleaseFile, ReleaseStatus
+from apps.tracker.services import TrackerService, TrackerSyncService
 
 
 class ReleaseService:
@@ -63,14 +64,15 @@ class ReleaseService:
     def _apply_torrent_payload(release: Release, torrent_file):
         original_name = getattr(torrent_file, "name", "upload.torrent")
         torrent_bytes = torrent_file.read()
-        metadata = parse_torrent(torrent_bytes)
+        normalized_torrent_bytes = TrackerService.normalize_uploaded_torrent(torrent_bytes)
+        metadata = parse_torrent(normalized_torrent_bytes)
         duplicated = Release.objects.exclude(pk=release.pk).filter(infohash=metadata.infohash).exists()
         if duplicated:
             raise BusinessException("该 infohash 已存在，不能重复发布。")
 
         release.size_bytes = metadata.size_bytes
         release.infohash = metadata.infohash
-        stored_torrent = ContentFile(torrent_bytes)
+        stored_torrent = ContentFile(normalized_torrent_bytes)
         stored_torrent.name = original_name
         release.torrent_file = stored_torrent
         return metadata
@@ -84,12 +86,6 @@ class ReleaseService:
 
     @staticmethod
     def _default_title_from_torrent_metadata(metadata) -> str | None:
-        """
-        由种子元数据推导默认标题（不含显式 payload.title 时）：
-        - 单文件：取该文件路径的文件名并去掉扩展名（与 info.name 一致）。
-        - 多文件且路径中存在子目录（任一路径含 '/'）：视为「文件夹套多文件」，取 info.name（根目录名）去扩展名。
-        - 多文件且路径均为单层（根下多个文件）：取首个文件路径的文件名去扩展名。
-        """
         files = getattr(metadata, "files", None) or []
         info_name = (getattr(metadata, "name", None) or "").strip()
 
@@ -105,13 +101,13 @@ class ReleaseService:
             stem = PurePosixPath(path).stem.strip()
             return stem or None
 
-        paths = [(f.path or "").strip() for f in files if (f.path or "").strip()]
+        paths = [(item.path or "").strip() for item in files if (item.path or "").strip()]
         if not paths:
             if not info_name:
                 return None
             return PurePosixPath(info_name).stem.strip() or None
 
-        any_nested = any("/" in p for p in paths)
+        any_nested = any("/" in path for path in paths)
         if any_nested:
             if not info_name:
                 return PurePosixPath(paths[0]).stem.strip() or None
@@ -139,6 +135,36 @@ class ReleaseService:
             return original_name[:255]
 
         return f"资源 {metadata.infohash[:8]}"
+
+    @classmethod
+    @transaction.atomic
+    def normalize_existing_release_torrent(cls, release: Release) -> Release:
+        with release.torrent_file.open("rb") as torrent_handle:
+            current_bytes = torrent_handle.read()
+
+        normalized_torrent_bytes = TrackerService.normalize_uploaded_torrent(current_bytes)
+        if normalized_torrent_bytes == current_bytes:
+            return release
+
+        metadata = parse_torrent(normalized_torrent_bytes)
+        duplicated = Release.objects.exclude(pk=release.pk).filter(infohash=metadata.infohash).exists()
+        if duplicated:
+            raise BusinessException("规范化历史种子后产生了重复的 infohash，请手动处理该资源。")
+
+        stored_torrent = ContentFile(normalized_torrent_bytes)
+        stored_torrent.name = Path(release.torrent_file.name).name or f"release-{release.pk}.torrent"
+        release.torrent_file = stored_torrent
+        release.infohash = metadata.infohash
+        release.size_bytes = metadata.size_bytes
+        release.save(update_fields=["torrent_file", "infohash", "size_bytes", "updated_at"])
+        release.files.all().delete()
+        ReleaseFile.objects.bulk_create(
+            [
+                ReleaseFile(release=release, file_path=item.path, file_size=item.size_bytes)
+                for item in metadata.files
+            ]
+        )
+        return release
 
     @classmethod
     @transaction.atomic
@@ -174,11 +200,15 @@ class ReleaseService:
             detail="上传 torrent 并写入文件列表。",
             payload={"release_id": release.id},
         )
+        TrackerSyncService.schedule_release_sync(release=release)
         return release
 
     @classmethod
     @transaction.atomic
     def update_release(cls, *, actor, release: Release, payload: dict):
+        previous_infohash = release.infohash
+        previous_status = release.status
+
         tags = payload.pop("tags", None)
         torrent_file = payload.pop("torrent_file", None)
         for field, value in payload.items():
@@ -207,15 +237,25 @@ class ReleaseService:
             detail="资源元数据已更新。",
             payload={"release_id": release.id},
         )
+        TrackerSyncService.schedule_release_sync(
+            release=release,
+            previous_infohash=previous_infohash,
+            previous_status=previous_status,
+        )
         return release
 
     @classmethod
     @transaction.atomic
     def set_visibility(cls, *, actor, release: Release, status: str):
+        previous_infohash = release.infohash
+        previous_status = release.status
+
         release.status = status
+        update_fields = ["status", "updated_at"]
         if status == ReleaseStatus.PUBLISHED and not release.published_at:
             release.published_at = timezone.now()
-        release.save(update_fields=["status", "published_at", "updated_at"])
+        update_fields.append("published_at")
+        release.save(update_fields=update_fields)
         AuditService.log(
             actor,
             "恢复资源" if status == ReleaseStatus.PUBLISHED else "隐藏资源",
@@ -223,5 +263,10 @@ class ReleaseService:
             release.title,
             detail=f"资源状态切换为 {status}。",
             payload={"release_id": release.id},
+        )
+        TrackerSyncService.schedule_release_sync(
+            release=release,
+            previous_infohash=previous_infohash,
+            previous_status=previous_status,
         )
         return release

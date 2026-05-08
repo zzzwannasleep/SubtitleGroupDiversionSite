@@ -1,0 +1,7 @@
+# Legacy test artifacts that may be written into the repo-level test-media fixtures.
+/test-media/site/branding/favicon_*.svg
+/test-media/site/login-backgrounds/login-bg_*.jpg
+/test-media/torrent_templates/example_*.torrent
+/test-media/torrent_templates/replacement_*.torrent
+/test-media/torrent_templates/multi-flat*.torrent
+/test-media/torrent_templates/multi-nested*.torrent

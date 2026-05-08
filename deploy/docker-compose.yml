@@ -75,6 +75,26 @@ services:
       - app_net
     logging: *default-logging
 
+  tracker:
+    image: ${TRACKER_IMAGE:-torrust/tracker:develop}
+    profiles: ["tracker"]
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      TORRUST_TRACKER_CONFIG_TOML_PATH: /config/tracker.toml
+      TORRUST_TRACKER_CONFIG_OVERRIDE_HTTP_API__ACCESS_TOKENS__ADMIN: ${TORRUST_API_TOKEN}
+    volumes:
+      - ./tracker/tracker.toml:/config/tracker.toml:ro
+      - tracker_storage:/storage/tracker
+    ports:
+      - "${TRACKER_HTTP_PORT:-7070}:7070"
+      - "${TRACKER_UDP_PORT:-6969}:6969/udp"
+      - "127.0.0.1:${TRACKER_API_PORT:-1212}:1212"
+    networks:
+      - app_net
+    logging: *default-logging
+
 networks:
   app_net:
     driver: bridge
@@ -83,3 +103,4 @@ volumes:
   mysql_data:
   redis_data:
   torrent_storage:
+  tracker_storage:

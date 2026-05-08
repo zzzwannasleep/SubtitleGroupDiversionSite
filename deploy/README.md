@@ -1,8 +1,8 @@
 # Deploy
 
-生产部署使用 [docker-compose.yml](docker-compose.yml)。以下命令默认在 `deploy/` 目录下执行。
+生产部署使用 [docker-compose.yml](docker-compose.yml)。以下命令默认都在 `deploy/` 目录下执行。
 
-默认会启动：
+默认启动的服务：
 
 - `backend`
 - `mysql`
@@ -27,7 +27,7 @@ cp .env.example .env
 
 ## 方式一：源码部署
 
-适合已经 `git clone` 整个仓库、需要自行构建镜像的场景。先在仓库根目录执行：
+适合已经 `git clone` 整个仓库、需要自己构建镜像的场景。先在仓库根目录执行：
 
 ```bash
 docker build -f backend/Dockerfile -t subtitle-group-diversion-site/backend:local .
@@ -86,10 +86,52 @@ docker compose exec \
 sh scripts/init.sh
 ```
 
+## Torrust Tracker
+
+当前仓库已经把 **Torrust 的后端对接逻辑接进去了**，但 **Torrust Tracker 本体仍然需要单独部署**。
+
+这里已经在 `docker-compose.yml` 里提供了可选的 `tracker` 服务，通过 profile 启动，不会影响原来的纯分流站部署。
+
+先准备 tracker 配置文件：
+
+```bash
+cp tracker/tracker.example.toml tracker/tracker.toml
+# PowerShell: Copy-Item tracker/tracker.example.toml tracker/tracker.toml
+```
+
+然后在 `.env` 里至少补这些配置：
+
+- `TRACKER_ENABLED=true`
+- `TRACKER_ANNOUNCE_URL=http://你的域名或服务器IP:7070/announce`
+- `TORRUST_API_URL=http://tracker:1212`
+- `TORRUST_API_TOKEN=<你自己的管理 token>`
+
+这里要特别注意：
+
+- `TRACKER_ANNOUNCE_URL` 是写进用户下载到的 `.torrent` 里的，必须是 **外部 BT 客户端也能访问到的地址**
+- `TORRUST_API_URL` 才是 Django 容器访问 Torrust 管理 API 的 **容器内网地址**
+
+启动方式：
+
+```bash
+docker compose --profile tracker up -d
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py sync_tracker_state
+```
+
+说明：
+
+- HTTP announce 默认对外映射到 `7070`
+- UDP announce 默认对外映射到 `6969/udp`
+- 管理 API 默认只映射到宿主机 `127.0.0.1:1212`
+- `tracker.toml` 默认就是 `private + listed` 模式
+- `TRACKER_IMAGE` 默认是 `torrust/tracker:develop`，如果你想锁版本，建议在 `.env` 里改成你确认过的具体 tag
+
 ## 查看日志
 
 ```bash
 docker compose logs -f backend mysql redis
+docker compose --profile tracker logs -f tracker
 ```
 
 ## 备份
@@ -103,4 +145,4 @@ sh scripts/backup.sh
 - `backend` 容器会直接提供前端页面、`/api`、`/static` 和 `/media`
 - 首次启动会自动执行数据库迁移与静态文件收集
 - `BACKEND_IMAGE` 可覆盖默认镜像地址，`IMAGE_PULL_POLICY=never` 可关闭拉取并改用本地镜像
-- 当前部署方案不再包含私有 Tracker / XBT 服务
+- 如果启用了 `tracker` profile，Django 会通过 `TORRUST_API_URL` 调用 Torrust 管理 API，并通过 `TRACKER_ANNOUNCE_URL` 生成用户下载到的 announce 地址

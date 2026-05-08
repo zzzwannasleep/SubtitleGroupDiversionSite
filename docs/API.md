@@ -1,5 +1,7 @@
 # Subtitle Group Diversion Site API
 
+> 说明：当 `TRACKER_ENABLED=true` 时，`/api/releases/{release_id}/download/` 需要已登录且状态正常的用户访问，并会返回带 `Torrust` 专属 announce key 的个性化 torrent。新上传的 public torrent 也会在入库前自动规范化为 private torrent。
+
 本文件面向“其他项目接入当前站点后端 API”的场景，内容基于当前代码和 OpenAPI schema 整理，版本对应 `0.1.0`。
 
 本文档只覆盖当前推荐使用的接口，不包含已经从 Swagger / ReDoc 中隐藏的兼容旧接口。

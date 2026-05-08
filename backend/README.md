@@ -1,5 +1,7 @@
 # Backend
 
+> 更新说明：后端现已支持可选的 `Torrust Tracker` 集成。启用 [backend/.env.example](./.env.example) 里的 tracker 配置后，请执行一次 `python backend/manage.py sync_tracker_state`，给历史用户补 key，并把历史种子规范化后同步到 whitelist。
+
 后端基于 `Django + DRF`，负责：
 
 - 用户、邀请码、权限和审计日志

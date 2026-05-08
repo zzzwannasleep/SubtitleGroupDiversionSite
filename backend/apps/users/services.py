@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.audit.services import AuditService
 from apps.common.utils import generate_secret_token
+from apps.tracker.services import TrackerService
 from apps.users.models import InviteCode, User, generate_invite_code, normalize_invite_code
 
 
@@ -36,13 +37,19 @@ class UserService:
                 payload={"user_id": user.id},
             )
 
+        TrackerService.schedule_user_key_provision(user)
         return user, generated_password
 
     @staticmethod
     def change_status(*, actor, user: User, next_status: str):
         with transaction.atomic():
             user.status = next_status
-            user.save(update_fields=["status"])
+            update_fields = ["status"]
+            if next_status != "active":
+                user.tracker_passkey = ""
+                user.tracker_key_valid_until = None
+                update_fields.extend(["tracker_passkey", "tracker_key_valid_until"])
+            user.save(update_fields=update_fields)
             AuditService.log(
                 actor,
                 "启用用户" if next_status == "active" else "禁用用户",
@@ -52,6 +59,7 @@ class UserService:
                 payload={"user_id": user.id},
             )
 
+        TrackerService.schedule_user_key_provision(user)
         return user
 
     @staticmethod

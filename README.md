@@ -1,5 +1,7 @@
 # Subtitle Group Diversion Site
 
+> 更新说明：后端已经接入可选的 `Torrust Tracker` 支持，包含私有种子规范化、whitelist 同步和按用户改写下载 announce。启用后请查看 [docs/PRIVATE_TRACKER_INTEGRATION.md](docs/PRIVATE_TRACKER_INTEGRATION.md)，并执行 `python backend/manage.py sync_tracker_state` 补齐历史数据。
+
 一个面向字幕组内部使用的轻量资源站，提供资源发布、浏览、RSS 订阅和 torrent 下载能力。
 
 当前版本已经移除私有 Tracker / XBT 依赖，发布页和编辑页都改为直接上传 `.torrent` 文件，下载接口也会直接返回站内保存的原始 torrent。

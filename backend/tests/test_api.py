@@ -1,8 +1,10 @@
 ﻿import json
 import os
+import shutil
 import tempfile
 from datetime import timedelta
 from io import StringIO
+from unittest.mock import patch
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
 from django.core.management import call_command
@@ -16,6 +18,8 @@ from apps.audit.models import AuditLog
 from apps.common.throttles import LoginRateThrottle
 from apps.downloads.models import DownloadLog
 from apps.releases.models import Category, Release, Tag
+from apps.tracker.models import TrackerTorrentSync
+from apps.tracker.services import TorrustAuthKey
 from apps.users.models import InviteCode, User
 
 
@@ -72,11 +76,21 @@ def build_multi_file_torrent_bytes_nested(*, private: bool = True) -> bytes:
     )
 
 
-@override_settings(MEDIA_ROOT="test-media")
 class ApiFlowTests(TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._temp_media_dir = tempfile.mkdtemp(prefix="subtitle-group-tests-")
+        cls._media_override = override_settings(MEDIA_ROOT=cls._temp_media_dir)
+        cls._media_override.enable()
         super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            super().tearDownClass()
+        finally:
+            cls._media_override.disable()
+            shutil.rmtree(cls._temp_media_dir, ignore_errors=True)
 
     def setUp(self):
         self.client = APIClient()
@@ -465,6 +479,67 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(DownloadLog.objects.filter(release=release, user__isnull=True).count(), 1)
 
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+        TRACKER_SYNC_STRICT=True,
+    )
+    def test_tracker_enabled_download_rewrites_announce_and_normalizes_private_flag(self):
+        with patch("apps.tracker.services.TorrustClient.whitelist_infohash") as whitelist_infohash:
+            release = self.create_release(torrent_bytes=build_torrent_bytes(private=False), execute_on_commit=True)
+        whitelist_infohash.assert_called_once_with(release.infohash)
+
+        sync = TrackerTorrentSync.objects.get(release=release)
+        self.assertTrue(sync.is_whitelisted)
+        self.assertEqual(sync.last_error, "")
+
+        with release.torrent_file.open("rb") as torrent_handle:
+            stored_torrent = Torrent.read_stream(torrent_handle.read(), validate=False)
+        self.assertTrue(stored_torrent.private)
+
+        with patch(
+            "apps.tracker.services.TorrustClient.create_auth_key",
+            return_value=TorrustAuthKey(
+                key="user-passkey",
+                valid_until=timezone.now() + timedelta(days=3650),
+            ),
+        ) as create_auth_key:
+            self.client.force_login(self.user)
+            response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertEqual(torrent.trackers[0][0], "https://tracker.example.com/announce/user-passkey")
+        self.assertTrue(torrent.private)
+        create_auth_key.assert_called_once()
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.tracker_passkey, "user-passkey")
+        self.assertEqual(DownloadLog.objects.filter(release=release, user=self.user).count(), 1)
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TRACKER_AUTH_MODE="shared",
+        TORRUST_SHARED_AUTH_KEY="shared-key",
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+    )
+    def test_tracker_enabled_disallows_anonymous_download(self):
+        with patch("apps.tracker.services.TorrustClient.whitelist_infohash"):
+            release = self.create_release(execute_on_commit=True)
+
+        client = APIClient()
+        response = client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(DownloadLog.objects.filter(release=release).count(), 0)
+
     def test_draft_release_can_publish_without_tracker_side_effects(self):
         release = self.create_release(status="draft", execute_on_commit=True)
         self.assertEqual(release.status, "draft")
@@ -726,6 +801,10 @@ class ApiFlowTests(TestCase):
         self.assertTrue(AuditLog.objects.filter(action="停用邀请码", target_name=revoked_code.code).exists())
 
     def test_admin_can_disable_and_enable_user_with_explicit_routes(self):
+        self.user.tracker_passkey = "existing-key"
+        self.user.tracker_key_valid_until = timezone.now() + timedelta(days=30)
+        self.user.save(update_fields=["tracker_passkey", "tracker_key_valid_until"])
+
         self.client.force_login(self.admin)
         with self.captureOnCommitCallbacks(execute=True):
             disable = self.client.post(f"/api/admin/users/{self.user.id}/disable/")
@@ -733,6 +812,8 @@ class ApiFlowTests(TestCase):
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.status, "disabled")
+        self.assertEqual(self.user.tracker_passkey, "")
+        self.assertIsNone(self.user.tracker_key_valid_until)
 
         with self.captureOnCommitCallbacks(execute=True):
             enable = self.client.post(f"/api/admin/users/{self.user.id}/enable/")

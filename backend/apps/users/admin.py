@@ -9,12 +9,15 @@ class UserAdmin(DjangoUserAdmin):
     list_display = ("username", "display_name", "email", "role", "status", "is_staff", "last_login")
     list_filter = ("role", "status", "is_staff")
     fieldsets = DjangoUserAdmin.fieldsets + (
-        ("站点字段", {"fields": ("display_name", "role", "status", "api_token")}),
+        (
+            "站点字段",
+            {"fields": ("display_name", "role", "status", "api_token", "tracker_passkey", "tracker_key_valid_until")},
+        ),
     )
     add_fieldsets = DjangoUserAdmin.add_fieldsets + (
         ("站点字段", {"fields": ("display_name", "email", "role", "status")}),
     )
-    search_fields = ("username", "display_name", "email", "api_token")
+    search_fields = ("username", "display_name", "email", "api_token", "tracker_passkey")
 
 
 @admin.register(InviteCode)
