@@ -139,6 +139,26 @@ class TrackerApiTests(TestCase):
     @override_settings(
         TRACKER_ENABLED=True,
         TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_SCRAPE_URL="http://tracker:7070/scrape",
+        TRACKER_AUTH_MODE="per_user",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+    )
+    @patch(
+        "apps.tracker.services.TorrustClient.create_auth_key",
+        return_value=TorrustAuthKey("user-passkey", datetime(2026, 5, 12, 8, 0, tzinfo=UTC)),
+    )
+    def test_me_tracker_endpoint_derives_public_scrape_url_when_internal_scrape_url_is_private(self, _create_auth_key):
+        self.client.force_login(self.user)
+        response = self.client.get("/api/me/tracker/")
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["data"]["scrapeUrl"], "https://tracker.example.com/scrape/user-passkey")
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
         TRACKER_SCRAPE_URL="https://tracker.example.com/scrape",
         TRACKER_AUTH_MODE="shared",
         TORRUST_SHARED_AUTH_KEY="shared-key",
@@ -196,6 +216,37 @@ class TrackerApiTests(TestCase):
 
         sync = TrackerTorrentSync.objects.get(release=published_release)
         self.assertTrue(sync.is_whitelisted)
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com:7070/announce",
+        TRACKER_SCRAPE_URL="https://tracker.example.com:7070/scrape",
+        TRACKER_AUTH_MODE="shared",
+        TORRUST_SHARED_AUTH_KEY="shared-key",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+    )
+    @patch(
+        "apps.tracker.services.TorrustClient.get_stats",
+        return_value=TrackerApiStats(
+            torrents=0,
+            seeders=0,
+            leechers=0,
+            completed=0,
+            announces_handled=0,
+            scrapes_handled=0,
+        ),
+    )
+    def test_admin_tracker_overview_warns_on_https_7070_announce_url(self, _get_stats):
+        self.client.force_login(self.admin)
+        response = self.client.get("/api/admin/tracker/overview/")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        tracker_message = response.json()["data"]["trackerMessage"]
+        self.assertIn("https://...:7070", tracker_message)
+        self.assertIn("qBittorrent", tracker_message)
 
     @override_settings(
         TRACKER_ENABLED=True,
@@ -284,3 +335,34 @@ class TrackerApiTests(TestCase):
         request = mocked_urlopen.call_args.args[0]
         self.assertTrue(request.full_url.startswith("https://tracker.example.com/scrape/user-key?info_hash="))
         self.assertIn("%F4", request.full_url.upper())
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_SCRAPE_URL="http://tracker:7070/scrape",
+    )
+    @patch("apps.tracker.services.urlopen")
+    def test_torrust_client_scrape_infohash_prefers_internal_scrape_url_when_configured(self, mocked_urlopen):
+        infohash = "4df4010a4af5f6082705df0ea5c79d0fceba9f10"
+        infohash_bytes = bytes.fromhex(infohash)
+        response_body = flatbencode.encode(
+            {
+                b"files": {
+                    infohash_bytes: {
+                        b"complete": 4,
+                        b"incomplete": 3,
+                        b"downloaded": 12,
+                    }
+                }
+            }
+        )
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = response_body
+        mocked_urlopen.return_value = response
+
+        client = TorrustClient(base_url="https://tracker.example.com", token="tracker-token", timeout=5)
+        stats = client.scrape_infohash(infohash=infohash, auth_key="user-key")
+
+        self.assertEqual(stats, TrackerScrapeStats(seeders=4, leechers=3, completed=12))
+        request = mocked_urlopen.call_args.args[0]
+        self.assertTrue(request.full_url.startswith("http://tracker:7070/scrape/user-key?info_hash="))

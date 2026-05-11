@@ -282,7 +282,7 @@ class TrackerService:
     def get_scrape_url_for_user(user) -> str:
         if not TrackerService.is_enabled():
             raise BusinessException("Tracker 尚未启用。")
-        return TrackerService.build_scrape_url(TrackerService._resolve_auth_key_for_user(user))
+        return TrackerService.build_public_scrape_url(TrackerService._resolve_auth_key_for_user(user))
 
     @staticmethod
     def resolve_active_user_by_passkey(passkey: str):
@@ -318,8 +318,17 @@ class TrackerService:
         return TrackerService._build_tracker_url(announce_url, auth_key)
 
     @staticmethod
+    def build_public_scrape_url(auth_key: str) -> str:
+        scrape_url = (getattr(settings, "TRACKER_PUBLIC_SCRAPE_URL", "") or "").strip()
+        if not scrape_url:
+            scrape_url = TrackerService._derive_scrape_base_url()
+        return TrackerService._build_tracker_url(scrape_url, auth_key)
+
+    @staticmethod
     def build_scrape_url(auth_key: str) -> str:
         scrape_url = (getattr(settings, "TRACKER_SCRAPE_URL", "") or "").strip()
+        if not scrape_url:
+            scrape_url = (getattr(settings, "TRACKER_PUBLIC_SCRAPE_URL", "") or "").strip()
         if not scrape_url:
             scrape_url = TrackerService._derive_scrape_base_url()
         return TrackerService._build_tracker_url(scrape_url, auth_key)
@@ -512,6 +521,22 @@ class TrackerSyncService:
 
 class TrackerAdminService:
     @staticmethod
+    def _detect_announce_url_warning(announce_url: str) -> str:
+        normalized_url = (announce_url or "").strip()
+        if not normalized_url:
+            return ""
+
+        parsed = urlsplit(normalized_url)
+        if parsed.scheme == "https" and parsed.port == 7070:
+            return (
+                "检测到 TRACKER_ANNOUNCE_URL 使用了 https://...:7070。仓库默认暴露的 Torrust 7070 端口是明文 HTTP；"
+                "除非你额外在该端口前做了 TLS 反向代理，否则 qBittorrent 等客户端会一直刷新且拿不到种子/下载人数。"
+                "默认请改为 http://<host>:7070/announce，或把 HTTPS 放到 443/反向代理层。"
+            )
+
+        return ""
+
+    @staticmethod
     def get_overview() -> dict:
         from apps.releases.models import Release
         from apps.users.models import User
@@ -519,6 +544,7 @@ class TrackerAdminService:
         tracker_stats = None
         tracker_message = ""
         tracker_reachable = False
+        announce_url = (getattr(settings, "TRACKER_ANNOUNCE_URL", "") or "").strip()
 
         if TrackerService.is_enabled():
             try:
@@ -530,9 +556,17 @@ class TrackerAdminService:
         scrape_base_url = ""
         if TrackerService.is_enabled():
             try:
-                scrape_base_url = TrackerService.build_scrape_url("")
+                scrape_base_url = TrackerService.build_public_scrape_url("")
             except BusinessException as exc:
                 tracker_message = str(exc)
+
+        configuration_warning = TrackerAdminService._detect_announce_url_warning(announce_url)
+        if configuration_warning:
+            tracker_message = (
+                f"{tracker_message}\n{configuration_warning}".strip()
+                if tracker_message
+                else configuration_warning
+            )
 
         aggregates = TrackerTorrentSync.objects.aggregate(
             latest_sync_at=Max("last_synced_at"),
@@ -543,7 +577,7 @@ class TrackerAdminService:
             "trackerReachable": tracker_reachable,
             "trackerMessage": tracker_message,
             "authMode": TrackerService.auth_mode(),
-            "announceUrl": (getattr(settings, "TRACKER_ANNOUNCE_URL", "") or "").strip(),
+            "announceUrl": announce_url,
             "scrapeUrl": scrape_base_url,
             "requireAuthDownloads": TrackerService.require_authenticated_downloads(),
             "forcePrivateTorrents": TrackerService.force_private_torrents(),
