@@ -12,6 +12,7 @@ import AdminInviteCodesView from '@/views/admin/AdminInviteCodesView.vue';
 import AdminReleasesView from '@/views/admin/AdminReleasesView.vue';
 import AdminSettingsView from '@/views/admin/AdminSettingsView.vue';
 import AdminTagsView from '@/views/admin/AdminTagsView.vue';
+import AdminTrackerView from '@/views/admin/AdminTrackerView.vue';
 import AdminUserDetailView from '@/views/admin/AdminUserDetailView.vue';
 import AdminUsersView from '@/views/admin/AdminUsersView.vue';
 import EditMyReleaseView from '@/views/upload/EditMyReleaseView.vue';
@@ -83,6 +84,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'categories', name: 'admin-categories', component: AdminCategoriesView, meta: { requiresAuth: true, roles: ['admin'], title: '分类管理' } },
       { path: 'tags', name: 'admin-tags', component: AdminTagsView, meta: { requiresAuth: true, roles: ['admin'], title: '标签管理' } },
       { path: 'announcements', name: 'admin-announcements', component: AdminAnnouncementsView, meta: { requiresAuth: true, roles: ['admin'], title: '公告管理' } },
+      { path: 'tracker', name: 'admin-tracker', component: AdminTrackerView, meta: { requiresAuth: true, roles: ['admin'], title: 'Private Tracker' } },
       { path: 'audit-logs', name: 'admin-audit-logs', component: AdminAuditLogsView, meta: { requiresAuth: true, roles: ['admin'], title: '审计日志' } },
       { path: 'settings', name: 'admin-settings', component: AdminSettingsView, meta: { requiresAuth: true, roles: ['admin'], title: '系统设置' } },
     ],

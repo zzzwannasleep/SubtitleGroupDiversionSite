@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
+  Activity,
   Blocks,
   FolderOpen,
   KeyRound,
@@ -30,6 +31,7 @@ const navItems = computed(() => [
   { label: '分类管理', to: '/admin/categories', icon: Blocks },
   { label: '标签管理', to: '/admin/tags', icon: Tags },
   { label: '公告管理', to: '/admin/announcements', icon: Megaphone },
+  { label: 'Private Tracker', to: '/admin/tracker', icon: Activity },
   { label: '审计日志', to: '/admin/audit-logs', icon: Logs },
   { label: '系统设置', to: '/admin/settings', icon: Settings },
 ]);

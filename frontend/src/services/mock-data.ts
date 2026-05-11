@@ -11,6 +11,12 @@ import type {
   UpdateUserPayload,
 } from '@/types/admin';
 import type { Category, DownloadRecord, Release, Tag } from '@/types/release';
+import type {
+  AdminTrackerOverview,
+  AdminTrackerSyncPayload,
+  AdminTrackerSyncResult,
+  SelfTrackerProfile,
+} from '@/types/tracker';
 import type { SiteTheme } from '@/types/theme';
 import { DEFAULT_LOGIN_BACKGROUND_CSS } from '@/utils/site-branding';
 
@@ -301,12 +307,29 @@ const userApiTokens: Record<number, string> = users.reduce((accumulator, user) =
   return accumulator;
 }, {} as Record<number, string>);
 
+const userTrackerPasskeys: Record<number, string> = users.reduce((accumulator, user) => {
+  accumulator[user.id] = createSecretToken().slice(0, 16);
+  return accumulator;
+}, {} as Record<number, string>);
+
 export function getUserById(userId: number): AdminUser | undefined {
   return users.find((item) => item.id === userId);
 }
 
 export function getUserByUsername(username: string): AdminUser | undefined {
   return users.find((item) => item.username.toLowerCase() === username.toLowerCase());
+}
+
+function getTrackerPasskey(userId: number): string {
+  if (!getUserById(userId)) {
+    throw new Error('用户不存在。');
+  }
+
+  if (!userTrackerPasskeys[userId]) {
+    userTrackerPasskeys[userId] = createSecretToken().slice(0, 16);
+  }
+
+  return userTrackerPasskeys[userId];
 }
 
 function getReleaseById(releaseId: number): Release | undefined {
@@ -342,6 +365,99 @@ export function resetUserApiToken(userId: number): string {
 
   userApiTokens[userId] = createApiToken();
   return userApiTokens[userId];
+}
+
+export function getUserTrackerProfile(userId: number): SelfTrackerProfile {
+  if (!getUserById(userId)) {
+    throw new Error('用户不存在。');
+  }
+
+  const passkey = getTrackerPasskey(userId);
+
+  return {
+    enabled: true,
+    authMode: 'per_user',
+    announceUrl: `https://tracker.subtitle.local/announce/${passkey}`,
+    scrapeUrl: `https://tracker.subtitle.local/scrape/${passkey}`,
+    passkey,
+    keyValidUntil: '2026-12-31T23:59:59+08:00',
+    requireAuthDownloads: true,
+    forcePrivateTorrents: true,
+  };
+}
+
+export function getTrackerOverview(): AdminTrackerOverview {
+  const publishedReleases = releases.filter((item) => item.status === 'published');
+  const totalPeers = publishedReleases.reduce((sum, item) => sum + item.activePeers, 0);
+  const totalCompleted = publishedReleases.reduce((sum, item) => sum + item.completionCount, 0);
+
+  return {
+    enabled: true,
+    trackerReachable: true,
+    trackerMessage: '',
+    authMode: 'per_user',
+    announceUrl: 'https://tracker.subtitle.local/announce',
+    scrapeUrl: 'https://tracker.subtitle.local/scrape',
+    requireAuthDownloads: true,
+    forcePrivateTorrents: true,
+    userCount: users.length,
+    activeUserCount: users.filter((item) => item.status === 'active').length,
+    userKeysProvisioned: Object.keys(userTrackerPasskeys).length,
+    releaseSyncCount: releases.length,
+    publishedReleaseCount: publishedReleases.length,
+    whitelistedReleaseCount: publishedReleases.length,
+    syncErrorCount: 0,
+    latestSyncAt: nowIso(),
+    latestScrapeAt: nowIso(),
+    trackerStats: {
+      torrents: publishedReleases.length,
+      seeders: Math.max(totalPeers - publishedReleases.length, 0),
+      leechers: publishedReleases.length,
+      completed: totalCompleted,
+      announcesHandled: 1824,
+      scrapesHandled: 276,
+    },
+  };
+}
+
+export function runTrackerSyncMock(payload: AdminTrackerSyncPayload): AdminTrackerSyncResult {
+  const normalized = {
+    syncUsers: payload.syncUsers ?? false,
+    syncReleases: payload.syncReleases ?? false,
+    syncScrape: payload.syncScrape ?? false,
+  };
+  if (!normalized.syncUsers && !normalized.syncReleases && !normalized.syncScrape) {
+    normalized.syncUsers = true;
+    normalized.syncReleases = true;
+    normalized.syncScrape = true;
+  }
+
+  if (normalized.syncUsers) {
+    users
+      .filter((item) => item.status === 'active')
+      .forEach((item) => {
+        getTrackerPasskey(item.id);
+      });
+  }
+
+  if (normalized.syncScrape) {
+    releases
+      .filter((item) => item.status === 'published')
+      .forEach((item, index) => {
+        item.activePeers = 3 + index * 2;
+        item.completionCount = Math.max(item.completionCount, 10 + index * 4);
+      });
+  }
+
+  return {
+    usersProcessed: normalized.syncUsers ? users.filter((item) => item.status === 'active').length : 0,
+    usersFailed: 0,
+    releasesProcessed: normalized.syncReleases ? releases.length : 0,
+    releasesFailed: 0,
+    scrapesProcessed: normalized.syncScrape ? releases.filter((item) => item.status === 'published').length : 0,
+    scrapesFailed: 0,
+    errors: [],
+  };
 }
 
 export function updateUserRecord(userId: number, patch: Partial<UpdateUserPayload>): AdminUser {

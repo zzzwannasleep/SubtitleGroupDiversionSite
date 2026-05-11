@@ -91,6 +91,7 @@ LOG_LEVEL = env("LOG_LEVEL", "INFO")
 REDIS_URL = env("REDIS_URL")
 TRACKER_ENABLED = env("TRACKER_ENABLED", "false").lower() == "true"
 TRACKER_ANNOUNCE_URL = env("TRACKER_ANNOUNCE_URL", "").rstrip("/")
+TRACKER_SCRAPE_URL = env("TRACKER_SCRAPE_URL", "").rstrip("/")
 TRACKER_AUTH_MODE = env("TRACKER_AUTH_MODE", "per_user")
 TRACKER_REQUIRE_AUTH_DOWNLOADS = env(
     "TRACKER_REQUIRE_AUTH_DOWNLOADS",
@@ -112,6 +113,10 @@ TORRUST_API_TIMEOUT_SECONDS = float(env("TORRUST_API_TIMEOUT_SECONDS", "5") or "
 TORRUST_API_CREATE_KEY_PATH_TEMPLATE = env(
     "TORRUST_API_CREATE_KEY_PATH_TEMPLATE",
     "/api/v1/key/{duration_in_seconds}",
+)
+TORRUST_API_STATS_PATH = env(
+    "TORRUST_API_STATS_PATH",
+    "/api/v1/stats",
 )
 TORRUST_API_WHITELIST_PATH_TEMPLATE = env(
     "TORRUST_API_WHITELIST_PATH_TEMPLATE",
@@ -272,6 +277,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "Admin Taxonomy", "description": "后台分类与标签维护。"},
         {"name": "Admin Site", "description": "后台公告与站点设置管理。"},
         {"name": "Admin Audit", "description": "后台审计日志查询。"},
+        {"name": "Admin Tracker", "description": "Private Tracker 概览、状态与手动同步。"},
     ],
     "SWAGGER_UI_SETTINGS": {
         "persistAuthorization": True,

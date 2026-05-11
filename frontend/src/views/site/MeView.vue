@@ -9,7 +9,9 @@ import UiButton from '@/components/ui/UiButton.vue';
 import UiInput from '@/components/ui/UiInput.vue';
 import { getMyApiToken, resetMyApiToken } from '@/services/auth';
 import { getRssOverview } from '@/services/rss';
+import { getMyTrackerProfile } from '@/services/tracker';
 import { useAuthStore } from '@/stores/auth';
+import type { SelfTrackerProfile } from '@/types/tracker';
 import { formatDateTime } from '@/utils/format';
 
 const authStore = useAuthStore();
@@ -23,6 +25,8 @@ const rssFeed = ref('');
 const rssLoading = ref(false);
 const apiToken = ref('');
 const apiTokenLoading = ref(false);
+const trackerProfile = ref<SelfTrackerProfile | null>(null);
+const trackerLoading = ref(false);
 const apiTokenDialogOpen = ref(false);
 const resettingApiToken = ref(false);
 const savingPassword = ref(false);
@@ -56,8 +60,23 @@ async function loadApiToken() {
   }
 }
 
+async function loadTrackerProfile() {
+  if (!authStore.currentUser) return;
+
+  errorMessage.value = '';
+  trackerLoading.value = true;
+
+  try {
+    trackerProfile.value = await getMyTrackerProfile();
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '加载 Private Tracker 信息失败';
+  } finally {
+    trackerLoading.value = false;
+  }
+}
+
 async function loadAccountData() {
-  await Promise.all([loadRssFeed(), loadApiToken()]);
+  await Promise.all([loadRssFeed(), loadApiToken(), loadTrackerProfile()]);
 }
 
 async function copyRssFeed() {
@@ -83,6 +102,19 @@ async function copyApiToken() {
     feedback.value = 'API Token 已复制。';
   } catch {
     errorMessage.value = '复制 API Token 失败，请手动复制。';
+  }
+}
+
+async function copyTrackerValue(value: string, label: string) {
+  if (!value) return;
+
+  errorMessage.value = '';
+
+  try {
+    await navigator.clipboard.writeText(value);
+    feedback.value = `${label} 已复制。`;
+  } catch {
+    errorMessage.value = `${label} 复制失败，请手动复制。`;
   }
 }
 
@@ -171,6 +203,92 @@ onMounted(loadAccountData);
     </AppCard>
 
     <div class="space-y-6">
+      <AppCard
+        title="Private Tracker"
+        description="下载到本地的 torrent 会自动带上当前账号对应的 announce 与 scrape 地址。"
+      >
+        <div class="space-y-4">
+          <div
+            v-if="trackerProfile?.enabled"
+            class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"
+          >
+            <div>
+              <p class="mb-2 text-sm text-slate-500">Announce URL</p>
+              <p class="break-all rounded-xl bg-white px-4 py-3 font-mono text-xs text-slate-700">
+                {{ trackerLoading ? '正在加载 tracker 信息...' : trackerProfile.announceUrl }}
+              </p>
+            </div>
+            <div>
+              <p class="mb-2 text-sm text-slate-500">Scrape URL</p>
+              <p class="break-all rounded-xl bg-white px-4 py-3 font-mono text-xs text-slate-700">
+                {{ trackerLoading ? '正在加载 tracker 信息...' : trackerProfile.scrapeUrl }}
+              </p>
+            </div>
+            <div v-if="trackerProfile.passkey">
+              <p class="mb-2 text-sm text-slate-500">Passkey</p>
+              <p class="break-all rounded-xl bg-white px-4 py-3 font-mono text-xs text-slate-700">
+                {{ trackerProfile.passkey }}
+              </p>
+            </div>
+            <dl class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm text-slate-500">鉴权模式</dt>
+                <dd class="mt-1 font-medium text-slate-900">{{ trackerProfile.authMode }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">Key 有效期</dt>
+                <dd class="mt-1 font-medium text-slate-900">
+                  {{ trackerProfile.keyValidUntil ? formatDateTime(trackerProfile.keyValidUntil) : '长期有效' }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">下载要求登录</dt>
+                <dd class="mt-1 font-medium text-slate-900">
+                  {{ trackerProfile.requireAuthDownloads ? '是' : '否' }}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-sm text-slate-500">强制私有种子</dt>
+                <dd class="mt-1 font-medium text-slate-900">
+                  {{ trackerProfile.forcePrivateTorrents ? '是' : '否' }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+          <div
+            v-else
+            class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm leading-6 text-slate-600"
+          >
+            {{ trackerLoading ? '正在加载 tracker 信息...' : '当前站点尚未启用 Private Tracker。' }}
+          </div>
+        </div>
+        <template #footer>
+          <div class="flex flex-wrap gap-2">
+            <UiButton
+              variant="secondary"
+              :disabled="trackerLoading || !trackerProfile?.announceUrl"
+              @click="copyTrackerValue(trackerProfile?.announceUrl || '', 'Announce URL')"
+            >
+              复制 Announce
+            </UiButton>
+            <UiButton
+              variant="ghost"
+              :disabled="trackerLoading || !trackerProfile?.scrapeUrl"
+              @click="copyTrackerValue(trackerProfile?.scrapeUrl || '', 'Scrape URL')"
+            >
+              复制 Scrape
+            </UiButton>
+            <UiButton
+              v-if="trackerProfile?.passkey"
+              variant="ghost"
+              :disabled="trackerLoading"
+              @click="copyTrackerValue(trackerProfile.passkey, 'Passkey')"
+            >
+              复制 Passkey
+            </UiButton>
+          </div>
+        </template>
+      </AppCard>
       <AppCard title="RSS 订阅" description="当前站点提供统一的公开 RSS 地址，可直接用于自动化订阅。">
         <div class="space-y-4">
           <div>
