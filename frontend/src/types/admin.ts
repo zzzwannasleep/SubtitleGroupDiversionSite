@@ -98,7 +98,7 @@ export interface SaveSiteSettingsPayload {
 }
 
 export interface RssOverview {
-  generalFeed: string;
+  personalFeed: string;
   recentReleaseTitles: string[];
 }
 

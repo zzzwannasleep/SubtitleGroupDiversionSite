@@ -285,6 +285,16 @@ class TrackerService:
         return TrackerService.build_scrape_url(TrackerService._resolve_auth_key_for_user(user))
 
     @staticmethod
+    def resolve_active_user_by_passkey(passkey: str):
+        normalized_passkey = (passkey or "").strip()
+        if not normalized_passkey:
+            return None
+
+        from apps.users.models import User
+
+        return User.objects.filter(status="active", tracker_passkey=normalized_passkey).first()
+
+    @staticmethod
     def ensure_user_key(user) -> str:
         renewal_window = int(getattr(settings, "TORRUST_KEY_RENEWAL_WINDOW_SECONDS", 86400))
         valid_until = getattr(user, "tracker_key_valid_until", None)

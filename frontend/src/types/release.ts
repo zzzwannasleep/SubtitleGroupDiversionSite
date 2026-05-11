@@ -40,6 +40,8 @@ export interface Release {
   downloadCount: number;
   completionCount: number;
   activePeers: number;
+  seederCount: number;
+  leecherCount: number;
 }
 
 export interface DownloadRecord {

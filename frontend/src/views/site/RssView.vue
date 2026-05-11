@@ -28,12 +28,12 @@ async function loadData() {
   }
 }
 
-async function copyFeed(value: string) {
+async function copyFeed(value: string, label = '个人 RSS 地址') {
   errorMessage.value = '';
 
   try {
     await navigator.clipboard.writeText(value);
-    feedback.value = 'RSS 地址已复制。';
+    feedback.value = `${label}已复制。`;
   } catch {
     errorMessage.value = '复制失败，请手动复制当前地址。';
   }
@@ -50,13 +50,25 @@ onMounted(loadData);
     <AppAlert v-if="feedback" variant="success" :title="feedback" />
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
-    <AppCard title="通用地址">
-      <div class="break-all rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-        {{ rssOverview.generalFeed }}
-      </div>
-      <template #footer>
-        <UiButton variant="primary" @click="copyFeed(rssOverview.generalFeed)">复制 RSS</UiButton>
-      </template>
-    </AppCard>
+    <div class="space-y-6">
+      <AppCard
+        v-if="rssOverview.personalFeed"
+        title="个人 RSS"
+        description="这个地址内的条目下载链接会带上你自己的 passkey，下载下来的 torrent 会自动改写成你的个人 tracker 链接。"
+      >
+        <div class="break-all rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          {{ rssOverview.personalFeed }}
+        </div>
+        <template #footer>
+          <UiButton variant="primary" @click="copyFeed(rssOverview.personalFeed)">复制个人 RSS</UiButton>
+        </template>
+      </AppCard>
+
+      <AppCard v-else title="个人 RSS" description="当前站点不再提供通用 RSS，仅保留个人 RSS。">
+        <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+          当前账号暂时无法获取个人 RSS 地址，请确认已登录且 Private Tracker 已启用。
+        </div>
+      </AppCard>
+    </div>
   </template>
 </template>

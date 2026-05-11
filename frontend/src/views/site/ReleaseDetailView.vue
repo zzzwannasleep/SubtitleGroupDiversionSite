@@ -30,32 +30,34 @@ const errorMessage = ref('');
 const pageErrorMessage = ref('');
 const pendingVisibilityAction = ref(false);
 const visibilityDialogOpen = ref(false);
-const siteSettings = computed(() => siteSettingsStore.settings);
 
+const siteSettings = computed(() => siteSettingsStore.settings);
 const canEdit = computed(() => canEditRelease(authStore.currentUser, release.value));
 const canHide = computed(() => authStore.currentUser?.role === 'admin');
-const detailMetrics = computed(() => {
-  if (!release.value) return [];
-
-  return [
-    { label: '文件数', value: `${release.value.files.length} 个`, hint: '根据上传的 torrent 自动解析' },
-    { label: '下载次数', value: release.value.downloadCount, hint: '站内下载记录统计' },
-    { label: '完成次数', value: release.value.completionCount, hint: '保留字段，便于后续扩展' },
-    { label: '活跃 peers', value: release.value.activePeers, hint: '保留字段，便于后续扩展' },
-  ];
+const isVisibleToCurrentUser = computed(() => {
+  if (!release.value) return false;
+  if (release.value.status !== 'hidden') return true;
+  return authStore.currentUser?.role === 'admin';
 });
+
 const hiddenNotice = computed(() => {
   if (release.value?.status !== 'hidden') return null;
-
   return {
     title: '当前资源处于隐藏状态',
     description: '它不会出现在前台列表、分类页和标签页中，当前页面仅管理员可见。',
   };
 });
-const isVisibleToCurrentUser = computed(() => {
-  if (!release.value) return false;
-  if (release.value.status !== 'hidden') return true;
-  return authStore.currentUser?.role === 'admin';
+
+const detailMetrics = computed(() => {
+  if (!release.value) return [];
+
+  return [
+    { label: '文件数', value: `${release.value.files.length} 个`, hint: '根据上传的 torrent 自动解析。' },
+    { label: '站内下载次数', value: release.value.downloadCount, hint: '统计站内真实下载记录。' },
+    { label: '做种人数', value: release.value.seederCount, hint: '来自 tracker scrape 的当前做种人数。' },
+    { label: '下载人数', value: release.value.leecherCount, hint: '来自 tracker scrape 的当前下载人数。' },
+    { label: '完成次数', value: release.value.completionCount, hint: '来自 tracker scrape 的累计完成次数。' },
+  ];
 });
 
 async function loadRelease() {
@@ -135,27 +137,13 @@ watch(() => route.params.id, loadRelease, { immediate: true });
       </template>
     </AppPageHeader>
 
-    <AppAlert
-      v-if="hiddenNotice"
-      variant="warning"
-      :title="hiddenNotice.title"
-      :description="hiddenNotice.description"
-    />
-    <AppAlert
-      v-if="siteSettings.downloadNotice"
-      variant="info"
-      title="下载提示"
-      :description="siteSettings.downloadNotice"
-    />
+    <AppAlert v-if="hiddenNotice" variant="warning" :title="hiddenNotice.title" :description="hiddenNotice.description" />
+    <AppAlert v-if="siteSettings.downloadNotice" variant="info" title="下载提示" :description="siteSettings.downloadNotice" />
     <AppAlert v-if="feedback" variant="info" :title="feedback" />
     <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <div
-        v-for="item in detailMetrics"
-        :key="item.label"
-        class="app-surface p-4"
-      >
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div v-for="item in detailMetrics" :key="item.label" class="app-surface p-4">
         <p class="text-sm text-slate-500">{{ item.label }}</p>
         <p class="mt-3 text-2xl font-semibold text-slate-900">{{ item.value }}</p>
         <p class="mt-2 text-xs leading-6 text-slate-500">{{ item.hint }}</p>
@@ -164,7 +152,7 @@ watch(() => route.params.id, loadRelease, { immediate: true });
 
     <div class="grid gap-6 xl:grid-cols-[2fr_1fr]">
       <div class="space-y-6">
-        <AppCard title="资源简介" description="详情页集中展示正文说明、分类标签和下载前需要确认的信息。">
+        <AppCard title="资源简介" description="集中展示正文说明、分类标签和下载前需要确认的信息。">
           <div class="mb-4 flex flex-wrap items-center gap-2">
             <RouterLink
               :to="`/categories/${release.category.slug}`"
@@ -187,7 +175,7 @@ watch(() => route.params.id, loadRelease, { immediate: true });
           </div>
         </AppCard>
 
-        <AppCard title="文件列表" description="由后端解析 torrent 后写入的文件清单，便于下载前快速核对。">
+        <AppCard title="文件列表" description="后端解析 torrent 后写入的文件清单，便于下载前快速核对。">
           <div class="space-y-3">
             <div
               v-for="(file, index) in release.files"
@@ -238,8 +226,8 @@ watch(() => route.params.id, loadRelease, { immediate: true });
               <dd>{{ release.createdBy.displayName }}</dd>
             </div>
             <div class="flex items-center justify-between gap-3">
-              <dt class="text-slate-500">下载次数</dt>
-              <dd>{{ release.downloadCount }}</dd>
+              <dt class="text-slate-500">活跃 peers</dt>
+              <dd>{{ release.activePeers }}</dd>
             </div>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <dt class="shrink-0 text-slate-500">Infohash</dt>

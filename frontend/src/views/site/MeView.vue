@@ -21,7 +21,7 @@ const passwordForm = reactive({
 });
 const feedback = ref('');
 const errorMessage = ref('');
-const rssFeed = ref('');
+const personalRssFeed = ref('');
 const rssLoading = ref(false);
 const apiToken = ref('');
 const apiTokenLoading = ref(false);
@@ -37,7 +37,7 @@ async function loadRssFeed() {
 
   try {
     const overview = await getRssOverview();
-    rssFeed.value = overview.generalFeed;
+    personalRssFeed.value = overview.personalFeed;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '加载 RSS 信息失败';
   } finally {
@@ -79,13 +79,13 @@ async function loadAccountData() {
   await Promise.all([loadRssFeed(), loadApiToken(), loadTrackerProfile()]);
 }
 
-async function copyRssFeed() {
-  if (!rssFeed.value) return;
+async function copyRssFeed(value = personalRssFeed.value) {
+  if (!value) return;
 
   errorMessage.value = '';
 
   try {
-    await navigator.clipboard.writeText(rssFeed.value);
+    await navigator.clipboard.writeText(value);
     feedback.value = 'RSS 地址已复制。';
   } catch {
     errorMessage.value = '复制 RSS 地址失败，请手动复制。';
@@ -289,18 +289,20 @@ onMounted(loadAccountData);
           </div>
         </template>
       </AppCard>
-      <AppCard title="RSS 订阅" description="当前站点提供统一的公开 RSS 地址，可直接用于自动化订阅。">
+      <AppCard title="RSS 订阅" description="当前站点仅提供个人 RSS，条目下载链接会自动带上你的 passkey。">
         <div class="space-y-4">
-          <div>
-            <p class="mb-2 text-sm text-slate-500">通用 RSS 地址</p>
-            <p class="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              {{ rssLoading ? '正在加载 RSS 地址...' : rssFeed || '暂时无法获取 RSS 地址' }}
+          <div v-if="personalRssFeed || rssLoading">
+            <p class="mb-2 text-sm text-slate-500">个人 RSS 地址</p>
+            <p class="break-all rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              {{ rssLoading ? '正在加载 RSS 地址...' : personalRssFeed || '暂时无法获取个人 RSS 地址' }}
             </p>
           </div>
         </div>
         <template #footer>
           <div class="flex flex-wrap gap-2">
-            <UiButton variant="secondary" :disabled="!rssFeed || rssLoading" @click="copyRssFeed">复制 RSS</UiButton>
+            <UiButton variant="primary" :disabled="!personalRssFeed || rssLoading" @click="copyRssFeed(personalRssFeed)">
+              复制个人 RSS
+            </UiButton>
             <UiButton to="/rss" variant="ghost">前往 RSS 页</UiButton>
           </div>
         </template>

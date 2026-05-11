@@ -144,6 +144,8 @@ export const releases: Release[] = [
     downloadCount: 74,
     completionCount: 23,
     activePeers: 9,
+    seederCount: 6,
+    leecherCount: 3,
   },
   {
     id: 102,
@@ -162,6 +164,8 @@ export const releases: Release[] = [
     downloadCount: 46,
     completionCount: 17,
     activePeers: 7,
+    seederCount: 4,
+    leecherCount: 3,
   },
   {
     id: 103,
@@ -180,6 +184,8 @@ export const releases: Release[] = [
     downloadCount: 11,
     completionCount: 4,
     activePeers: 0,
+    seederCount: 0,
+    leecherCount: 0,
   },
 ];
 
@@ -388,7 +394,8 @@ export function getUserTrackerProfile(userId: number): SelfTrackerProfile {
 
 export function getTrackerOverview(): AdminTrackerOverview {
   const publishedReleases = releases.filter((item) => item.status === 'published');
-  const totalPeers = publishedReleases.reduce((sum, item) => sum + item.activePeers, 0);
+  const totalSeeders = publishedReleases.reduce((sum, item) => sum + item.seederCount, 0);
+  const totalLeechers = publishedReleases.reduce((sum, item) => sum + item.leecherCount, 0);
   const totalCompleted = publishedReleases.reduce((sum, item) => sum + item.completionCount, 0);
 
   return {
@@ -411,8 +418,8 @@ export function getTrackerOverview(): AdminTrackerOverview {
     latestScrapeAt: nowIso(),
     trackerStats: {
       torrents: publishedReleases.length,
-      seeders: Math.max(totalPeers - publishedReleases.length, 0),
-      leechers: publishedReleases.length,
+      seeders: totalSeeders,
+      leechers: totalLeechers,
       completed: totalCompleted,
       announcesHandled: 1824,
       scrapesHandled: 276,
@@ -444,7 +451,9 @@ export function runTrackerSyncMock(payload: AdminTrackerSyncPayload): AdminTrack
     releases
       .filter((item) => item.status === 'published')
       .forEach((item, index) => {
-        item.activePeers = 3 + index * 2;
+        item.seederCount = 2 + index * 2;
+        item.leecherCount = 1 + index;
+        item.activePeers = item.seederCount + item.leecherCount;
         item.completionCount = Math.max(item.completionCount, 10 + index * 4);
       });
   }
@@ -518,6 +527,8 @@ export function createReleaseFromPayload(payload: {
     downloadCount: 0,
     completionCount: 0,
     activePeers: 0,
+    seederCount: 0,
+    leecherCount: 0,
   };
 
   releases.unshift(release);

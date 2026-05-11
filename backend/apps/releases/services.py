@@ -16,7 +16,7 @@ from apps.tracker.services import TrackerService, TrackerSyncService
 class ReleaseService:
     @staticmethod
     def base_queryset():
-        return Release.objects.select_related("category", "created_by").prefetch_related("tags", "files")
+        return Release.objects.select_related("category", "created_by", "tracker_sync").prefetch_related("tags", "files")
 
     @classmethod
     def query_releases(cls, *, user=None, params=None, include_all_status=False):

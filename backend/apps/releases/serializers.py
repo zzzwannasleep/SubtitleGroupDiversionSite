@@ -1,4 +1,5 @@
 from drf_spectacular.utils import extend_schema_field
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from apps.releases.models import Category, Release, ReleaseFile, Tag
@@ -41,6 +42,8 @@ class ReleaseSerializer(serializers.ModelSerializer):
     downloadCount = serializers.IntegerField(source="download_count")
     completionCount = serializers.IntegerField(source="completion_count")
     activePeers = serializers.IntegerField(source="active_peers")
+    seederCount = serializers.SerializerMethodField()
+    leecherCount = serializers.SerializerMethodField()
 
     class Meta:
         model = Release
@@ -62,11 +65,29 @@ class ReleaseSerializer(serializers.ModelSerializer):
             "downloadCount",
             "completionCount",
             "activePeers",
+            "seederCount",
+            "leecherCount",
         )
 
     @extend_schema_field(serializers.DateTimeField())
     def get_publishedAt(self, obj) -> str:
         return (obj.published_at or obj.created_at).isoformat()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_seederCount(self, obj) -> int:
+        try:
+            tracker_sync = obj.tracker_sync
+        except ObjectDoesNotExist:
+            return 0
+        return getattr(tracker_sync, "last_scrape_seeders", 0)
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_leecherCount(self, obj) -> int:
+        try:
+            tracker_sync = obj.tracker_sync
+        except ObjectDoesNotExist:
+            return 0
+        return getattr(tracker_sync, "last_scrape_leechers", 0)
 
 
 class ReleaseDetailSerializer(ReleaseSerializer):

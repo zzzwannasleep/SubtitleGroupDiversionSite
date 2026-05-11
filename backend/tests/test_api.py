@@ -5,6 +5,7 @@ import tempfile
 from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
 from django.core.management import call_command
@@ -463,14 +464,64 @@ class ApiFlowTests(TestCase):
         self.assertFalse(stored_torrent.private)
         self.assertEqual(stored_torrent.trackers[0][0], "https://example.com/announce")
 
-    def test_rss_feed_uses_public_download_link(self):
+    def test_public_rss_all_feed_is_not_available(self):
         release = self.create_release()
         response = self.client.get("/rss/all")
-        self.assertEqual(response.status_code, 200)
-        body = response.content.decode("utf-8")
-        self.assertIn(release.title, body)
-        self.assertIn(f"/api/releases/{release.id}/download/", body)
-        self.assertNotIn("passkey=", body)
+        self.assertEqual(response.status_code, 404)
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+    )
+    def test_personal_rss_feed_uses_passkey_download_links(self):
+        with patch("apps.tracker.services.TorrustClient.whitelist_infohash"):
+            release = self.create_release(torrent_bytes=build_torrent_bytes(private=False), execute_on_commit=True)
+
+        with patch(
+            "apps.tracker.services.TorrustClient.create_auth_key",
+            return_value=TorrustAuthKey(
+                key="user-passkey",
+                valid_until=timezone.now() + timedelta(days=3650),
+            ),
+        ):
+            self.client.force_login(self.user)
+            overview = self.client.get("/api/rss/overview/")
+        self.assertEqual(overview.status_code, 200, overview.json())
+        self.assertNotIn("generalFeed", overview.json()["data"])
+        self.assertEqual(
+            overview.json()["data"]["personalFeed"],
+            f"{settings.SITE_BASE_URL}/rss/passkey/user-passkey/all",
+        )
+
+        feed_response = APIClient().get("/rss/passkey/user-passkey/all")
+        self.assertEqual(feed_response.status_code, 200)
+        body = feed_response.content.decode("utf-8")
+        self.assertIn(f"/api/releases/{release.id}/download/?passkey=user-passkey", body)
+
+        download_response = APIClient().get(f"/api/releases/{release.id}/download/?passkey=user-passkey")
+        self.assertEqual(download_response.status_code, 200)
+        torrent = Torrent.read_stream(download_response.content, validate=False)
+        self.assertEqual(torrent.trackers[0][0], "https://tracker.example.com/announce/user-passkey")
+        self.assertEqual(DownloadLog.objects.filter(release=release, user=self.user).count(), 1)
+
+    def test_release_detail_exposes_tracker_seeders_and_leechers(self):
+        release = self.create_release(execute_on_commit=True)
+        sync = TrackerTorrentSync.objects.get(release=release)
+        sync.last_scrape_seeders = 8
+        sync.last_scrape_leechers = 3
+        sync.last_scrape_completed = 21
+        sync.save(update_fields=["last_scrape_seeders", "last_scrape_leechers", "last_scrape_completed"])
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/releases/{release.id}/")
+        self.assertEqual(response.status_code, 200, response.json())
+        data = response.json()["data"]
+        self.assertEqual(data["seederCount"], 8)
+        self.assertEqual(data["leecherCount"], 3)
 
     def test_anonymous_user_can_download_published_release(self):
         release = self.create_release()

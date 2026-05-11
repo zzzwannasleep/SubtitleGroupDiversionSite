@@ -17,6 +17,13 @@ class DownloadService:
                 raise PermissionDenied("当前账号已被禁用。")
             return user
 
+        passkey = request.GET.get("passkey")
+        if passkey:
+            tracked_user = TrackerService.resolve_active_user_by_passkey(passkey)
+            if tracked_user is None:
+                raise PermissionDenied("RSS passkey 无效或账号已被禁用。")
+            return tracked_user
+
         if TrackerService.require_authenticated_downloads():
             raise PermissionDenied("Private Tracker 已启用，请先登录后再下载种子。")
         return None
