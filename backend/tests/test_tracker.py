@@ -139,6 +139,28 @@ class TrackerApiTests(TestCase):
     @override_settings(
         TRACKER_ENABLED=True,
         TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_SCRAPE_URL="https://tracker.example.com/scrape",
+        TRACKER_AUTH_URL_STYLE="prefix",
+        TRACKER_AUTH_MODE="per_user",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+    )
+    @patch(
+        "apps.tracker.services.TorrustClient.create_auth_key",
+        return_value=TorrustAuthKey("user-passkey", datetime(2026, 5, 12, 8, 0, tzinfo=UTC)),
+    )
+    def test_me_tracker_endpoint_supports_prefix_auth_url_style(self, _create_auth_key):
+        self.client.force_login(self.user)
+        response = self.client.get("/api/me/tracker/")
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["data"]["announceUrl"], "https://tracker.example.com/user-passkey/announce")
+        self.assertEqual(response.json()["data"]["scrapeUrl"], "https://tracker.example.com/user-passkey/scrape")
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
         TRACKER_SCRAPE_URL="http://tracker:7070/scrape",
         TRACKER_AUTH_MODE="per_user",
         TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
@@ -366,3 +388,35 @@ class TrackerApiTests(TestCase):
         self.assertEqual(stats, TrackerScrapeStats(seeders=4, leechers=3, completed=12))
         request = mocked_urlopen.call_args.args[0]
         self.assertTrue(request.full_url.startswith("http://tracker:7070/scrape/user-key?info_hash="))
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_SCRAPE_URL="https://tracker.example.com/scrape",
+        TRACKER_AUTH_URL_STYLE="prefix",
+    )
+    @patch("apps.tracker.services.urlopen")
+    def test_torrust_client_scrape_infohash_supports_prefix_auth_url_style(self, mocked_urlopen):
+        infohash = "4df4010a4af5f6082705df0ea5c79d0fceba9f10"
+        infohash_bytes = bytes.fromhex(infohash)
+        response_body = flatbencode.encode(
+            {
+                b"files": {
+                    infohash_bytes: {
+                        b"complete": 4,
+                        b"incomplete": 3,
+                        b"downloaded": 12,
+                    }
+                }
+            }
+        )
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = response_body
+        mocked_urlopen.return_value = response
+
+        client = TorrustClient(base_url="https://tracker.example.com", token="tracker-token", timeout=5)
+        stats = client.scrape_infohash(infohash=infohash, auth_key="user-key")
+
+        self.assertEqual(stats, TrackerScrapeStats(seeders=4, leechers=3, completed=12))
+        request = mocked_urlopen.call_args.args[0]
+        self.assertTrue(request.full_url.startswith("https://tracker.example.com/user-key/scrape?info_hash="))

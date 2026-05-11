@@ -575,6 +575,35 @@ class ApiFlowTests(TestCase):
     @override_settings(
         TRACKER_ENABLED=True,
         TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_PUBLIC_SCRAPE_URL="https://tracker.example.com/scrape",
+        TRACKER_AUTH_URL_STYLE="prefix",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+        TRACKER_SYNC_STRICT=True,
+    )
+    def test_tracker_enabled_download_supports_prefix_auth_url_style(self):
+        with patch("apps.tracker.services.TorrustClient.whitelist_infohash"):
+            release = self.create_release(torrent_bytes=build_torrent_bytes(private=False), execute_on_commit=True)
+
+        with patch(
+            "apps.tracker.services.TorrustClient.create_auth_key",
+            return_value=TorrustAuthKey(
+                key="user-passkey",
+                valid_until=timezone.now() + timedelta(days=3650),
+            ),
+        ):
+            self.client.force_login(self.user)
+            response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertEqual(torrent.trackers[0][0], "https://tracker.example.com/user-passkey/announce")
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
         TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
         TRACKER_FORCE_PRIVATE_TORRENTS=True,
         TRACKER_AUTH_MODE="shared",

@@ -390,7 +390,15 @@ class TrackerService:
         parsed = urlsplit(base_url)
         path = parsed.path.rstrip("/")
         if auth_key:
-            path = f"{path}/{quote(auth_key, safe='')}"
+            encoded_key = quote(auth_key, safe="")
+            auth_url_style = (getattr(settings, "TRACKER_AUTH_URL_STYLE", "suffix") or "suffix").strip().lower()
+            if auth_url_style == "prefix" and path:
+                segments = [segment for segment in path.split("/") if segment]
+                last_segment = segments[-1] if segments else ""
+                base_prefix = path[: -len(last_segment)].rstrip("/") if last_segment else path.rstrip("/")
+                path = f"{base_prefix}/{encoded_key}/{last_segment}" if last_segment else f"/{encoded_key}"
+            else:
+                path = f"{path}/{encoded_key}"
         return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment))
 
     @staticmethod
