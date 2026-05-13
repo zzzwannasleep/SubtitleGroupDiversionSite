@@ -10,6 +10,18 @@ def healthcheck(_request):
     return JsonResponse({"status": "ok"})
 
 
+def serve_static_asset(request, path):
+    return static_serve(request, path, document_root=settings.STATIC_ROOT)
+
+
+def serve_media_asset(request, path):
+    return static_serve(request, path, document_root=settings.MEDIA_ROOT)
+
+
+def serve_frontend_asset(request, path):
+    return static_serve(request, path, document_root=settings.FRONTEND_ASSETS_DIR)
+
+
 def serve_frontend_index(_request):
     index_path = settings.FRONTEND_DIST_DIR / "index.html"
     if not index_path.exists():
@@ -37,13 +49,13 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/docs/", SpectacularRedocView.as_view(url_name="schema"), name="redoc-ui"),
-    re_path(r"^static/(?P<path>.*)$", static_serve, {"document_root": settings.STATIC_ROOT}),
-    re_path(r"^media/(?P<path>.*)$", static_serve, {"document_root": settings.MEDIA_ROOT}),
+    re_path(r"^static/(?P<path>.*)$", serve_static_asset),
+    re_path(r"^media/(?P<path>.*)$", serve_media_asset),
 ]
 
 if settings.FRONTEND_ASSETS_DIR.exists():
     urlpatterns += [
-        re_path(r"^assets/(?P<path>.*)$", static_serve, {"document_root": settings.FRONTEND_ASSETS_DIR}),
+        re_path(r"^assets/(?P<path>.*)$", serve_frontend_asset),
         re_path(
             r"^(?!api/|rss/|media/|static/|assets/|system-admin/|health/)(?!.*\.[^/]+$).*$",
             serve_frontend_index,

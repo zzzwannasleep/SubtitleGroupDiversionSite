@@ -95,6 +95,39 @@ class ReleaseService:
         return "/".join(parts)
 
     @classmethod
+    def _strip_leading_segments(cls, value: str, count: int) -> str:
+        normalized = cls._normalize_relative_path(value)
+        if not normalized or count <= 0:
+            return normalized
+
+        parts = list(PurePosixPath(normalized).parts)
+        if len(parts) <= count:
+            return ""
+        return "/".join(parts[count:])
+
+    @classmethod
+    def _build_webseed_path_candidates(cls, normalized_entries: list[tuple[object, str]]) -> list[dict[str, object]]:
+        if not normalized_entries:
+            return []
+
+        segment_lengths = [len(PurePosixPath(path).parts) for _, path in normalized_entries]
+        max_strip_count = max(min(segment_lengths) - 1, 0)
+        candidates: list[dict[str, object]] = []
+
+        for strip_count in range(max_strip_count + 1):
+            candidate_entries: dict[str, object] = {}
+            valid = True
+            for upload_file, normalized_path in normalized_entries:
+                candidate_path = cls._strip_leading_segments(normalized_path, strip_count)
+                if not candidate_path or candidate_path in candidate_entries:
+                    valid = False
+                    break
+                candidate_entries[candidate_path] = upload_file
+            if valid:
+                candidates.append(candidate_entries)
+        return candidates
+
+    @classmethod
     def _read_release_torrent_metadata(cls, release: Release):
         with release.torrent_file.open("rb") as torrent_handle:
             return parse_torrent(torrent_handle.read())
@@ -123,6 +156,41 @@ class ReleaseService:
             if expected_size and upload_size and expected_size != upload_size:
                 raise BusinessException("上传的分流文件大小与 torrent 记录不一致。")
             return {expected_path: upload_file}
+
+        normalized_entries: list[tuple[object, str]] = []
+        for upload_file, raw_path in zip(webseed_files, webseed_paths):
+            normalized_path = cls._normalize_relative_path(raw_path or getattr(upload_file, "name", ""))
+            if not normalized_path:
+                raise BusinessException("分流文件缺少相对路径，请重新选择文件或目录。")
+            normalized_entries.append((upload_file, normalized_path))
+
+        expected_paths = set(expected_entries)
+        provided_entries = next(
+            (
+                candidate_entries
+                for candidate_entries in cls._build_webseed_path_candidates(normalized_entries)
+                if set(candidate_entries) == expected_paths
+            ),
+            None,
+        )
+        provided_paths = set(provided_entries or {})
+        if expected_paths != provided_paths:
+            missing_paths = sorted(expected_paths - provided_paths)
+            extra_paths = sorted(provided_paths - expected_paths)
+            details: list[str] = []
+            if missing_paths:
+                details.append(f"缺少：{', '.join(missing_paths[:3])}")
+            if extra_paths:
+                details.append(f"多余：{', '.join(extra_paths[:3])}")
+            raise BusinessException(f"分流文件结构与 torrent 不匹配。{'；'.join(details)}")
+
+        assert provided_entries is not None
+        for relative_path, upload_file in provided_entries.items():
+            expected_size = expected_entries[relative_path]
+            upload_size = int(getattr(upload_file, "size", 0) or 0)
+            if expected_size and upload_size and expected_size != upload_size:
+                raise BusinessException(f"分流文件大小不匹配：{relative_path}")
+        return provided_entries
 
         provided_entries: dict[str, object] = {}
         root_name = cls._normalize_relative_path(getattr(metadata, "name", "") or "")
@@ -188,7 +256,7 @@ class ReleaseService:
 
         for relative_path, upload_file in upload_entries.items():
             storage_relative_path = cls._webseed_storage_relative_path(metadata=metadata, relative_path=relative_path)
-            storage_name = f"release-webseeds/{release.pk}/{storage_relative_path}"
+            storage_name = f"{release.pk}/{storage_relative_path}"
             webseed_file = ReleaseWebseedFile(
                 release=release,
                 relative_path=relative_path,

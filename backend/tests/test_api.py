@@ -161,6 +161,11 @@ class ApiFlowTests(TestCase):
         self.client.logout()
         return Release.objects.get(pk=response.json()["data"]["id"])
 
+    def read_response_body(self, response) -> bytes:
+        if getattr(response, "streaming", False):
+            return b"".join(response.streaming_content)
+        return response.content
+
     def test_login_and_fetch_me(self):
         response = self.client.post("/api/auth/login/", {"username": "admin", "password": "Admin12345!"}, format="json")
         self.assertEqual(response.status_code, 200, response.json())
@@ -459,6 +464,10 @@ class ApiFlowTests(TestCase):
         torrent = Torrent.read_stream(response.content, validate=False)
         self.assertEqual([str(url) for url in torrent.webseeds], [f"http://testserver/media/release-webseeds/{release.id}/"])
 
+        media_response = self.client.get(f"/media/release-webseeds/{release.id}/Example.S01E01.mkv")
+        self.assertEqual(media_response.status_code, 200)
+        self.assertEqual(self.read_response_body(media_response), b"x" * 1024)
+
     def test_uploader_can_attach_directory_webseed_for_multi_file_torrent(self):
         release = self.create_release(
             torrent_bytes=build_multi_file_torrent_bytes_nested(),
@@ -467,14 +476,21 @@ class ApiFlowTests(TestCase):
                 ("b.mkv", b"b" * 100, "video/x-matroska"),
             ],
             webseed_paths=[
-                "MyFolder/sub/a.mkv",
-                "MyFolder/sub/b.mkv",
+                "Collection.On.Disk/sub/a.mkv",
+                "Collection.On.Disk/sub/b.mkv",
             ],
         )
         self.assertEqual(release.webseed_files.count(), 2)
         self.assertEqual(
             sorted(release.webseed_files.values_list("relative_path", flat=True)),
             ["sub/a.mkv", "sub/b.mkv"],
+        )
+        self.assertEqual(
+            sorted(release.webseed_files.values_list("storage_file", flat=True)),
+            [
+                f"release-webseeds/{release.id}/MyFolder/sub/a.mkv",
+                f"release-webseeds/{release.id}/MyFolder/sub/b.mkv",
+            ],
         )
 
         self.client.force_login(self.user)
@@ -483,6 +499,47 @@ class ApiFlowTests(TestCase):
 
         torrent = Torrent.read_stream(response.content, validate=False)
         self.assertEqual([str(url) for url in torrent.webseeds], [f"http://testserver/media/release-webseeds/{release.id}/"])
+
+        media_a = self.client.get(f"/media/release-webseeds/{release.id}/MyFolder/sub/a.mkv")
+        self.assertEqual(media_a.status_code, 200)
+        self.assertEqual(self.read_response_body(media_a), b"a" * 100)
+
+        media_b = self.client.get(f"/media/release-webseeds/{release.id}/MyFolder/sub/b.mkv")
+        self.assertEqual(media_b.status_code, 200)
+        self.assertEqual(self.read_response_body(media_b), b"b" * 100)
+
+    def test_directory_webseed_for_flat_multi_file_torrent_keeps_root_folder(self):
+        release = self.create_release(
+            torrent_bytes=build_multi_file_torrent_bytes_flat(),
+            webseed_uploads=[
+                ("alpha.mkv", b"a" * 100, "video/x-matroska"),
+                ("beta.mkv", b"b" * 100, "video/x-matroska"),
+            ],
+            webseed_paths=[
+                "Another.Root/alpha.mkv",
+                "Another.Root/beta.mkv",
+            ],
+        )
+
+        self.assertEqual(
+            sorted(release.webseed_files.values_list("relative_path", flat=True)),
+            ["alpha.mkv", "beta.mkv"],
+        )
+        self.assertEqual(
+            sorted(release.webseed_files.values_list("storage_file", flat=True)),
+            [
+                f"release-webseeds/{release.id}/RootFolder/alpha.mkv",
+                f"release-webseeds/{release.id}/RootFolder/beta.mkv",
+            ],
+        )
+
+        media_alpha = self.client.get(f"/media/release-webseeds/{release.id}/RootFolder/alpha.mkv")
+        self.assertEqual(media_alpha.status_code, 200)
+        self.assertEqual(self.read_response_body(media_alpha), b"a" * 100)
+
+        media_beta = self.client.get(f"/media/release-webseeds/{release.id}/RootFolder/beta.mkv")
+        self.assertEqual(media_beta.status_code, 200)
+        self.assertEqual(self.read_response_body(media_beta), b"b" * 100)
 
     def test_uploader_can_replace_torrent_file_on_edit(self):
         release = self.create_release()

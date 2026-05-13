@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from django.conf import settings
 from django.db.models import F
@@ -61,9 +61,15 @@ class DownloadService:
 
     @staticmethod
     def _build_webseed_root_url(*, release, request) -> str | None:
-        if not release.webseed_files.exists():
+        webseed_files = list(release.webseed_files.all())
+        if not webseed_files:
             return None
-        root_path = f"{settings.MEDIA_URL.rstrip('/')}/release-webseeds/{release.pk}/"
+        first_entry = webseed_files[0]
+        stored_parts = list(PurePosixPath(first_entry.storage_file.name).parts)
+        relative_parts = list(PurePosixPath(first_entry.relative_path).parts)
+        strip_count = len(relative_parts) + (1 if len(webseed_files) > 1 else 0)
+        root_parts = stored_parts[:-strip_count] if strip_count > 0 else stored_parts
+        root_path = f"{settings.MEDIA_URL.rstrip('/')}/{'/'.join(root_parts).strip('/')}/"
         return request.build_absolute_uri(root_path)
 
     @staticmethod
