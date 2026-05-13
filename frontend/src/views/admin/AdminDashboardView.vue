@@ -10,7 +10,7 @@ import UiButton from '@/components/ui/UiButton.vue';
 import { getAdminDashboard } from '@/services/admin';
 import type { AdminDashboardStats, AdminUser } from '@/types/admin';
 import type { Release } from '@/types/release';
-import { formatDateTime } from '@/utils/format';
+import { formatBytes, formatDateTime } from '@/utils/format';
 
 const loading = ref(true);
 const failed = ref(false);
@@ -58,8 +58,8 @@ const systemWatchItems = computed(() => {
       label: '草稿状态',
       status: stats.value.draftReleaseCount ? 'warning' : 'success',
       description: stats.value.draftReleaseCount
-        ? `当前有 ${stats.value.draftReleaseCount} 条草稿资源还未发布。`
-        : '当前没有堆积中的草稿资源。',
+        ? `当前还有 ${stats.value.draftReleaseCount} 条草稿资源未发布。`
+        : '当前没有积压中的草稿资源。',
     },
     {
       label: '公告状态',
@@ -99,18 +99,10 @@ onMounted(loadData);
   </AppPageHeader>
 
   <AppLoading v-if="loading" />
-  <AppError
-    v-else-if="failed"
-    title="后台首页加载失败"
-    description="请稍后重试，或检查管理端统计接口。"
-  />
+  <AppError v-else-if="failed" title="后台首页加载失败" description="请稍后重试，或检查管理端统计接口。" />
   <template v-else-if="stats">
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <div
-        v-for="item in metricCards"
-        :key="item.label"
-        class="app-surface overflow-hidden p-5"
-      >
+      <div v-for="item in metricCards" :key="item.label" class="app-surface overflow-hidden p-5">
         <div class="h-1 rounded-full bg-blue-600" />
         <p class="mt-4 text-sm text-slate-500">{{ item.label }}</p>
         <p class="mt-3 text-3xl font-semibold text-slate-900">{{ item.value }}</p>
@@ -119,7 +111,7 @@ onMounted(loadData);
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[1.1fr_1.1fr_0.8fr]">
-      <AppCard title="最近用户" description="帮助管理员快速看见最近登录与维护对象。">
+      <AppCard title="最近用户" description="快速看到最近维护对象，并直接判断每个人的上传贡献。">
         <div class="space-y-3">
           <RouterLink
             v-for="user in latestUsers"
@@ -136,6 +128,9 @@ onMounted(loadData);
                 <div class="flex flex-wrap gap-2">
                   <AppStatusBadge type="role" :value="user.role" />
                   <AppStatusBadge type="user-status" :value="user.status" />
+                  <span class="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700">
+                    {{ user.createdReleaseCount }} 条 / {{ formatBytes(user.uploadedSizeBytes ?? 0) }}
+                  </span>
                 </div>
               </div>
               <p class="text-xs text-slate-500">{{ formatDateTime(user.lastLoginAt) }}</p>

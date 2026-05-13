@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from django.conf import settings
 from django.db.models import F
 from rest_framework.exceptions import PermissionDenied
 
@@ -36,11 +37,13 @@ class DownloadService:
         with release.torrent_file.open("rb") as torrent_handle:
             torrent_bytes = torrent_handle.read()
 
-        if TrackerService.is_enabled():
-            announce_url = TrackerService.get_announce_url_for_user(user)
+        webseed_root_url = cls._build_webseed_root_url(release=release, request=request)
+        if TrackerService.is_enabled() or webseed_root_url:
+            announce_url = TrackerService.get_announce_url_for_user(user) if TrackerService.is_enabled() else None
             torrent_bytes = TrackerService.rewrite_download_torrent(
                 torrent_bytes=torrent_bytes,
                 announce_url=announce_url,
+                webseed_urls=[webseed_root_url] if webseed_root_url else None,
             )
 
         DownloadLog.objects.create(
@@ -55,6 +58,13 @@ class DownloadService:
         if not filename.lower().endswith(".torrent"):
             filename = f"{filename}.torrent"
         return torrent_bytes, filename
+
+    @staticmethod
+    def _build_webseed_root_url(*, release, request) -> str | None:
+        if not release.webseed_files.exists():
+            return None
+        root_path = f"{settings.MEDIA_URL.rstrip('/')}/release-webseeds/{release.pk}/"
+        return request.build_absolute_uri(root_path)
 
     @staticmethod
     def _extract_ip(request):

@@ -79,5 +79,8 @@ export interface ReleaseFormPayload {
   tagSlugs?: string[];
   torrentFile?: File | null;
   torrentFileName?: string;
+  webseedFiles?: File[];
+  webseedPaths?: string[];
+  clearWebseedFiles?: boolean;
   status?: ReleaseStatus;
 }

@@ -1,4 +1,5 @@
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
 from rest_framework.views import APIView
@@ -26,6 +27,13 @@ from apps.users.serializers import (
 from apps.users.services import InviteCodeService, UserService
 
 
+def annotate_user_upload_metrics(queryset):
+    return queryset.annotate(
+        created_release_count=Count("created_releases", distinct=True),
+        uploaded_size_bytes=Coalesce(Sum("created_releases__size_bytes"), Value(0)),
+    )
+
+
 @extend_schema_view(
     get=extend_schema(
         operation_id="admin_dashboard_overview",
@@ -48,9 +56,7 @@ class AdminDashboardView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
-        latest_users = User.objects.annotate(created_release_count=Count("created_releases")).order_by(
-            "-date_joined", "-id"
-        )[:4]
+        latest_users = annotate_user_upload_metrics(User.objects.all()).order_by("-date_joined", "-id")[:4]
         latest_releases = (
             Release.objects.select_related("category", "created_by")
             .prefetch_related("tags", "files")
@@ -90,7 +96,7 @@ class AdminUserListCreateView(APIView):
         keyword = (request.query_params.get("q") or "").strip()
         role = (request.query_params.get("role") or "").strip()
         status = (request.query_params.get("status") or "").strip()
-        queryset = User.objects.annotate(created_release_count=Count("created_releases"))
+        queryset = annotate_user_upload_metrics(User.objects.all())
 
         if keyword:
             queryset = queryset.filter(
@@ -212,7 +218,7 @@ class AdminUserDetailView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request, user_id: int):
-        user = get_object_or_404(User.objects.annotate(created_release_count=Count("created_releases")), pk=user_id)
+        user = get_object_or_404(annotate_user_upload_metrics(User.objects.all()), pk=user_id)
         return success_response(AdminUserDetailSerializer(user).data)
 
     def put(self, request, user_id: int):
@@ -232,7 +238,7 @@ class AdminUserDetailView(APIView):
             email=serializer.validated_data.get("email"),
             role=serializer.validated_data.get("role"),
         )
-        refreshed = User.objects.annotate(created_release_count=Count("created_releases")).get(pk=user.pk)
+        refreshed = annotate_user_upload_metrics(User.objects.all()).get(pk=user.pk)
         return success_response(AdminUserDetailSerializer(refreshed).data, message="用户信息已更新。")
 
 

@@ -7,6 +7,7 @@ export type InviteCodeStatus = 'available' | 'used' | 'expired' | 'revoked';
 
 export interface AdminUser extends CurrentUser {
   createdReleaseCount: number;
+  uploadedSizeBytes?: number;
   initialPassword?: string;
 }
 

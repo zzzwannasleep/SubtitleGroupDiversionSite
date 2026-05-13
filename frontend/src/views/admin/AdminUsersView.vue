@@ -13,6 +13,7 @@ import UiSelect from '@/components/ui/UiSelect.vue';
 import UiTable from '@/components/ui/UiTable.vue';
 import { createUser, listUsers } from '@/services/admin';
 import type { AdminUser } from '@/types/admin';
+import { formatBytes } from '@/utils/format';
 
 const users = ref<AdminUser[]>([]);
 const loading = ref(true);
@@ -50,6 +51,11 @@ const summaryCards = computed(() => [
     label: '上传者',
     value: users.value.filter((item) => item.role === 'uploader').length,
     hint: '拥有前台上传与我的发布入口',
+  },
+  {
+    label: '累计上传量',
+    value: formatBytes(users.value.reduce((total, item) => total + (item.uploadedSizeBytes ?? 0), 0)),
+    hint: '当前筛选用户的资源体积总和',
   },
 ]);
 
@@ -129,7 +135,7 @@ onMounted(loadUsers);
 <template>
   <AppPageHeader
     title="用户管理"
-    description="支持搜索、角色与状态筛选、建号和详情入口，保持后台管理路径直观。"
+    description="支持搜索、角色与状态筛选、建号和详情入口，后台可以直接看到每个用户的发布数与累计上传量。"
   >
     <template #actions>
       <UiButton to="/admin/settings" variant="secondary">系统设置</UiButton>
@@ -140,20 +146,16 @@ onMounted(loadUsers);
   <AppAlert v-if="feedback" variant="success" :title="feedback" />
   <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
-  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <div
-      v-for="item in summaryCards"
-      :key="item.label"
-      class="app-surface p-4"
-    >
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <div v-for="item in summaryCards" :key="item.label" class="app-surface p-4">
       <p class="text-sm text-slate-500">{{ item.label }}</p>
       <p class="mt-3 text-2xl font-semibold text-slate-900">{{ item.value }}</p>
       <p class="mt-2 text-xs leading-6 text-slate-500">{{ item.hint }}</p>
     </div>
   </div>
 
-  <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-    <AppCard title="用户列表" description="按账号、显示名、邮箱、角色和状态筛选，再进入详情页处理。">
+  <div class="grid gap-6 xl:grid-cols-[1.3fr_0.85fr]">
+    <AppCard title="用户列表" description="按账号、显示名、邮箱、角色和状态筛选，再进入详情页做进一步管理。">
       <div class="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
         <UiInput v-model="search" placeholder="搜索用户名 / 显示名 / 邮箱 / 角色" />
         <UiSelect
@@ -182,7 +184,7 @@ onMounted(loadUsers);
       </div>
 
       <AppLoading v-if="loading" />
-      <AppEmpty v-else-if="!users.length" title="没有匹配的用户" description="请调整搜索词后重试。">
+      <AppEmpty v-else-if="!users.length" title="没有匹配的用户" description="请调整筛选条件后重试。">
         <template #actions>
           <UiButton variant="secondary" @click="resetFilters">重置筛选</UiButton>
         </template>
@@ -195,6 +197,7 @@ onMounted(loadUsers);
             <th>状态</th>
             <th>最近登录</th>
             <th>发布数</th>
+            <th>上传量</th>
             <th>详情</th>
           </tr>
         </thead>
@@ -210,6 +213,7 @@ onMounted(loadUsers);
             <td><AppStatusBadge type="user-status" :value="user.status" /></td>
             <td class="whitespace-nowrap text-slate-500">{{ user.lastLoginAt.slice(0, 16).replace('T', ' ') }}</td>
             <td>{{ user.createdReleaseCount }}</td>
+            <td>{{ formatBytes(user.uploadedSizeBytes ?? 0) }}</td>
             <td>
               <RouterLink :to="`/admin/users/${user.id}`" class="text-sm font-medium text-blue-700">
                 查看详情
@@ -222,7 +226,7 @@ onMounted(loadUsers);
 
     <AppCard
       title="创建用户"
-      description="管理员现在可以在建号时直接指定密码；若留空，系统会继续自动生成一次性初始密码。"
+      description="管理员可以直接指定密码；留空时系统继续生成一次性初始密码并回显。"
     >
       <div class="space-y-4">
         <div>
@@ -240,7 +244,9 @@ onMounted(loadUsers);
         <div>
           <label class="app-field-label">初始密码</label>
           <UiInput v-model="form.password" type="password" placeholder="留空则自动生成；填写则按该密码创建" />
-          <p class="mt-2 text-xs leading-6 text-slate-500">如果填写，会按你输入的密码直接建号；不填写则由系统生成一次性密码并回显。</p>
+          <p class="mt-2 text-xs leading-6 text-slate-500">
+            如果填写，会按你输入的密码直接建号；不填写则由系统生成一次性密码并回显。
+          </p>
         </div>
         <div>
           <label class="app-field-label">角色</label>
@@ -258,6 +264,7 @@ onMounted(loadUsers);
           管理员拥有完整后台权限，上传者拥有前台上传与“我的发布”入口，普通用户保留浏览、下载和 RSS 能力。
         </div>
       </div>
+
       <template #footer>
         <div class="flex flex-wrap items-center justify-between gap-3">
           <UiButton variant="ghost" :disabled="creating" @click="resetCreateForm">清空表单</UiButton>

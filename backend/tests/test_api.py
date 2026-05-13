@@ -122,7 +122,15 @@ class ApiFlowTests(TestCase):
             email="user@example.com",
         )
 
-    def create_release(self, *, status: str = "published", execute_on_commit: bool = False, torrent_bytes: bytes | None = None):
+    def create_release(
+        self,
+        *,
+        status: str = "published",
+        execute_on_commit: bool = False,
+        torrent_bytes: bytes | None = None,
+        webseed_uploads: list[tuple[str, bytes, str]] | None = None,
+        webseed_paths: list[str] | None = None,
+    ):
         self.client.force_login(self.uploader)
         torrent = SimpleUploadedFile(
             "example.torrent",
@@ -138,6 +146,12 @@ class ApiFlowTests(TestCase):
             "status": status,
             "torrentFile": torrent,
         }
+        if webseed_uploads:
+            payload["webseedFiles"] = [
+                SimpleUploadedFile(name, content, content_type=content_type)
+                for name, content, content_type in webseed_uploads
+            ]
+            payload["webseedPaths"] = webseed_paths or [name for name, *_ in webseed_uploads]
         if execute_on_commit:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post("/api/releases/", payload, format="multipart")
@@ -430,6 +444,46 @@ class ApiFlowTests(TestCase):
         self.assertEqual(stored_torrent.trackers[0][0], "https://example.com/announce")
         self.assertEqual(release.files.count(), 1)
 
+    def test_uploader_can_attach_webseed_files_and_download_rewritten_torrent(self):
+        release = self.create_release(
+            webseed_uploads=[
+                ("Example.S01E01.mkv", b"x" * 1024, "video/x-matroska"),
+            ]
+        )
+        self.assertEqual(release.webseed_files.count(), 1)
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertEqual([str(url) for url in torrent.webseeds], [f"http://testserver/media/release-webseeds/{release.id}/"])
+
+    def test_uploader_can_attach_directory_webseed_for_multi_file_torrent(self):
+        release = self.create_release(
+            torrent_bytes=build_multi_file_torrent_bytes_nested(),
+            webseed_uploads=[
+                ("a.mkv", b"a" * 100, "video/x-matroska"),
+                ("b.mkv", b"b" * 100, "video/x-matroska"),
+            ],
+            webseed_paths=[
+                "MyFolder/sub/a.mkv",
+                "MyFolder/sub/b.mkv",
+            ],
+        )
+        self.assertEqual(release.webseed_files.count(), 2)
+        self.assertEqual(
+            sorted(release.webseed_files.values_list("relative_path", flat=True)),
+            ["sub/a.mkv", "sub/b.mkv"],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertEqual([str(url) for url in torrent.webseeds], [f"http://testserver/media/release-webseeds/{release.id}/"])
+
     def test_uploader_can_replace_torrent_file_on_edit(self):
         release = self.create_release()
         old_infohash = release.infohash
@@ -463,6 +517,43 @@ class ApiFlowTests(TestCase):
 
         self.assertFalse(stored_torrent.private)
         self.assertEqual(stored_torrent.trackers[0][0], "https://example.com/announce")
+
+    def test_replacing_torrent_without_new_webseed_clears_previous_webseed_files(self):
+        release = self.create_release(
+            webseed_uploads=[
+                ("Example.S01E01.mkv", b"x" * 1024, "video/x-matroska"),
+            ]
+        )
+        self.assertEqual(release.webseed_files.count(), 1)
+
+        self.client.force_login(self.uploader)
+        response = self.client.patch(
+            f"/api/releases/{release.id}/",
+            {
+                "title": "更新后的资源标题",
+                "subtitle": "WEB-DL 1080p",
+                "description": "更新后的资源说明",
+                "categorySlug": self.category.slug,
+                "tagSlugs": [self.tag.slug],
+                "status": "published",
+                "torrentFile": SimpleUploadedFile(
+                    "replacement.torrent",
+                    build_torrent_bytes(private=False).replace(b"Example.S01E01.mkv", b"Example.S01E02.mkv"),
+                    content_type="application/x-bittorrent",
+                ),
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+
+        release.refresh_from_db()
+        self.assertEqual(release.webseed_files.count(), 0)
+
+        self.client.force_login(self.user)
+        download_response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(download_response.status_code, 200)
+        torrent = Torrent.read_stream(download_response.content, validate=False)
+        self.assertEqual(list(torrent.webseeds), [])
 
     def test_public_rss_all_feed_is_not_available(self):
         release = self.create_release()
@@ -912,6 +1003,7 @@ class ApiFlowTests(TestCase):
         self.assertNotIn(self.user.api_token, combined)
 
     def test_admin_user_filters_match_role_and_status(self):
+        release = self.create_release()
         self.client.force_login(self.admin)
         response = self.client.get("/api/admin/users/?role=uploader&status=active")
         self.assertEqual(response.status_code, 200, response.json())
@@ -921,6 +1013,7 @@ class ApiFlowTests(TestCase):
         self.assertEqual(data[0]["username"], "uploader")
         self.assertIsInstance(data[0]["lastLoginAt"], str)
         self.assertTrue(data[0]["lastLoginAt"])
+        self.assertEqual(data[0]["uploadedSizeBytes"], release.size_bytes)
 
     def test_my_releases_returns_safe_published_at_for_draft_release(self):
         release = self.create_release(status="draft")
@@ -1002,6 +1095,7 @@ class ApiFlowTests(TestCase):
         self.assertIn("documentary", [item["slug"] for item in public_categories.json()["data"]])
 
     def test_admin_user_detail_excludes_tracker_sync_snapshot(self):
+        release = self.create_release()
         self.client.force_login(self.admin)
         response = self.client.get(f"/api/admin/users/{self.user.id}/")
         self.assertEqual(response.status_code, 200, response.json())
@@ -1010,6 +1104,9 @@ class ApiFlowTests(TestCase):
         self.assertNotIn("trackerSync", data)
         self.assertNotIn("xbtUser", data)
         self.assertNotIn("passkey", data)
+        uploader_detail = self.client.get(f"/api/admin/users/{self.uploader.id}/")
+        self.assertEqual(uploader_detail.status_code, 200, uploader_detail.json())
+        self.assertEqual(uploader_detail.json()["data"]["uploadedSizeBytes"], release.size_bytes)
 
     def test_release_detail_for_owner_excludes_tracker_sync_snapshot(self):
         release = self.create_release(execute_on_commit=True)

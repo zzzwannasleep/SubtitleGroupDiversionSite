@@ -97,6 +97,16 @@ function buildReleaseFormData(payload: ReleaseFormPayload) {
     formData.set('torrentFile', payload.torrentFile, payload.torrentFile.name);
   }
 
+  for (const [index, webseedFile] of (payload.webseedFiles ?? []).entries()) {
+    const relativePath = payload.webseedPaths?.[index] || webseedFile.name;
+    formData.append('webseedFiles', webseedFile, webseedFile.name);
+    formData.append('webseedPaths', relativePath);
+  }
+
+  if (payload.clearWebseedFiles) {
+    formData.set('clearWebseedFiles', 'true');
+  }
+
   return formData;
 }
 

@@ -34,13 +34,21 @@ class CurrentUserSerializer(UserSummarySerializer):
 
 class AdminUserSerializer(CurrentUserSerializer):
     createdReleaseCount = serializers.SerializerMethodField()
+    uploadedSizeBytes = serializers.SerializerMethodField()
 
     class Meta(CurrentUserSerializer.Meta):
-        fields = CurrentUserSerializer.Meta.fields + ("createdReleaseCount",)
+        fields = CurrentUserSerializer.Meta.fields + ("createdReleaseCount", "uploadedSizeBytes")
 
     @extend_schema_field(serializers.IntegerField())
     def get_createdReleaseCount(self, obj) -> int:
         return getattr(obj, "created_release_count", None) or obj.created_releases.count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_uploadedSizeBytes(self, obj) -> int:
+        annotated_value = getattr(obj, "uploaded_size_bytes", None)
+        if annotated_value is not None:
+            return int(annotated_value or 0)
+        return sum(getattr(release, "size_bytes", 0) for release in obj.created_releases.only("size_bytes"))
 
 
 class AdminUserCreateSerializer(AdminUserSerializer):

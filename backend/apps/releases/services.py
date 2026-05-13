@@ -9,14 +9,16 @@ from rest_framework.exceptions import PermissionDenied
 from apps.audit.services import AuditService
 from apps.common.exceptions import BusinessException
 from apps.common.torrent import parse_torrent
-from apps.releases.models import Category, Release, ReleaseFile, ReleaseStatus
+from apps.releases.models import Category, Release, ReleaseFile, ReleaseStatus, ReleaseWebseedFile
 from apps.tracker.services import TrackerService, TrackerSyncService
 
 
 class ReleaseService:
     @staticmethod
     def base_queryset():
-        return Release.objects.select_related("category", "created_by", "tracker_sync").prefetch_related("tags", "files")
+        return Release.objects.select_related("category", "created_by", "tracker_sync").prefetch_related(
+            "tags", "files", "webseed_files"
+        )
 
     @classmethod
     def query_releases(cls, *, user=None, params=None, include_all_status=False):
@@ -76,6 +78,126 @@ class ReleaseService:
         stored_torrent.name = original_name
         release.torrent_file = stored_torrent
         return metadata
+
+    @staticmethod
+    def _normalize_relative_path(value: str) -> str:
+        normalized = str(value or "").strip().replace("\\", "/").lstrip("/")
+        if not normalized:
+            return ""
+
+        parts: list[str] = []
+        for part in PurePosixPath(normalized).parts:
+            if part in {"", "."}:
+                continue
+            if part == "..":
+                raise BusinessException("分流文件路径不合法，不能包含上级目录。")
+            parts.append(part)
+        return "/".join(parts)
+
+    @classmethod
+    def _read_release_torrent_metadata(cls, release: Release):
+        with release.torrent_file.open("rb") as torrent_handle:
+            return parse_torrent(torrent_handle.read())
+
+    @classmethod
+    def _normalize_webseed_upload_entries(cls, *, metadata, webseed_files, webseed_paths) -> dict[str, object]:
+        if not webseed_files:
+            return {}
+        if len(webseed_files) != len(webseed_paths):
+            raise BusinessException("分流文件与路径数量不一致，请重新选择后再试。")
+
+        expected_entries: dict[str, int] = {}
+        for item in getattr(metadata, "files", []) or []:
+            normalized_path = cls._normalize_relative_path(item.path or "")
+            if normalized_path:
+                expected_entries[normalized_path] = int(item.size_bytes or 0)
+
+        if not expected_entries:
+            raise BusinessException("当前 torrent 没有可用于分流的文件清单。")
+
+        if len(expected_entries) == 1 and len(webseed_files) == 1:
+            expected_path = next(iter(expected_entries))
+            upload_file = webseed_files[0]
+            expected_size = expected_entries[expected_path]
+            upload_size = int(getattr(upload_file, "size", 0) or 0)
+            if expected_size and upload_size and expected_size != upload_size:
+                raise BusinessException("上传的分流文件大小与 torrent 记录不一致。")
+            return {expected_path: upload_file}
+
+        provided_entries: dict[str, object] = {}
+        root_name = cls._normalize_relative_path(getattr(metadata, "name", "") or "")
+        for upload_file, raw_path in zip(webseed_files, webseed_paths):
+            normalized_path = cls._normalize_relative_path(raw_path or getattr(upload_file, "name", ""))
+            if root_name and normalized_path.startswith(f"{root_name}/"):
+                normalized_path = normalized_path[len(root_name) + 1 :]
+            normalized_path = cls._normalize_relative_path(normalized_path)
+            if not normalized_path:
+                raise BusinessException("分流文件缺少相对路径，请重新选择文件或目录。")
+            if normalized_path in provided_entries:
+                raise BusinessException(f"检测到重复的分流文件路径：{normalized_path}")
+            provided_entries[normalized_path] = upload_file
+
+        expected_paths = set(expected_entries)
+        provided_paths = set(provided_entries)
+        if expected_paths != provided_paths:
+            missing_paths = sorted(expected_paths - provided_paths)
+            extra_paths = sorted(provided_paths - expected_paths)
+            details: list[str] = []
+            if missing_paths:
+                details.append(f"缺少：{', '.join(missing_paths[:3])}")
+            if extra_paths:
+                details.append(f"多余：{', '.join(extra_paths[:3])}")
+            raise BusinessException(f"分流文件结构与 torrent 不匹配。{'；'.join(details)}")
+
+        for relative_path, upload_file in provided_entries.items():
+            expected_size = expected_entries[relative_path]
+            upload_size = int(getattr(upload_file, "size", 0) or 0)
+            if expected_size and upload_size and expected_size != upload_size:
+                raise BusinessException(f"分流文件大小不匹配：{relative_path}")
+        return provided_entries
+
+    @classmethod
+    def _webseed_storage_relative_path(cls, *, metadata, relative_path: str) -> str:
+        root_name = cls._normalize_relative_path(getattr(metadata, "name", "") or "") or "download"
+        if len(getattr(metadata, "files", []) or []) == 1:
+            return root_name
+        return f"{root_name}/{relative_path}"
+
+    @staticmethod
+    def _clear_webseed_files(release: Release) -> None:
+        existing_files = list(release.webseed_files.all())
+        if not existing_files:
+            return
+
+        storage = ReleaseWebseedFile._meta.get_field("storage_file").storage
+        stored_names = [item.storage_file.name for item in existing_files if item.storage_file and item.storage_file.name]
+        release.webseed_files.all().delete()
+        for stored_name in stored_names:
+            storage.delete(stored_name)
+
+    @classmethod
+    def _replace_webseed_files(cls, *, release: Release, metadata, webseed_files, webseed_paths) -> None:
+        upload_entries = cls._normalize_webseed_upload_entries(
+            metadata=metadata,
+            webseed_files=webseed_files,
+            webseed_paths=webseed_paths,
+        )
+        cls._clear_webseed_files(release)
+        if not upload_entries:
+            return
+
+        for relative_path, upload_file in upload_entries.items():
+            storage_relative_path = cls._webseed_storage_relative_path(metadata=metadata, relative_path=relative_path)
+            storage_name = f"release-webseeds/{release.pk}/{storage_relative_path}"
+            webseed_file = ReleaseWebseedFile(
+                release=release,
+                relative_path=relative_path,
+                size_bytes=int(getattr(upload_file, "size", 0) or 0),
+            )
+            if hasattr(upload_file, "seek"):
+                upload_file.seek(0)
+            webseed_file.storage_file.save(storage_name, upload_file, save=False)
+            webseed_file.save()
 
     @staticmethod
     def _get_default_category():
@@ -172,6 +294,8 @@ class ReleaseService:
         payload = dict(payload)
         tags = payload.pop("tags", [])
         torrent_file = payload.pop("torrent_file")
+        webseed_files = payload.pop("webseed_files", [])
+        webseed_paths = payload.pop("webseed_paths", [])
         status = payload.get("status", ReleaseStatus.PUBLISHED)
 
         release = Release(created_by=actor)
@@ -192,6 +316,13 @@ class ReleaseService:
                 for item in metadata.files
             ]
         )
+        if webseed_files:
+            cls._replace_webseed_files(
+                release=release,
+                metadata=metadata,
+                webseed_files=webseed_files,
+                webseed_paths=webseed_paths,
+            )
         AuditService.log(
             actor,
             "发布资源",
@@ -211,6 +342,10 @@ class ReleaseService:
 
         tags = payload.pop("tags", None)
         torrent_file = payload.pop("torrent_file", None)
+        webseed_files = payload.pop("webseed_files", None)
+        webseed_paths = payload.pop("webseed_paths", [])
+        clear_webseed_files = bool(payload.pop("clear_webseed_files", False))
+        metadata = None
         for field, value in payload.items():
             setattr(release, field, value)
         if release.status == ReleaseStatus.PUBLISHED and not release.published_at:
@@ -229,6 +364,18 @@ class ReleaseService:
             release.save()
         if tags is not None:
             release.tags.set(tags)
+        if clear_webseed_files:
+            cls._clear_webseed_files(release)
+        elif webseed_files is not None:
+            active_metadata = metadata or cls._read_release_torrent_metadata(release)
+            cls._replace_webseed_files(
+                release=release,
+                metadata=active_metadata,
+                webseed_files=webseed_files,
+                webseed_paths=webseed_paths,
+            )
+        elif torrent_file:
+            cls._clear_webseed_files(release)
         AuditService.log(
             actor,
             "编辑资源",

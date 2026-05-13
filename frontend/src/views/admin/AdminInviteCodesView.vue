@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppEmpty from '@/components/app/AppEmpty.vue';
@@ -15,6 +15,8 @@ import { formatDateTime } from '@/utils/format';
 
 type ExportSource = 'latest' | 'available' | 'all';
 
+const PAGE_SIZE = 10;
+
 const inviteCodes = ref<InviteCode[]>([]);
 const loading = ref(true);
 const creating = ref(false);
@@ -26,6 +28,7 @@ const latestCreatedCodes = ref<InviteCode[]>([]);
 const exportBaseUrl = ref(typeof window === 'undefined' ? '' : window.location.origin);
 const includeRegisterLink = ref(true);
 const exportSource = ref<ExportSource>('available');
+const currentPage = ref(1);
 
 const form = reactive({
   count: '1',
@@ -34,6 +37,11 @@ const form = reactive({
 });
 
 const availableInviteCodes = computed(() => inviteCodes.value.filter((item) => item.status === 'available'));
+const pageCount = computed(() => Math.max(1, Math.ceil(inviteCodes.value.length / PAGE_SIZE)));
+const pagedInviteCodes = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE;
+  return inviteCodes.value.slice(start, start + PAGE_SIZE);
+});
 
 const summaryCards = computed(() => [
   {
@@ -274,6 +282,7 @@ async function handleCreate() {
 
     latestCreatedCodes.value = created;
     exportSource.value = 'latest';
+    currentPage.value = 1;
     feedback.value = `已生成 ${created.length} 个邀请码。`;
     resetForm();
     await loadData();
@@ -307,6 +316,16 @@ async function handleRevoke(item: InviteCode) {
   }
 }
 
+function changePage(nextPage: number) {
+  currentPage.value = Math.min(Math.max(nextPage, 1), pageCount.value);
+}
+
+watch(pageCount, (value) => {
+  if (currentPage.value > value) {
+    currentPage.value = value;
+  }
+});
+
 onMounted(loadData);
 </script>
 
@@ -324,11 +343,7 @@ onMounted(loadData);
   <AppAlert v-if="errorMessage" variant="error" :title="errorMessage" />
 
   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <div
-      v-for="item in summaryCards"
-      :key="item.label"
-      class="app-surface p-4"
-    >
+    <div v-for="item in summaryCards" :key="item.label" class="app-surface p-4">
       <p class="text-sm text-slate-500">{{ item.label }}</p>
       <p class="mt-3 text-2xl font-semibold text-slate-900">{{ item.value }}</p>
       <p class="mt-2 text-xs leading-6 text-slate-500">{{ item.hint }}</p>
@@ -357,7 +372,7 @@ onMounted(loadData);
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in inviteCodes" :key="item.id">
+          <tr v-for="item in pagedInviteCodes" :key="item.id">
             <td>
               <div class="space-y-1">
                 <code class="font-semibold text-slate-900">{{ item.code }}</code>
@@ -365,7 +380,9 @@ onMounted(loadData);
               </div>
             </td>
             <td>
-              <span :class="['inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold', statusClasses(item.status)]">
+              <span
+                :class="['inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold', statusClasses(item.status)]"
+              >
                 {{ statusLabel(item.status) }}
               </span>
             </td>
@@ -386,12 +403,7 @@ onMounted(loadData);
                 <UiButton size="sm" variant="secondary" @click="copyLink(item.code)">
                   {{ copiedLink === item.code ? '已复制链接' : '复制链接' }}
                 </UiButton>
-                <UiButton
-                  v-if="item.canRevoke"
-                  size="sm"
-                  variant="danger"
-                  @click="handleRevoke(item)"
-                >
+                <UiButton v-if="item.canRevoke" size="sm" variant="danger" @click="handleRevoke(item)">
                   停用
                 </UiButton>
               </div>
@@ -399,6 +411,16 @@ onMounted(loadData);
           </tr>
         </tbody>
       </UiTable>
+
+      <template v-if="inviteCodes.length" #footer>
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm text-slate-500">第 {{ currentPage }} 页，共 {{ pageCount }} 页</p>
+          <div class="flex gap-2">
+            <UiButton :disabled="currentPage <= 1" variant="ghost" @click="changePage(currentPage - 1)">上一页</UiButton>
+            <UiButton :disabled="currentPage >= pageCount" variant="ghost" @click="changePage(currentPage + 1)">下一页</UiButton>
+          </div>
+        </div>
+      </template>
     </AppCard>
 
     <div class="space-y-6">
@@ -454,10 +476,7 @@ onMounted(loadData);
 
           <div>
             <label class="app-field-label">注册链接前缀</label>
-            <UiInput
-              v-model="exportBaseUrl"
-              placeholder="例如：https://ptsite.291277.xyz"
-            />
+            <UiInput v-model="exportBaseUrl" placeholder="例如：https://ptsite.example.com" />
             <p class="mt-2 text-xs leading-6 text-slate-500">
               支持直接填写站点域名，也支持填写到 <code>/register</code>；导出时会自动整理成注册链接。
             </p>
@@ -468,7 +487,7 @@ onMounted(loadData);
             <span>
               <span class="invite-export-toggle__title">导出时附带注册链接</span>
               <span class="invite-export-toggle__hint">
-                开启后会导出形如 {{ buildInviteLink('XXXXXXX') }} 的内容。
+                开启后会导出形如 {{ buildInviteLink('XXXX-XXXX-XXXX') }} 的内容。
               </span>
             </span>
           </label>

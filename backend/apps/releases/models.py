@@ -74,3 +74,23 @@ class ReleaseFile(models.Model):
 
     def __str__(self) -> str:
         return self.file_path
+
+
+class ReleaseWebseedFile(models.Model):
+    release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="webseed_files")
+    relative_path = models.CharField(max_length=1024)
+    storage_file = models.FileField(upload_to="release-webseeds/")
+    size_bytes = models.BigIntegerField(default=0)
+
+    class Meta:
+        db_table = "release_webseed_files"
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["release", "relative_path"],
+                name="uniq_release_webseed_relative_path",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.relative_path

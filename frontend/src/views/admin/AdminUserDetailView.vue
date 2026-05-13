@@ -14,7 +14,7 @@ import UiInput from '@/components/ui/UiInput.vue';
 import UiSelect from '@/components/ui/UiSelect.vue';
 import { changeUserStatus, getUserDetail, updateUser } from '@/services/admin';
 import type { AdminUser, UpdateUserPayload } from '@/types/admin';
-import { formatDateTime } from '@/utils/format';
+import { formatBytes, formatDateTime } from '@/utils/format';
 
 const route = useRoute();
 const state = ref<'loading' | 'ready' | 'not-found' | 'error'>('loading');
@@ -75,15 +75,15 @@ const changedProfilePayload = computed<Partial<UpdateUserPayload>>(() => {
   return nextPayload;
 });
 
-const canSaveProfile = computed(() => {
-  return Boolean(
+const canSaveProfile = computed(() =>
+  Boolean(
     user.value &&
       form.displayName.trim() &&
       form.email.trim() &&
       form.role &&
       Object.keys(changedProfilePayload.value).length,
-  );
-});
+  ),
+);
 
 function syncFormFromUser(nextUser: AdminUser) {
   form.displayName = nextUser.displayName;
@@ -181,7 +181,7 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
     </template>
   </AppError>
   <template v-else>
-    <AppPageHeader :title="user.displayName" description="这里保留用户资料编辑和状态切换。">
+    <AppPageHeader :title="user.displayName" description="这里保留用户资料编辑、上传量查看和状态切换。">
       <template #actions>
         <UiButton variant="ghost" @click="loadUserDetail">刷新详情</UiButton>
       </template>
@@ -192,8 +192,11 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
 
     <div class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <div class="space-y-6">
-        <AppCard title="基础信息" description="用户名、最近登录和发布数保持只读，显示名、邮箱与角色可直接修改。">
-          <div class="grid gap-4 sm:grid-cols-2">
+        <AppCard
+          title="基础信息"
+          description="用户名、最近登录、发布数和累计上传量保持只读，显示名、邮箱与角色可直接修改。"
+        >
+          <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div>
               <dt class="text-sm text-slate-500">用户名</dt>
               <dd class="mt-1 font-medium text-slate-900">{{ user.username }}</dd>
@@ -209,6 +212,14 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
             <div>
               <dt class="text-sm text-slate-500">已发布资源</dt>
               <dd class="mt-1 font-medium text-slate-900">{{ user.createdReleaseCount }}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">累计上传量</dt>
+              <dd class="mt-1 font-medium text-slate-900">{{ formatBytes(user.uploadedSizeBytes ?? 0) }}</dd>
+            </div>
+            <div>
+              <dt class="text-sm text-slate-500">加入时间</dt>
+              <dd class="mt-1 font-medium text-slate-900">{{ formatDateTime(user.joinedAt) }}</dd>
             </div>
           </div>
 
@@ -237,7 +248,7 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
           <template #footer>
             <div class="flex flex-wrap items-center justify-between gap-3">
               <span class="text-sm text-slate-500">
-                本页在仅改动部分字段时走 `PATCH`，全部字段改动时走 `PUT`。
+                仅修改部分字段时走 `PATCH`，全部基础字段同时变更时走 `PUT`。
               </span>
               <UiButton
                 variant="primary"
@@ -252,7 +263,7 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
       </div>
 
       <div class="space-y-6">
-        <AppCard title="管理动作" description="状态切换会即时生效。">
+        <AppCard title="管理动作" description="状态切换会立即生效。">
           <div class="flex flex-wrap gap-2">
             <UiButton
               :variant="user.status === 'active' ? 'danger' : 'primary'"

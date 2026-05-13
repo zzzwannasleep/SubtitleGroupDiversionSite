@@ -87,6 +87,7 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-10T10:20:00+08:00',
     joinedAt: '2025-11-15T10:00:00+08:00',
     createdReleaseCount: 3,
+    uploadedSizeBytes: 12500000000,
   },
   {
     id: 2,
@@ -98,6 +99,7 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-10T09:40:00+08:00',
     joinedAt: '2025-12-01T09:10:00+08:00',
     createdReleaseCount: 6,
+    uploadedSizeBytes: 46640000000,
   },
   {
     id: 3,
@@ -109,6 +111,7 @@ export const users: AdminUser[] = [
     lastLoginAt: '2026-04-10T08:30:00+08:00',
     joinedAt: '2026-01-03T11:10:00+08:00',
     createdReleaseCount: 0,
+    uploadedSizeBytes: 0,
   },
 ];
 
@@ -532,6 +535,11 @@ export function createReleaseFromPayload(payload: {
   };
 
   releases.unshift(release);
+  const owner = users.find((item) => item.id === payload.createdBy.id);
+  if (owner) {
+    owner.createdReleaseCount += 1;
+    owner.uploadedSizeBytes = (owner.uploadedSizeBytes ?? 0) + release.sizeBytes;
+  }
   return release;
 }
 
@@ -571,6 +579,7 @@ export function createUserRecord(payload: {
     lastLoginAt: now,
     joinedAt: now,
     createdReleaseCount: 0,
+    uploadedSizeBytes: 0,
     initialPassword: generatedPassword,
   };
   users.unshift(user);

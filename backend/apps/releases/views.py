@@ -35,6 +35,31 @@ class ReleasePaginationMixin:
         return self.paginator.get_paginated_response(data)
 
 
+def attach_webseed_payload(request, payload: dict) -> dict:
+    attached_payload = dict(payload)
+
+    webseed_files = request.FILES.getlist("webseedFiles")
+    if webseed_files:
+        if hasattr(request.data, "getlist"):
+            webseed_paths = request.data.getlist("webseedPaths")
+        else:
+            raw_paths = request.data.get("webseedPaths", [])
+            if isinstance(raw_paths, list):
+                webseed_paths = raw_paths
+            elif raw_paths:
+                webseed_paths = [raw_paths]
+            else:
+                webseed_paths = []
+        attached_payload["webseed_files"] = webseed_files
+        attached_payload["webseed_paths"] = webseed_paths or [getattr(item, "name", "") for item in webseed_files]
+
+    raw_clear_value = request.data.get("clearWebseedFiles")
+    if raw_clear_value is not None:
+        attached_payload["clear_webseed_files"] = str(raw_clear_value).strip().lower() in {"1", "true", "yes", "on"}
+
+    return attached_payload
+
+
 @extend_schema_view(
     get=extend_schema(exclude=True),
 )
@@ -123,7 +148,10 @@ class ReleaseCollectionView(ReleasePaginationMixin, APIView):
             raise PermissionDenied("仅上传者或管理员可发布资源。")
         serializer = ReleaseWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        release = ReleaseService.create_release(actor=request.user, payload=serializer.validated_data)
+        release = ReleaseService.create_release(
+            actor=request.user,
+            payload=attach_webseed_payload(request, serializer.validated_data),
+        )
         return success_response(ReleaseSerializer(release).data, message="资源创建成功。", status_code=201)
 
 
@@ -197,7 +225,11 @@ class ReleaseDetailView(APIView):
             raise PermissionDenied("只能编辑自己发布的资源。")
         serializer = ReleaseWriteSerializer(instance=release, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        release = ReleaseService.update_release(actor=request.user, release=release, payload=serializer.validated_data)
+        release = ReleaseService.update_release(
+            actor=request.user,
+            release=release,
+            payload=attach_webseed_payload(request, serializer.validated_data),
+        )
         return success_response(ReleaseSerializer(release).data, message="资源更新成功。")
 
 
