@@ -38,6 +38,17 @@ def env(name: str, default: str | None = None) -> str | None:
     return value if value not in (None, "") else default
 
 
+def env_path(name: str, default: Path) -> Path:
+    raw_value = env(name)
+    if raw_value is None:
+        return default
+
+    candidate = Path(raw_value).expanduser()
+    if not candidate.is_absolute():
+        candidate = BASE_DIR / candidate
+    return candidate.resolve(strict=False)
+
+
 def split_csv(value: str | None) -> list[str]:
     if not value:
         return []
@@ -207,7 +218,7 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = env_path("MEDIA_ROOT", BASE_DIR / "media")
 FRONTEND_DIST_DIR = BASE_DIR / "frontend_dist"
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 

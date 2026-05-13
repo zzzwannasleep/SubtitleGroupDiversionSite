@@ -28,7 +28,7 @@ services:
     ports:
       - "${HTTP_PORT:-80}:8000"
     volumes:
-      - torrent_storage:/app/media
+      - ${MEDIA_VOLUME_SPEC:-torrent_storage:/app/media}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3).read()"]
       interval: 30s

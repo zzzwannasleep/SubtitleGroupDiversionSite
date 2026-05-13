@@ -31,5 +31,16 @@ python backend/manage.py runserver
 - `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_HOST` / `MYSQL_PORT`
 - `REDIS_URL`
 - `LOG_LEVEL`
+- `MEDIA_ROOT`
+
+## Media Mapping
+
+`backend/.env` 鍙互閫氳繃 `MEDIA_ROOT` 鎸囧畾绔欏唴 `/media` 鐨勫疄闄呭瓨鍌ㄧ洰褰曪紝渚嬪锛?
+
+```env
+MEDIA_ROOT=D:/subtitle-group-media
+```
+
+涓嶅～鏃朵細缁х画浣跨敤榛樿鐨?`backend/media`銆?
 
 未配置 MySQL / Redis 时，可先用本地默认配置完成开发联调。
