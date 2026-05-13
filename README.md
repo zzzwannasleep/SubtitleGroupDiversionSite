@@ -4,7 +4,10 @@
 
 一个面向字幕组内部使用的轻量资源站，提供资源发布、浏览、RSS 订阅和 torrent 下载能力。
 
-当前版本已经移除私有 Tracker / XBT 依赖，发布页和编辑页都改为直接上传 `.torrent` 文件，下载接口也会直接返回站内保存的原始 torrent。
+当前版本不再依赖旧的私有 Tracker / XBT 方案，发布页和编辑页统一为直接上传 `.torrent` 文件。
+
+- 未启用 Tracker 时，下载接口会直接返回站内保存的 torrent。
+- 启用可选的 `Torrust Tracker` 后，下载接口会按用户改写 announce，并可将种子规范化为 private torrent。
 
 ## 技术栈
 
@@ -20,6 +23,7 @@
 - 资源发布、编辑、隐藏、列表和详情
 - 发布时直接上传 torrent，编辑时可直接替换 torrent
 - RSS 订阅与公开下载链接
+- 可选 Private Tracker：用户 passkey / announce 改写、whitelist 同步、历史数据补齐
 - 公告、分类、标签、审计日志、站点设置
 - Swagger / OpenAPI 文档
 
@@ -140,6 +144,54 @@ docker compose exec \
 - `backend`
 - `mysql`
 - `redis`
+- `tracker`（可选，通过 `--profile tracker` 启动）
+
+### 可选：启用 Private Tracker
+
+如果部署时需要 Private Tracker，推荐直接复用仓库内置的 Torrust 集成，而不是再额外拼一套站点逻辑。
+
+先复制 tracker 配置文件：
+
+```bash
+cp deploy/tracker/tracker.example.toml deploy/tracker/tracker.toml
+# PowerShell: Copy-Item deploy/tracker/tracker.example.toml deploy/tracker/tracker.toml
+```
+
+如果你是在服务器上只保留 `deploy/` 目录，则改为在 `deploy/` 目录内执行：
+
+```bash
+cp tracker/tracker.example.toml tracker/tracker.toml
+# PowerShell: Copy-Item tracker/tracker.example.toml tracker/tracker.toml
+```
+
+然后在 `deploy/.env` 里至少补齐这些配置：
+
+- `TRACKER_ENABLED=true`
+- `TRACKER_ANNOUNCE_URL=http://你的域名或服务器IP:7070/announce`
+- `TORRUST_API_URL=http://tracker:1212`
+- `TORRUST_API_TOKEN=your-admin-token`
+
+这里要特别区分：
+
+- `TRACKER_ANNOUNCE_URL` 是写进用户下载到的 `.torrent` 里的外网地址，必须能被 BT 客户端访问
+- `TORRUST_API_URL` 是 Django 容器访问 tracker 管理 API 的内网地址，Docker Compose 场景下应保持为 `http://tracker:1212`
+- `deploy/tracker/tracker.toml` 需要保留 `[metadata]` 段，例如 `schema_version = "2.0.0"`
+
+启动并补齐历史状态：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml --profile tracker up -d
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend python manage.py migrate
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend python manage.py sync_tracker_state
+```
+
+如果当前就在 `deploy/` 目录内，则可直接执行：
+
+```bash
+docker compose --profile tracker up -d
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py sync_tracker_state
+```
 
 ## 关键配置
 
@@ -149,8 +201,13 @@ docker compose exec \
 - `HTTP_PORT`：站点对外端口，由 `backend` 容器直接提供前端、API、静态文件和下载
 - `BACKEND_IMAGE`：可选，覆盖默认镜像地址；源码部署时可指向本地构建镜像
 - `IMAGE_PULL_POLICY`：可选，默认 `always`；源码部署时建议改为 `never`
+- `TRACKER_ENABLED`：是否启用可选的 Private Tracker 集成
+- `TRACKER_ANNOUNCE_URL`：写入 torrent 的对外 announce 地址
+- `TORRUST_API_URL` / `TORRUST_API_TOKEN`：Django 与 Torrust 管理 API 的连接配置
+- `TRACKER_HTTP_PORT` / `TRACKER_UDP_PORT` / `TRACKER_API_PORT`：tracker 对外与管理端口映射
+- `TRACKER_REQUIRE_AUTH_DOWNLOADS` / `TRACKER_FORCE_PRIVATE_TORRENTS`：是否要求登录下载、是否强制 private torrent
 
-更多日志、备份与目录内执行方式见 [deploy/README.md](deploy/README.md)。
+更多日志、备份与目录内执行方式见 [deploy/README.md](deploy/README.md)，Private Tracker 的接入背景与完整说明见 [docs/PRIVATE_TRACKER_INTEGRATION.md](docs/PRIVATE_TRACKER_INTEGRATION.md)。
 
 ## 验证
 
