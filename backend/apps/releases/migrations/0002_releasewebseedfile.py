@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
             name="ReleaseWebseedFile",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("relative_path", models.CharField(max_length=1024)),
+                ("relative_path", models.CharField(max_length=700)),
                 ("storage_file", models.FileField(upload_to="release-webseeds/")),
                 ("size_bytes", models.BigIntegerField(default=0)),
                 (

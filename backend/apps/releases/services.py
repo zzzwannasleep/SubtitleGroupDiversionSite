@@ -92,7 +92,11 @@ class ReleaseService:
             if part == "..":
                 raise BusinessException("分流文件路径不合法，不能包含上级目录。")
             parts.append(part)
-        return "/".join(parts)
+        result = "/".join(parts)
+        max_length = ReleaseWebseedFile._meta.get_field("relative_path").max_length or 700
+        if len(result) > max_length:
+            raise BusinessException(f"分流文件路径过长，不能超过 {max_length} 个字符。")
+        return result
 
     @classmethod
     def _strip_leading_segments(cls, value: str, count: int) -> str:

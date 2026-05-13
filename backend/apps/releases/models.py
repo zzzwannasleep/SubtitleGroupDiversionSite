@@ -78,7 +78,7 @@ class ReleaseFile(models.Model):
 
 class ReleaseWebseedFile(models.Model):
     release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="webseed_files")
-    relative_path = models.CharField(max_length=1024)
+    relative_path = models.CharField(max_length=700)
     storage_file = models.FileField(upload_to="release-webseeds/")
     size_bytes = models.BigIntegerField(default=0)
 
