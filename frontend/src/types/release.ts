@@ -46,6 +46,7 @@ export interface WebseedLibraryPreview {
   selectionPath: string;
   torrentName: string;
   rootUrl: string | null;
+  httpSeedUrl: string;
   files: WebseedPreviewFile[];
 }
 

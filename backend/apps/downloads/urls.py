@@ -1,9 +1,10 @@
 from django.urls import path
 
-from apps.downloads.views import MyDownloadListView, ReleaseDownloadView
+from apps.downloads.views import HttpSeedView, MyDownloadListView, ReleaseDownloadView
 
 
 urlpatterns = [
+    path("httpseed/<str:infohash>/", HttpSeedView.as_view(), name="http-seed"),
     path("releases/<int:release_id>/download/", ReleaseDownloadView.as_view(), name="release-download"),
     path("me/downloads/", MyDownloadListView.as_view(), name="my-downloads"),
 ]

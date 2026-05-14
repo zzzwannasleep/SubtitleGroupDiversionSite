@@ -25,6 +25,8 @@ services:
       MYSQL_PORT: "3306"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       REDIS_URL: redis://redis:6379/0
+      WEBSEED_LIBRARY_ROOT: ${WEBSEED_LIBRARY_ROOT:-/app/webseed-library}
+      WEBSEED_LIBRARY_URL_PATH: ${WEBSEED_LIBRARY_URL_PATH:-/webseed/}
     ports:
       - "${HTTP_PORT:-80}:8000"
     volumes:

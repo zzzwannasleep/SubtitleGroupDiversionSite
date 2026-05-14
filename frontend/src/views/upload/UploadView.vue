@@ -568,6 +568,10 @@ async function submit() {
                 <p class="mt-2 break-all text-sm text-slate-900">{{ webseedPreview.rootUrl || '-' }}</p>
               </div>
               <div class="rounded-lg bg-slate-50 px-3 py-3 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">qB HTTP Seed URL</p>
+                <p class="mt-2 break-all text-sm text-slate-900">{{ webseedPreview.httpSeedUrl }}</p>
+              </div>
+              <div class="rounded-lg bg-slate-50 px-3 py-3 ring-1 ring-slate-200">
                 <div class="flex items-center justify-between gap-3">
                   <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Resolved File Links</p>
                   <span class="text-xs text-slate-500">{{ webseedPreview.files.length }} 个</span>

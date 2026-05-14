@@ -486,6 +486,10 @@ class ReleaseService:
             "selectionPath": normalized_root_path,
             "torrentName": getattr(metadata, "name", "") or "",
             "rootUrl": root_url,
+            "httpSeedUrl": DownloadService.build_httpseed_url_for_infohash(
+                infohash=getattr(metadata, "infohash", ""),
+                request=request,
+            ),
             "files": preview_entries,
         }
 

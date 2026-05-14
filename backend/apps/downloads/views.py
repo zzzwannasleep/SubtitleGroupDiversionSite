@@ -42,6 +42,21 @@ class ReleaseDownloadView(APIView):
 
 
 @extend_schema_view(
+    get=extend_schema(exclude=True),
+)
+class HttpSeedView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, infohash: str):
+        release = get_object_or_404(
+            Release.objects.prefetch_related("webseed_files"),
+            infohash=str(infohash or "").strip().lower(),
+        )
+        body = DownloadService.build_httpseed_response_body(release=release, request=request)
+        return HttpResponse(body, content_type="application/octet-stream")
+
+
+@extend_schema_view(
     get=extend_schema(
         operation_id="users_download_logs",
         summary="获取当前用户下载记录",

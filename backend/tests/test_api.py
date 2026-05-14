@@ -17,6 +17,7 @@ from torf import Torrent, _flatbencode as flatbencode
 
 from apps.announcements.models import SiteSetting
 from apps.audit.models import AuditLog
+from apps.common.torrent import parse_torrent
 from apps.common.throttles import LoginRateThrottle
 from apps.downloads.models import DownloadLog
 from apps.releases.models import Category, Release, Tag
@@ -489,6 +490,7 @@ class ApiFlowTests(TestCase):
 
         torrent = Torrent.read_stream(response.content, validate=False)
         self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/"])
+        self.assertEqual([str(url) for url in torrent.httpseeds], [f"http://testserver/api/httpseed/{release.infohash}/"])
 
         self.assertEqual(list(release.webseed_files.values_list("storage_file", flat=True)), ["Example.S01E01.mkv"])
 
@@ -603,6 +605,7 @@ class ApiFlowTests(TestCase):
 
         torrent = Torrent.read_stream(response.content, validate=False)
         self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/library/"])
+        self.assertEqual([str(url) for url in torrent.httpseeds], [f"http://testserver/api/httpseed/{release.infohash}/"])
 
     def test_uploader_can_browse_webseed_library(self):
         webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
@@ -673,7 +676,9 @@ class ApiFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200, response.json())
         data = response.json()["data"]
+        preview_infohash = parse_torrent(build_multi_file_torrent_bytes_nested()).infohash
         self.assertEqual(data["rootUrl"], "http://testserver/webseed/library/")
+        self.assertEqual(data["httpSeedUrl"], f"http://testserver/api/httpseed/{preview_infohash}/")
         self.assertEqual(
             data["files"],
             [
@@ -691,6 +696,33 @@ class ApiFlowTests(TestCase):
                 },
             ],
         )
+
+    def test_httpseed_endpoint_returns_requested_piece_bytes(self):
+        webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
+        target_a = webseed_library_root / "library" / "MyFolder" / "sub" / "a.mkv"
+        target_b = webseed_library_root / "library" / "MyFolder" / "sub" / "b.mkv"
+        target_a.parent.mkdir(parents=True, exist_ok=True)
+        target_a.write_bytes(b"a" * 100)
+        target_b.write_bytes(b"b" * 100)
+
+        release = self.create_release(
+            torrent_bytes=build_multi_file_torrent_bytes_nested(),
+            webseed_root_path="library/MyFolder",
+        )
+
+        from urllib.parse import quote_from_bytes
+
+        response = self.client.get(
+            f"/api/httpseed/{release.infohash}/?info_hash={quote_from_bytes(bytes.fromhex(release.infohash))}&piece=0"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"a" * 100 + b"b" * 100)
+
+        ranged = self.client.get(
+            f"/api/httpseed/{release.infohash}/?info_hash={quote_from_bytes(bytes.fromhex(release.infohash))}&piece=0&ranges=10-14,100-104"
+        )
+        self.assertEqual(ranged.status_code, 200)
+        self.assertEqual(ranged.content, b"a" * 5 + b"b" * 5)
 
     def test_separate_webseed_library_root_does_not_receive_internal_media_directories(self):
         self.create_release(

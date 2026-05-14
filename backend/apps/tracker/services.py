@@ -266,13 +266,20 @@ class TrackerService:
         return torrent.dump(validate=False)
 
     @staticmethod
-    def rewrite_download_torrent(*, torrent_bytes: bytes, announce_url: str | None = None, webseed_urls=None) -> bytes:
+    def rewrite_download_torrent(
+        *,
+        torrent_bytes: bytes,
+        announce_url: str | None = None,
+        webseed_urls=None,
+        httpseed_urls=None,
+    ) -> bytes:
         torrent = read_torrent(torrent_bytes)
         if TrackerService.force_private_torrents():
             torrent.private = True
         if announce_url:
             torrent.trackers = [[announce_url]]
         torrent.webseeds = webseed_urls or None
+        torrent.httpseeds = httpseed_urls or None
         return torrent.dump(validate=False)
 
     @staticmethod
