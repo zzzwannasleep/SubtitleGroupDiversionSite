@@ -41,7 +41,7 @@ const navItems = computed(() => {
   if (canManageReleases.value) {
     items.push({ label: '上传种子', to: '/upload' });
     items.push({ label: '我的发布', to: '/my/releases' });
-    items.push({ label: '用户查询', to: '/user-stats' });
+    items.push({ label: '用户数据查询', to: '/user-stats' });
   }
 
   if (currentUser.value?.role === 'admin') {

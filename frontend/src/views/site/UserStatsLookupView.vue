@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppEmpty from '@/components/app/AppEmpty.vue';
@@ -12,6 +13,8 @@ import { lookupUserStats } from '@/services/users';
 import type { UserStatsRecord } from '@/types/user-stats';
 import { formatBytes, formatDateTime } from '@/utils/format';
 
+const route = useRoute();
+const router = useRouter();
 const username = ref('');
 const loading = ref(false);
 const lookupCompleted = ref(false);
@@ -56,8 +59,40 @@ const metricCards = computed(() => {
   ];
 });
 
-async function handleLookup() {
-  const normalizedUsername = username.value.trim();
+function normalizeUsernameQuery(value: unknown) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    const firstValue = value.find((item) => typeof item === 'string' && item.trim());
+    return typeof firstValue === 'string' ? firstValue.trim() : '';
+  }
+
+  return '';
+}
+
+function resetLookupState() {
+  stats.value = null;
+  errorMessage.value = '';
+  lookupCompleted.value = false;
+}
+
+async function syncRouteUsername(nextUsername: string) {
+  const normalizedUsername = nextUsername.trim();
+  const nextQuery = { ...route.query };
+
+  if (normalizedUsername) {
+    nextQuery.username = normalizedUsername;
+  } else {
+    delete nextQuery.username;
+  }
+
+  await router.replace({ query: nextQuery });
+}
+
+async function runLookup(targetUsername: string) {
+  const normalizedUsername = targetUsername.trim();
   if (!normalizedUsername) {
     errorMessage.value = '请输入要查询的用户名。';
     stats.value = null;
@@ -68,6 +103,7 @@ async function handleLookup() {
   loading.value = true;
   errorMessage.value = '';
   stats.value = null;
+  lookupCompleted.value = false;
 
   try {
     stats.value = await lookupUserStats(normalizedUsername);
@@ -80,12 +116,50 @@ async function handleLookup() {
   }
 }
 
-function resetLookup() {
-  username.value = '';
-  stats.value = null;
-  errorMessage.value = '';
-  lookupCompleted.value = false;
+async function handleLookup() {
+  const normalizedUsername = username.value.trim();
+  if (!normalizedUsername) {
+    errorMessage.value = '请输入要查询的用户名。';
+    stats.value = null;
+    lookupCompleted.value = false;
+    return;
+  }
+
+  if (normalizedUsername !== normalizeUsernameQuery(route.query.username)) {
+    await syncRouteUsername(normalizedUsername);
+    return;
+  }
+
+  await runLookup(normalizedUsername);
 }
+
+async function resetLookup() {
+  username.value = '';
+  resetLookupState();
+
+  if (normalizeUsernameQuery(route.query.username)) {
+    await syncRouteUsername('');
+  }
+}
+
+watch(
+  () => route.query.username,
+  async (nextValue) => {
+    const normalizedUsername = normalizeUsernameQuery(nextValue);
+    if (!normalizedUsername) {
+      username.value = '';
+      resetLookupState();
+      return;
+    }
+
+    if (username.value.trim() !== normalizedUsername) {
+      username.value = normalizedUsername;
+    }
+
+    await runLookup(normalizedUsername);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

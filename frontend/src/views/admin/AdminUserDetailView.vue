@@ -183,6 +183,9 @@ watch(() => route.params.id, loadUserDetail, { immediate: true });
   <template v-else>
     <AppPageHeader :title="user.displayName" description="这里保留用户资料编辑、上传量查看和状态切换。">
       <template #actions>
+        <UiButton :to="{ path: '/user-stats', query: { username: user.username } }" variant="secondary">
+          查询用户数据
+        </UiButton>
         <UiButton variant="ghost" @click="loadUserDetail">刷新详情</UiButton>
       </template>
     </AppPageHeader>

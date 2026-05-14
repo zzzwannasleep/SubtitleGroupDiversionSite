@@ -138,6 +138,7 @@ onMounted(loadUsers);
     description="支持搜索、角色与状态筛选、建号和详情入口，后台可以直接看到每个用户的发布数与累计上传量。"
   >
     <template #actions>
+      <UiButton to="/user-stats" variant="secondary">用户数据查询</UiButton>
       <UiButton to="/admin/settings" variant="secondary">系统设置</UiButton>
       <UiButton variant="ghost" @click="loadUsers">刷新列表</UiButton>
     </template>
@@ -198,7 +199,7 @@ onMounted(loadUsers);
             <th>最近登录</th>
             <th>发布数</th>
             <th>上传量</th>
-            <th>详情</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -215,9 +216,21 @@ onMounted(loadUsers);
             <td>{{ user.createdReleaseCount }}</td>
             <td>{{ formatBytes(user.uploadedSizeBytes ?? 0) }}</td>
             <td>
-              <RouterLink :to="`/admin/users/${user.id}`" class="text-sm font-medium text-blue-700">
-                查看详情
-              </RouterLink>
+              <div class="flex flex-wrap gap-2">
+                <UiButton
+                  :to="{ path: '/user-stats', query: { username: user.username } }"
+                  variant="ghost"
+                  size="sm"
+                >
+                  查询数据
+                </UiButton>
+                <RouterLink
+                  :to="`/admin/users/${user.id}`"
+                  class="inline-flex items-center text-sm font-medium text-blue-700"
+                >
+                  查看详情
+                </RouterLink>
+              </div>
             </td>
           </tr>
         </tbody>
