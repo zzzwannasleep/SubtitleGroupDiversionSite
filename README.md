@@ -1,6 +1,6 @@
 # Subtitle Group Diversion Site
 
-> 更新说明：后端已经接入可选的 `Torrust Tracker` 支持，包含私有种子规范化、whitelist 同步和按用户改写下载 announce。现在启用 `TRACKER_ENABLED=true` 后，`deploy/scripts/init.sh` 会自动拉起 tracker，后端首启也会自动补齐 `users + releases` 的 tracker 状态；如需完整说明请查看 [docs/PRIVATE_TRACKER_INTEGRATION.md](docs/PRIVATE_TRACKER_INTEGRATION.md)。
+> 更新说明：后端已经接入可选的 `Torrust Tracker` 支持，包含私有种子规范化、whitelist 同步、按用户改写下载 announce，以及通过 Django tracker 代理在 announce 时近实时回填用户上传/下载/做种统计。现在启用 `TRACKER_ENABLED=true` 后，`deploy/scripts/init.sh` 会自动拉起 tracker，后端首启也会自动补齐 `users + releases` 的 tracker 状态；如需完整说明请查看 [docs/PRIVATE_TRACKER_INTEGRATION.md](docs/PRIVATE_TRACKER_INTEGRATION.md)。
 
 一个面向字幕组内部使用的轻量资源站，提供资源发布、浏览、RSS 订阅和 torrent 下载能力。
 
@@ -23,7 +23,7 @@
 - 资源发布、编辑、隐藏、列表和详情
 - 发布时直接上传 torrent，编辑时可直接替换 torrent
 - RSS 订阅与公开下载链接
-- 可选 Private Tracker：用户 passkey / announce 改写、whitelist 同步、历史数据补齐
+- 可选 Private Tracker：用户 passkey / announce 改写、whitelist 同步、历史数据补齐、上传/下载/做种统计近实时回填
 - 公告、分类、标签、审计日志、站点设置
 - Swagger / OpenAPI 文档
 
@@ -164,19 +164,43 @@ cp tracker/tracker.example.toml tracker/tracker.toml
 # PowerShell: Copy-Item tracker/tracker.example.toml tracker/tracker.toml
 ```
 
-然后在 `deploy/.env` 里至少补齐这些配置：
+如果只需要基础的 Private Tracker，直接把 `TRACKER_ANNOUNCE_URL` 指到 Torrust 即可，例如：
 
-- `TRACKER_ENABLED=true`
-- `COMPOSE_PROFILES=tracker`
-- `TRACKER_ANNOUNCE_URL=http://你的域名或服务器IP:7070/announce`
-- `TORRUST_API_URL=http://tracker:1212`
-- `TORRUST_API_TOKEN=your-admin-token`
+```env
+TRACKER_ENABLED=true
+COMPOSE_PROFILES=tracker
+TRACKER_ANNOUNCE_URL=http://你的域名或服务器IP:7070/announce
+TRACKER_SCRAPE_URL=http://你的域名或服务器IP:7070/scrape
+TORRUST_API_URL=http://tracker:1212
+TORRUST_API_TOKEN=your-admin-token
+```
 
-这里要特别区分：
+如果还要让站内自动回填用户上传量、下载量、做种量、做种体积等统计，推荐改用 Django 代理模式：
 
-- `TRACKER_ANNOUNCE_URL` 是写进用户下载到的 `.torrent` 里的外网地址，必须能被 BT 客户端访问
-- `TORRUST_API_URL` 是 Django 容器访问 tracker 管理 API 的内网地址，Docker Compose 场景下应保持为 `http://tracker:1212`
-- `deploy/tracker/tracker.toml` 需要保留 `[metadata]` 段，例如 `schema_version = "2.0.0"`
+```env
+TRACKER_ENABLED=true
+COMPOSE_PROFILES=tracker
+TRACKER_AUTH_MODE=per_user
+
+TRACKER_ANNOUNCE_URL=https://你的站点域名/tracker/announce
+TRACKER_INTERNAL_ANNOUNCE_URL=http://tracker:7070/announce
+
+TRACKER_PUBLIC_SCRAPE_URL=https://你的站点域名/tracker/scrape
+TRACKER_SCRAPE_URL=http://tracker:7070/scrape
+
+TORRUST_API_URL=http://tracker:1212
+TORRUST_API_TOKEN=your-admin-token
+TRACKER_PEER_SNAPSHOT_STALE_SECONDS=900
+```
+
+同时把 `deploy/tracker/tracker.toml` 里的下面这项改为 `true`：
+
+```toml
+[core.net]
+on_reverse_proxy = true
+```
+
+这类回填是 announce 级近实时，不是字节级实时：默认示例 `tracker.toml` 的 announce 间隔是 `120` 秒，客户端触发 `started`、`completed`、`stopped` 时也会立即刷新。
 
 启动并补齐历史状态：
 
@@ -201,8 +225,11 @@ docker compose --profile tracker up -d
 - `BACKEND_IMAGE`：可选，覆盖默认镜像地址；源码部署时可指向本地构建镜像
 - `IMAGE_PULL_POLICY`：可选，默认 `always`；源码部署时建议改为 `never`
 - `TRACKER_ENABLED`：是否启用可选的 Private Tracker 集成
-- `TRACKER_ANNOUNCE_URL`：写入 torrent 的对外 announce 地址
+- `TRACKER_ANNOUNCE_URL`：写入 torrent 的对外 announce 地址；如果要自动回填用户统计，推荐改成站内 `/tracker/announce`
+- `TRACKER_INTERNAL_ANNOUNCE_URL`：启用站内 tracker 代理时，Django 转发到 Torrust 的内网 announce 地址
+- `TRACKER_SCRAPE_URL` / `TRACKER_PUBLIC_SCRAPE_URL`：内网 scrape 地址与对外 scrape 地址；代理模式建议两者分开配置
 - `TORRUST_API_URL` / `TORRUST_API_TOKEN`：Django 与 Torrust 管理 API 的连接配置
+- `TRACKER_PEER_SNAPSHOT_STALE_SECONDS`：做种快照过期时间，影响 seeding 数量与做种体积统计的清理窗口
 - `TRACKER_HTTP_PORT` / `TRACKER_UDP_PORT` / `TRACKER_API_PORT`：tracker 对外与管理端口映射
 - `TRACKER_REQUIRE_AUTH_DOWNLOADS` / `TRACKER_FORCE_PRIVATE_TORRENTS`：是否要求登录下载、是否强制 private torrent
 

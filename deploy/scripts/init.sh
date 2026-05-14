@@ -8,6 +8,10 @@ is_truthy() {
   esac
 }
 
+warn() {
+  echo "Warning: $*" >&2
+}
+
 ensure_compose_profile() {
   profile="$1"
   case ",${COMPOSE_PROFILES:-}," in
@@ -16,6 +20,50 @@ ensure_compose_profile() {
     *) COMPOSE_PROFILES="${COMPOSE_PROFILES},$profile" ;;
   esac
   export COMPOSE_PROFILES
+}
+
+looks_like_tracker_proxy_url() {
+  case "${1:-}" in
+    */tracker/announce*|*/tracker/scrape*|*/tracker/*/announce*|*/tracker/*/scrape*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+validate_tracker_configuration() {
+  if ! is_truthy "${TRACKER_ENABLED:-false}"; then
+    return 0
+  fi
+
+  if [ -z "${TRACKER_ANNOUNCE_URL:-}" ]; then
+    warn "TRACKER_ENABLED=true but TRACKER_ANNOUNCE_URL is empty."
+  fi
+
+  if [ -z "${TORRUST_API_URL:-}" ]; then
+    warn "TRACKER_ENABLED=true but TORRUST_API_URL is empty."
+  fi
+
+  if [ -z "${TORRUST_API_TOKEN:-}" ]; then
+    warn "TRACKER_ENABLED=true but TORRUST_API_TOKEN is empty."
+  fi
+
+  proxy_mode=false
+  if looks_like_tracker_proxy_url "${TRACKER_ANNOUNCE_URL:-}" || looks_like_tracker_proxy_url "${TRACKER_PUBLIC_SCRAPE_URL:-}"; then
+    proxy_mode=true
+  fi
+
+  if [ "$proxy_mode" = "true" ] && [ -z "${TRACKER_INTERNAL_ANNOUNCE_URL:-}" ]; then
+    warn "TRACKER_ANNOUNCE_URL points to the Django /tracker proxy, but TRACKER_INTERNAL_ANNOUNCE_URL is empty. Set it to the internal Torrust announce URL, for example http://tracker:7070/announce."
+  fi
+
+  if [ "$proxy_mode" = "true" ] && [ -f ./tracker/tracker.toml ]; then
+    if ! grep -Eq '^[[:space:]]*on_reverse_proxy[[:space:]]*=[[:space:]]*true([[:space:]]*#.*)?$' ./tracker/tracker.toml; then
+      warn "Proxy mode is enabled, but deploy/tracker/tracker.toml still does not contain 'on_reverse_proxy = true' under [core.net]."
+    fi
+  fi
 }
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -42,6 +90,8 @@ if is_truthy "${TRACKER_ENABLED:-false}"; then
     echo "Created deploy/tracker/tracker.toml from the example file. Review it if you need custom tracker settings."
   fi
 fi
+
+validate_tracker_configuration
 
 if [ "${IMAGE_PULL_POLICY:-always}" != "never" ]; then
   docker compose pull
