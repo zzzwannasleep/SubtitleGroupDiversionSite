@@ -34,16 +34,14 @@ cp .env.example .env
 1. 完整仓库部署：适合自己构建镜像、自己跟代码版本。
 2. 仅 `deploy/` 目录部署：适合直接拉预构建镜像。
 
-## 目录模型
+## 直链目录
 
-这次部署里有两个目录，但正常情况下你只需要手动关心一个资源映射：
+如果你要用“服务器目录”模式或 qB 直链，只需要关心这一个目录：
 
-- `/app/media`
-  站点内部管理目录。用于保存上传后的 `.torrent`、站点图标、登录背景等站点文件。默认走 Docker volume `torrent_storage:/app/media`，普通部署不用改。
 - `/app/media/webseed`
-  BT 直链资源目录。用于发布页“服务器目录”模式、逐文件直链预览、torrent 里的 `url-list`、以及 qB / libtorrent 用的 `httpseeds`。无论是“本地上传托管”的 webseed 文件，还是你手动挂进来的服务器资源目录，现在都统一放这一棵目录里。
+  BT 直链资源目录。发布页预览、torrent 里的 `url-list`、qB / libtorrent 用的 `httpseeds`，都走这里。
 
-不要再把“服务器资源目录”直接挂到整个 `/app/media`，否则站点内部目录也会落到你的资源目录里。只挂 `/app/media/webseed` 这一层就够了。
+不要把资源目录挂到整个 `/app/media`，只挂 `/app/media/webseed` 这一层就够了。
 
 ## 推荐映射
 
@@ -61,7 +59,6 @@ WEBSEED_LIBRARY_VOLUME_SPEC=/srv/subtitle-group-library:/app/media/webseed
 
 默认情况下：
 
-- 站点内部内容继续保存在 `torrent_storage:/app/media`
 - 容器内资源目录固定是 `/app/media/webseed`
 - 站点内 webseed 访问路径固定是 `/webseed/`
 
