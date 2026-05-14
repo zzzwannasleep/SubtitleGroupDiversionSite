@@ -1,6 +1,6 @@
 # Subtitle Group Diversion Site
 
-> 更新说明：后端已经接入可选的 `Torrust Tracker` 支持，包含私有种子规范化、whitelist 同步和按用户改写下载 announce。启用后请查看 [docs/PRIVATE_TRACKER_INTEGRATION.md](docs/PRIVATE_TRACKER_INTEGRATION.md)，并执行 `python backend/manage.py sync_tracker_state` 补齐历史数据。
+> 更新说明：后端已经接入可选的 `Torrust Tracker` 支持，包含私有种子规范化、whitelist 同步和按用户改写下载 announce。现在启用 `TRACKER_ENABLED=true` 后，`deploy/scripts/init.sh` 会自动拉起 tracker，后端首启也会自动补齐 `users + releases` 的 tracker 状态；如需完整说明请查看 [docs/PRIVATE_TRACKER_INTEGRATION.md](docs/PRIVATE_TRACKER_INTEGRATION.md)。
 
 一个面向字幕组内部使用的轻量资源站，提供资源发布、浏览、RSS 订阅和 torrent 下载能力。
 
@@ -137,14 +137,14 @@ docker compose exec \
 
 - `zzzwannasleep111/subtitlegroupdiversionsite:latest`
 
-如果是完整仓库部署，也可以直接运行 `sh deploy/scripts/init.sh` 完成首启。
+如果是完整仓库部署，也可以直接运行 `sh deploy/scripts/init.sh` 完成首启；当 `TRACKER_ENABLED=true` 时，这个脚本会自动启用 `tracker` profile，并在缺少 `deploy/tracker/tracker.toml` 时从示例文件自动生成一份。
 
 默认 Compose 服务包括：
 
 - `backend`
 - `mysql`
 - `redis`
-- `tracker`（可选，通过 `--profile tracker` 启动）
+- `tracker`（可选；`TRACKER_ENABLED=true` 时推荐同时设置 `COMPOSE_PROFILES=tracker`，或直接使用 `sh deploy/scripts/init.sh` 自动启用）
 
 ### 可选：启用 Private Tracker
 
@@ -167,6 +167,7 @@ cp tracker/tracker.example.toml tracker/tracker.toml
 然后在 `deploy/.env` 里至少补齐这些配置：
 
 - `TRACKER_ENABLED=true`
+- `COMPOSE_PROFILES=tracker`
 - `TRACKER_ANNOUNCE_URL=http://你的域名或服务器IP:7070/announce`
 - `TORRUST_API_URL=http://tracker:1212`
 - `TORRUST_API_TOKEN=your-admin-token`
@@ -179,18 +180,16 @@ cp tracker/tracker.example.toml tracker/tracker.toml
 
 启动并补齐历史状态：
 
+说明：如果直接使用 `docker compose` 命令而不是 `init.sh`，建议把 `COMPOSE_PROFILES=tracker` 写进 `deploy/.env`，这样普通的 `docker compose up -d` 也会把 tracker 一起拉起。后端容器启动时会自动等待 Torrust API 就绪，并补齐 `users + releases` 的 tracker 状态。
+
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml --profile tracker up -d
-docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend python manage.py migrate
-docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec backend python manage.py sync_tracker_state
 ```
 
 如果当前就在 `deploy/` 目录内，则可直接执行：
 
 ```bash
 docker compose --profile tracker up -d
-docker compose exec backend python manage.py migrate
-docker compose exec backend python manage.py sync_tracker_state
 ```
 
 ## 关键配置

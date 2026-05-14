@@ -1,9 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.releases.services import ReleaseService
-from apps.releases.models import Release
-from apps.tracker.services import TrackerService, TrackerSyncService
-from apps.users.models import User
+from apps.tracker.services import TrackerAdminService, TrackerService
 
 
 class Command(BaseCommand):
@@ -13,6 +10,11 @@ class Command(BaseCommand):
         parser.add_argument("--users", action="store_true", help="Provision tracker keys for active users.")
         parser.add_argument("--releases", action="store_true", help="Synchronize published releases to tracker whitelist.")
         parser.add_argument("--scrape", action="store_true", help="Scrape published releases and write tracker stats back.")
+        parser.add_argument(
+            "--fail-on-error",
+            action="store_true",
+            help="Return a non-zero exit code if any user, release, or scrape synchronization fails.",
+        )
 
     def handle(self, *args, **options):
         if not TrackerService.is_enabled():
@@ -25,31 +27,33 @@ class Command(BaseCommand):
             sync_users = True
             sync_releases = True
             sync_scrape = True
+        summary = TrackerAdminService.sync(
+            sync_users=sync_users,
+            sync_releases=sync_releases,
+            sync_scrape=sync_scrape,
+        )
 
         if sync_users:
-            self.stdout.write("Synchronizing active user tracker keys...")
-            for user in User.objects.filter(status="active").order_by("id"):
-                key = TrackerService.ensure_user_key(user)
-                self.stdout.write(f"  user={user.username} key={key[:8]}...")
-
+            self.stdout.write(
+                f"Synchronizing active user tracker keys: processed={summary['usersProcessed']} failed={summary['usersFailed']}"
+            )
         if sync_releases:
-            self.stdout.write("Synchronizing release whitelist state...")
-            queryset = Release.objects.select_related("created_by").order_by("id")
-            for release in queryset:
-                release = ReleaseService.normalize_existing_release_torrent(release)
-                sync = TrackerSyncService.sync_release_now(release=release)
-                self.stdout.write(
-                    f"  release={release.id} status={release.status} whitelisted={sync.is_whitelisted} error={bool(sync.last_error)}"
-                )
-
+            self.stdout.write(
+                "Synchronizing release whitelist state: "
+                f"processed={summary['releasesProcessed']} failed={summary['releasesFailed']}"
+            )
         if sync_scrape:
-            self.stdout.write("Scraping published release stats...")
-            queryset = Release.objects.select_related("created_by").filter(status="published").order_by("id")
-            for release in queryset:
-                sync = TrackerSyncService.sync_release_scrape_now(release=release)
-                self.stdout.write(
-                    "  "
-                    f"release={release.id} seeders={sync.last_scrape_seeders} "
-                    f"leechers={sync.last_scrape_leechers} completed={sync.last_scrape_completed} "
-                    f"error={bool(sync.last_error)}"
-                )
+            self.stdout.write(
+                f"Scraping published release stats: processed={summary['scrapesProcessed']} failed={summary['scrapesFailed']}"
+            )
+
+        errors = summary["errors"]
+        if errors:
+            self.stdout.write(self.style.WARNING("Tracker synchronization finished with warnings:"))
+            for item in errors:
+                self.stdout.write(f"  - {item}")
+            if options["fail_on_error"]:
+                raise CommandError("Tracker synchronization finished with warnings.")
+            return
+
+        self.stdout.write(self.style.SUCCESS("Tracker synchronization completed successfully."))

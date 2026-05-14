@@ -104,6 +104,8 @@ docker compose exec \
 sh scripts/init.sh
 ```
 
+`sh scripts/init.sh` 现在会在 `TRACKER_ENABLED=true` 时自动启用 `tracker` profile，并在缺少 `tracker/tracker.toml` 时从示例文件自动生成一份。
+
 ## Torrust Tracker
 
 当前仓库已经把 **Torrust 的后端对接逻辑接进去了**，但 **Torrust Tracker 本体仍然需要单独部署**。
@@ -120,6 +122,7 @@ cp tracker/tracker.example.toml tracker/tracker.toml
 然后在 `.env` 里至少补这些配置：
 
 - `TRACKER_ENABLED=true`
+- `COMPOSE_PROFILES=tracker`
 - `TRACKER_ANNOUNCE_URL=http://你的域名或服务器IP:7070/announce`
 - `TORRUST_API_URL=http://tracker:1212`
 - `TORRUST_API_TOKEN=your-admin-token`
@@ -135,9 +138,9 @@ cp tracker/tracker.example.toml tracker/tracker.toml
 
 ```bash
 docker compose --profile tracker up -d
-docker compose exec backend python manage.py migrate
-docker compose exec backend python manage.py sync_tracker_state
 ```
+
+如果把 `COMPOSE_PROFILES=tracker` 写进 `.env`，那么普通的 `docker compose up -d` 也会自动把 tracker 一起启动。后端容器首启会自动等待 Torrust API 就绪，并执行 `users + releases` 的 tracker 同步；默认不会把 `scrape` 放进启动阻塞里。
 
 说明：
 
