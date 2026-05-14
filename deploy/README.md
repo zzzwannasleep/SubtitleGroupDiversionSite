@@ -41,7 +41,7 @@ cp .env.example .env
 - `/app/media/webseed`
   BT 直链资源目录。发布页预览、torrent 里的 `url-list`、qB / libtorrent 用的 `httpseeds`，都走这里。
 
-不要把资源目录挂到整个 `/app/media`，只挂 `/app/media/webseed` 这一层就够了。
+站点自己的 `.torrent`、图标、登录背景等文件会自动持久化到 compose 内置 volume，不需要你额外配置。
 
 ## 推荐映射
 
@@ -61,12 +61,6 @@ WEBSEED_LIBRARY_VOLUME_SPEC=/srv/subtitle-group-library:/app/media/webseed
 
 - 容器内资源目录固定是 `/app/media/webseed`
 - 站点内 webseed 访问路径固定是 `/webseed/`
-
-如果你确实想把站点内部文件也放到宿主机目录，再额外配置：
-
-```env
-MEDIA_VOLUME_SPEC=D:/subtitle-group-media:/app/media
-```
 
 如果这些直链不是由站点自己直接对外暴露，而是走你自己的 Nginx、反代、对象存储或 CDN，再额外配置：
 
@@ -180,24 +174,22 @@ WEBSEED_LIBRARY_VOLUME_SPEC=/你的资源目录:/app/media/webseed
 ```
 
 4. 把真正的“服务器资源文件”留在新的 `WEBSEED_LIBRARY_VOLUME_SPEC` 指向目录。
-5. 站点内部文件继续走默认的 `torrent_storage:/app/media`；如果你以前自定义过 `MEDIA_VOLUME_SPEC`，也不要再拿它存纯资源目录。
-6. 启动新容器：
+5. 启动新容器：
 
 ```bash
 docker compose up -d
 ```
 
-7. 如需手动补一次迁移：
+6. 如需手动补一次迁移：
 
 ```bash
 docker compose exec backend python manage.py migrate
 ```
 
-8. 登录站点，到发布页测试一次“服务器目录 -> 生成直链预览”。
+7. 登录站点，到发布页测试一次“服务器目录 -> 生成直链预览”。
 
 如果你升级后发现映射目录里还在长 `torrent_templates/`、`site/`、`release-webseeds/`，基本就是因为：
 
-- 还在把资源目录挂到 `/app/media`
 - 没有把资源目录挂到 `/app/media/webseed`
 - 没有更新到新的 compose 文件
 
@@ -292,13 +284,12 @@ docker compose --profile tracker up -d
 
 ### 1. 映射目录里还在自动创建新文件夹
 
-说明你仍然在复用 `/app/media` 作为资源目录，或者运行时没有把资源目录挂到 `/app/media/webseed`。
+说明运行时没有把资源目录挂到 `/app/media/webseed`，或者还在用旧的 compose 配置。
 
 优先检查：
 
 - `docker-compose.yml` 是否已更新
 - `WEBSEED_LIBRARY_VOLUME_SPEC` 是否挂到了独立目录
-- 你有没有把老的 `MEDIA_VOLUME_SPEC` 继续当资源目录用
 
 ### 2. 发布页不能生成直链预览
 

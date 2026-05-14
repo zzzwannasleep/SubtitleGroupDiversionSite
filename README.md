@@ -2,7 +2,7 @@
 
 部署补充：
 - 服务器目录映射、qB HTTP 直链、旧部署升级步骤已整理到 [deploy/README.md](deploy/README.md)
-- 如果你之前把资源目录直接映射到 `/app/media`，升级前请先看一遍新的“升级现有部署”章节
+- 如果你之前把资源目录直接映射到旧的 `/app/media`，升级前请先看一遍新的“升级现有部署”章节
 
 > 更新说明：后端已经接入可选的 `Torrust Tracker` 支持，包含私有种子规范化、whitelist 同步、按用户改写下载 announce，以及通过 Django tracker 代理在 announce 时近实时回填用户上传/下载/做种统计。现在启用 `TRACKER_ENABLED=true` 后，`deploy/scripts/init.sh` 会自动拉起 tracker，后端首启也会自动补齐 `users + releases` 的 tracker 状态；如需完整说明请查看 [docs/PRIVATE_TRACKER_INTEGRATION.md](docs/PRIVATE_TRACKER_INTEGRATION.md)。
 
@@ -66,7 +66,7 @@ python backend/manage.py runserver
 
 生产环境建议准备一台已安装 `Docker Engine` 与 `Docker Compose` 插件的服务器。当前支持两种部署方式，并且都使用同一份 [deploy/docker-compose.yml](deploy/docker-compose.yml)。
 
-如果你要用“服务器目录”发布、qB HTTP 直链，或者之前把资源目录直接映射到了 `/app/media`，建议先看 [deploy/README.md](deploy/README.md) 里的“目录模型”“qB 直链接入要求”“升级现有部署”。
+如果你要用“服务器目录”发布、qB HTTP 直链，或者之前把资源目录直接映射到了旧的 `/app/media`，建议先看 [deploy/README.md](deploy/README.md) 里的“直链目录”“qB 直链接入要求”“升级现有部署”。
 
 ### 方式一：克隆仓库后部署
 

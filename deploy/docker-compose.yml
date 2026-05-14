@@ -32,8 +32,7 @@ services:
     ports:
       - "${HTTP_PORT:-80}:8000"
     volumes:
-      # Site-managed files stay on the internal Docker volume by default.
-      - ${MEDIA_VOLUME_SPEC:-torrent_storage:/app/media}
+      - torrent_storage:/app/media
       # Direct-link resources are the only host mapping most deployments need to touch.
       - ${WEBSEED_LIBRARY_VOLUME_SPEC:-webseed_library:/app/media/webseed}
     healthcheck:
