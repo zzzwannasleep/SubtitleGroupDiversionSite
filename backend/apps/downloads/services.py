@@ -14,6 +14,10 @@ from apps.users.models import UserStatus
 
 class DownloadService:
     @staticmethod
+    def _webseed_library_root() -> Path:
+        return Path(getattr(settings, "WEBSEED_LIBRARY_ROOT", settings.MEDIA_ROOT))
+
+    @staticmethod
     def resolve_user(request):
         user = request.user
         if getattr(user, "is_authenticated", False):
@@ -97,17 +101,17 @@ class DownloadService:
     def _resolve_webseed_source_kind(*, stored_path: str) -> str:
         candidate = str(stored_path or "").strip()
         if not candidate:
-            return "managed"
+            return "library"
 
         managed_path = Path(settings.MEDIA_ROOT).joinpath(*PurePosixPath(candidate).parts)
-        library_root = Path(getattr(settings, "WEBSEED_LIBRARY_ROOT", settings.MEDIA_ROOT))
-        library_path = library_root.joinpath(*PurePosixPath(candidate).parts)
+        library_path = DownloadService._webseed_library_root().joinpath(*PurePosixPath(candidate).parts)
 
-        managed_exists = managed_path.exists()
         library_exists = library_path.exists()
-        if library_exists and not managed_exists:
+        if library_exists:
             return "library"
-        return "managed"
+        if managed_path.exists():
+            return "managed"
+        return "library"
 
     @classmethod
     def build_webseed_file_url(cls, *, stored_path: str, request) -> str:
@@ -188,11 +192,12 @@ class DownloadService:
             raise BusinessException("分流文件路径为空。")
 
         managed_path = Path(settings.MEDIA_ROOT).joinpath(*PurePosixPath(candidate).parts)
-        library_root = Path(getattr(settings, "WEBSEED_LIBRARY_ROOT", settings.MEDIA_ROOT))
-        library_path = library_root.joinpath(*PurePosixPath(candidate).parts)
-        if library_path.exists() and not managed_path.exists():
+        library_path = DownloadService._webseed_library_root().joinpath(*PurePosixPath(candidate).parts)
+        if library_path.exists():
             return library_path
-        return managed_path
+        if managed_path.exists():
+            return managed_path
+        return library_path
 
     @classmethod
     def _build_ordered_httpseed_sources(cls, *, release) -> tuple[list[tuple[Path, int]], int]:

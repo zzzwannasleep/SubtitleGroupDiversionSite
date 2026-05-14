@@ -25,13 +25,17 @@ services:
       MYSQL_PORT: "3306"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       REDIS_URL: redis://redis:6379/0
-      WEBSEED_LIBRARY_ROOT: ${WEBSEED_LIBRARY_ROOT:-/app/webseed-library}
+      # Internal defaults for the webseed resource library. Most deployments only need
+      # to care about WEBSEED_LIBRARY_VOLUME_SPEC below.
+      WEBSEED_LIBRARY_ROOT: ${WEBSEED_LIBRARY_ROOT:-/app/media/webseed}
       WEBSEED_LIBRARY_URL_PATH: ${WEBSEED_LIBRARY_URL_PATH:-/webseed/}
     ports:
       - "${HTTP_PORT:-80}:8000"
     volumes:
+      # Site-managed files stay on the internal Docker volume by default.
       - ${MEDIA_VOLUME_SPEC:-torrent_storage:/app/media}
-      - ${WEBSEED_LIBRARY_VOLUME_SPEC:-webseed_library:/app/webseed-library}
+      # Direct-link resources are the only host mapping most deployments need to touch.
+      - ${WEBSEED_LIBRARY_VOLUME_SPEC:-webseed_library:/app/media/webseed}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3).read()"]
       interval: 30s

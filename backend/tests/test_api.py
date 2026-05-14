@@ -489,14 +489,16 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/"])
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/"])
         self.assertEqual([str(url) for url in torrent.httpseeds], [f"http://testserver/api/httpseed/{release.infohash}/"])
 
         self.assertEqual(list(release.webseed_files.values_list("storage_file", flat=True)), ["Example.S01E01.mkv"])
+        self.assertFalse((Path(settings.MEDIA_ROOT) / "Example.S01E01.mkv").exists())
+        self.assertTrue((Path(settings.WEBSEED_LIBRARY_ROOT) / "Example.S01E01.mkv").exists())
 
-        media_response = self.client.get("/media/Example.S01E01.mkv")
-        self.assertEqual(media_response.status_code, 200)
-        self.assertEqual(self.read_response_body(media_response), b"x" * 1024)
+        webseed_response = self.client.get("/webseed/Example.S01E01.mkv")
+        self.assertEqual(webseed_response.status_code, 200)
+        self.assertEqual(self.read_response_body(webseed_response), b"x" * 1024)
 
     def test_uploader_can_attach_directory_webseed_for_multi_file_torrent(self):
         release = self.create_release(
@@ -528,15 +530,15 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/"])
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/"])
 
-        media_a = self.client.get("/media/MyFolder/sub/a.mkv")
-        self.assertEqual(media_a.status_code, 200)
-        self.assertEqual(self.read_response_body(media_a), b"a" * 100)
+        webseed_a = self.client.get("/webseed/MyFolder/sub/a.mkv")
+        self.assertEqual(webseed_a.status_code, 200)
+        self.assertEqual(self.read_response_body(webseed_a), b"a" * 100)
 
-        media_b = self.client.get("/media/MyFolder/sub/b.mkv")
-        self.assertEqual(media_b.status_code, 200)
-        self.assertEqual(self.read_response_body(media_b), b"b" * 100)
+        webseed_b = self.client.get("/webseed/MyFolder/sub/b.mkv")
+        self.assertEqual(webseed_b.status_code, 200)
+        self.assertEqual(self.read_response_body(webseed_b), b"b" * 100)
 
     def test_directory_webseed_for_flat_multi_file_torrent_keeps_root_folder(self):
         release = self.create_release(
@@ -568,15 +570,15 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/"])
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/"])
 
-        media_alpha = self.client.get("/media/RootFolder/alpha.mkv")
-        self.assertEqual(media_alpha.status_code, 200)
-        self.assertEqual(self.read_response_body(media_alpha), b"a" * 100)
+        webseed_alpha = self.client.get("/webseed/RootFolder/alpha.mkv")
+        self.assertEqual(webseed_alpha.status_code, 200)
+        self.assertEqual(self.read_response_body(webseed_alpha), b"a" * 100)
 
-        media_beta = self.client.get("/media/RootFolder/beta.mkv")
-        self.assertEqual(media_beta.status_code, 200)
-        self.assertEqual(self.read_response_body(media_beta), b"b" * 100)
+        webseed_beta = self.client.get("/webseed/RootFolder/beta.mkv")
+        self.assertEqual(webseed_beta.status_code, 200)
+        self.assertEqual(self.read_response_body(webseed_beta), b"b" * 100)
 
     def test_uploader_can_reference_existing_server_directory_as_webseed_source(self):
         webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)

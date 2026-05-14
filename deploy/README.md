@@ -36,51 +36,39 @@ cp .env.example .env
 
 ## 目录模型
 
-这次部署里有两个很重要的目录，职责已经分开：
+这次部署里有两个目录，但正常情况下你只需要手动关心一个资源映射：
 
 - `/app/media`
-  站点内部管理目录。用于保存上传后的 `.torrent`、站点图标、登录背景、以及“本地上传托管”的 webseed 文件。
-- `/app/webseed-library`
-  服务器资源映射目录。用于发布页“服务器目录”模式、逐文件直链预览、torrent 里的 `url-list`、以及 qB / libtorrent 用的 `httpseeds`。
+  站点内部管理目录。用于保存上传后的 `.torrent`、站点图标、登录背景等站点文件。默认走 Docker volume `torrent_storage:/app/media`，普通部署不用改。
+- `/app/media/webseed`
+  BT 直链资源目录。用于发布页“服务器目录”模式、逐文件直链预览、torrent 里的 `url-list`、以及 qB / libtorrent 用的 `httpseeds`。无论是“本地上传托管”的 webseed 文件，还是你手动挂进来的服务器资源目录，现在都统一放这一棵目录里。
 
-推荐你把这两个目录分开挂载。不要再把“服务器资源目录”继续直接复用 `/app/media`，否则站点内部目录也会落到你的资源目录里。
+不要再把“服务器资源目录”直接挂到整个 `/app/media`，否则站点内部目录也会落到你的资源目录里。只挂 `/app/media/webseed` 这一层就够了。
 
-## 推荐目录映射
+## 推荐映射
 
-### 站点内部目录
+大多数部署只需要配置这一项：
 
-默认情况下，站点内部文件会继续用 Docker volume：
+```env
+WEBSEED_LIBRARY_VOLUME_SPEC=D:/subtitle-group-library:/app/media/webseed
+```
 
-- `torrent_storage:/app/media`
+Linux 例子：
 
-如果你希望把站点内部文件放到宿主机目录：
+```env
+WEBSEED_LIBRARY_VOLUME_SPEC=/srv/subtitle-group-library:/app/media/webseed
+```
+
+默认情况下：
+
+- 站点内部内容继续保存在 `torrent_storage:/app/media`
+- 容器内资源目录固定是 `/app/media/webseed`
+- 站点内 webseed 访问路径固定是 `/webseed/`
+
+如果你确实想把站点内部文件也放到宿主机目录，再额外配置：
 
 ```env
 MEDIA_VOLUME_SPEC=D:/subtitle-group-media:/app/media
-```
-
-Linux 例子：
-
-```env
-MEDIA_VOLUME_SPEC=/srv/subtitle-group-media:/app/media
-```
-
-### 服务器资源映射目录
-
-如果你要在发布页使用“服务器目录”，或者希望 qB 走服务器直链，建议显式配置：
-
-```env
-WEBSEED_LIBRARY_ROOT=/app/webseed-library
-WEBSEED_LIBRARY_URL_PATH=/webseed/
-WEBSEED_LIBRARY_VOLUME_SPEC=D:/subtitle-group-library:/app/webseed-library
-```
-
-Linux 例子：
-
-```env
-WEBSEED_LIBRARY_ROOT=/app/webseed-library
-WEBSEED_LIBRARY_URL_PATH=/webseed/
-WEBSEED_LIBRARY_VOLUME_SPEC=/srv/subtitle-group-library:/app/webseed-library
 ```
 
 如果这些直链不是由站点自己直接对外暴露，而是走你自己的 Nginx、反代、对象存储或 CDN，再额外配置：
@@ -99,13 +87,13 @@ WEBSEED_LIBRARY_PUBLIC_URL=https://static.example.com/webseed
 
 如果你的目标是让 qBittorrent 真正走 HTTP 直链，而不是只把地址写进种子但实际不生效，部署时请确认下面几点：
 
-1. `WEBSEED_LIBRARY_ROOT` 映射到的目录里，文件结构必须和 torrent 内容匹配。
+1. `WEBSEED_LIBRARY_VOLUME_SPEC` 对应的宿主机目录（容器内 `/app/media/webseed`）里，文件结构必须和 torrent 内容匹配。
 2. 多文件 torrent 推荐选择和 `info.name` 对应的完整根目录；单文件 torrent 可以直接选择文件。
 3. qB 所在机器必须能访问：
    - `WEBSEED_LIBRARY_PUBLIC_URL` 对应的静态文件地址，或者站点自己的 `/webseed/`
    - 站点的 `/api/httpseed/<infohash>/`
 4. 如果站点前面有反向代理或 CDN，确保它们不会拦截 `Range`、查询参数、二进制流响应。
-5. 如果你修改了 `WEBSEED_LIBRARY_URL_PATH`，外部反代规则也要一起改。
+5. 默认 webseed 路径是 `/webseed/`；如果你自己改过这个前缀，外部反代规则也要一起改。
 
 发布页现在会同时给出：
 
@@ -191,13 +179,11 @@ sh scripts/init.sh
 3. 在新的 `.env` 中补上：
 
 ```env
-WEBSEED_LIBRARY_ROOT=/app/webseed-library
-WEBSEED_LIBRARY_URL_PATH=/webseed/
-WEBSEED_LIBRARY_VOLUME_SPEC=/你的资源目录:/app/webseed-library
+WEBSEED_LIBRARY_VOLUME_SPEC=/你的资源目录:/app/media/webseed
 ```
 
 4. 把真正的“服务器资源文件”留在新的 `WEBSEED_LIBRARY_VOLUME_SPEC` 指向目录。
-5. `MEDIA_VOLUME_SPEC` 保留给站点内部文件，不要再拿来放纯资源目录。
+5. 站点内部文件继续走默认的 `torrent_storage:/app/media`；如果你以前自定义过 `MEDIA_VOLUME_SPEC`，也不要再拿它存纯资源目录。
 6. 启动新容器：
 
 ```bash
@@ -215,7 +201,7 @@ docker compose exec backend python manage.py migrate
 如果你升级后发现映射目录里还在长 `torrent_templates/`、`site/`、`release-webseeds/`，基本就是因为：
 
 - 还在把资源目录挂到 `/app/media`
-- 没有设置 `WEBSEED_LIBRARY_ROOT`
+- 没有把资源目录挂到 `/app/media/webseed`
 - 没有更新到新的 compose 文件
 
 ## 启用 Torrust Tracker
@@ -309,13 +295,13 @@ docker compose --profile tracker up -d
 
 ### 1. 映射目录里还在自动创建新文件夹
 
-说明你仍然在复用 `/app/media` 作为资源目录，或者运行时没有吃到新的 `WEBSEED_LIBRARY_ROOT`。
+说明你仍然在复用 `/app/media` 作为资源目录，或者运行时没有把资源目录挂到 `/app/media/webseed`。
 
 优先检查：
 
 - `docker-compose.yml` 是否已更新
-- `.env` 是否真的有 `WEBSEED_LIBRARY_ROOT`
 - `WEBSEED_LIBRARY_VOLUME_SPEC` 是否挂到了独立目录
+- 你有没有把老的 `MEDIA_VOLUME_SPEC` 继续当资源目录用
 
 ### 2. 发布页不能生成直链预览
 
@@ -323,7 +309,7 @@ docker compose --profile tracker up -d
 
 - 选择的资源层级是否和 torrent 结构一致
 - 多文件 torrent 是否选择了完整根目录
-- `WEBSEED_LIBRARY_ROOT` 指向目录里是否真的有对应文件
+- `/app/media/webseed` 对应目录里是否真的有对应文件
 
 ### 3. qB 不认直链或不走 HTTP
 

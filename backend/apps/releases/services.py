@@ -2,6 +2,7 @@ from pathlib import Path, PurePosixPath
 
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.core.files.storage import FileSystemStorage
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -278,7 +279,7 @@ class ReleaseService:
 
     @classmethod
     def _build_uploaded_webseed_storage_path(cls, *, metadata, relative_path: str) -> str:
-        return cls._ensure_managed_webseed_storage_path_allowed(
+        return cls._ensure_webseed_library_path_allowed(
             cls._build_expected_webseed_source_path(metadata=metadata, relative_path=relative_path)
         )
 
@@ -359,13 +360,14 @@ class ReleaseService:
 
     @classmethod
     def _save_uploaded_webseed_file(cls, *, upload_file, storage_name: str) -> str:
-        storage = ReleaseWebseedFile._meta.get_field("storage_file").storage
-        if storage.exists(storage_name):
+        normalized_name = cls._ensure_webseed_library_path_allowed(storage_name)
+        storage = FileSystemStorage(location=str(cls._webseed_library_root()))
+        if storage.exists(normalized_name):
             raise BusinessException(f"映射目录中已存在同名文件：{storage_name}")
         if hasattr(upload_file, "seek"):
             upload_file.seek(0)
-        saved_name = storage.save(storage_name, upload_file)
-        if saved_name != storage_name:
+        saved_name = str(PurePosixPath(storage.save(normalized_name, upload_file)))
+        if saved_name != normalized_name:
             storage.delete(saved_name)
             raise BusinessException(f"分流文件保存路径冲突：{storage_name}")
         return saved_name
