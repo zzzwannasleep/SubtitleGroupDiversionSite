@@ -12,7 +12,14 @@ import UiTextarea from '@/components/ui/UiTextarea.vue';
 import { getSettings, saveSiteSettings } from '@/services/admin';
 import { useSiteSettingsStore } from '@/stores/siteSettings';
 import type { LoginBackgroundType, SaveSiteSettingsPayload, SiteSettings } from '@/types/admin';
-import { buildLoginBackgroundStyle, buildSiteMonogram, DEFAULT_LOGIN_BACKGROUND_CSS } from '@/utils/site-branding';
+import {
+  ACG_LOGIN_BACKGROUND_CSS,
+  ACG_LOGIN_PAGE_CUSTOM_CSS,
+  ACG_RANDOM_BACKGROUND_URL,
+  buildLoginBackgroundStyle,
+  buildSiteMonogram,
+  DEFAULT_LOGIN_BACKGROUND_CSS,
+} from '@/utils/site-branding';
 
 const siteSettingsStore = useSiteSettingsStore();
 
@@ -189,6 +196,16 @@ const currentBackgroundModeLabel = computed(() => {
   return backgroundModeOptions.find((item) => item.value === form.loginBackgroundType)?.label ?? 'CSS 背景';
 });
 
+function applyAcgLoginPreset() {
+  form.loginPageCss = ACG_LOGIN_PAGE_CUSTOM_CSS;
+  form.loginBackgroundType = 'css';
+  form.loginBackgroundApiUrl = '';
+  form.loginBackgroundCss = ACG_LOGIN_BACKGROUND_CSS;
+  clearUploadedLoginBackground();
+  errorMessage.value = '';
+  feedback.value = 'ACG login preset loaded. Save settings to apply it.';
+}
+
 async function handleSave() {
   isSaving.value = true;
   feedback.value = '';
@@ -324,7 +341,10 @@ async function handleSave() {
           </div>
 
           <div>
-            <label class="app-field-label">Login Page Custom CSS</label>
+            <div class="settings-inline-header">
+              <label class="app-field-label">Login Page Custom CSS</label>
+              <UiButton size="sm" variant="ghost" @click="applyAcgLoginPreset">Apply ACG preset</UiButton>
+            </div>
             <UiTextarea
               v-model="form.loginPageCss"
               :rows="8"
@@ -332,6 +352,9 @@ async function handleSave() {
             />
             <p class="app-field-help">
               Applies to the live auth pages. You can target `.auth-shell`, `.login-card`, `.register-card`, and related elements.
+            </p>
+            <p class="app-field-help">
+              The preset also fills `CSS background` with <span class="settings-inline-code">{{ ACG_RANDOM_BACKGROUND_URL }}</span>.
             </p>
           </div>
         </div>
@@ -482,6 +505,18 @@ async function handleSave() {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.settings-inline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.settings-inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  color: rgb(var(--text-primary));
 }
 
 .settings-toggle {
@@ -740,6 +775,13 @@ async function handleSave() {
   .login-preview__content {
     grid-template-columns: minmax(0, 1fr) minmax(300px, 0.9fr);
     align-items: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-inline-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>
