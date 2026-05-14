@@ -22,6 +22,19 @@ export interface ReleaseFile {
   sizeBytes: number;
 }
 
+export interface WebseedLibraryEntry {
+  name: string;
+  path: string;
+  kind: 'directory' | 'file';
+  sizeBytes: number | null;
+}
+
+export interface WebseedLibraryListing {
+  currentPath: string;
+  parentPath: string | null;
+  entries: WebseedLibraryEntry[];
+}
+
 export interface Release {
   id: number;
   title: string;
@@ -81,6 +94,7 @@ export interface ReleaseFormPayload {
   torrentFileName?: string;
   webseedFiles?: File[];
   webseedPaths?: string[];
+  webseedRootPath?: string;
   clearWebseedFiles?: boolean;
   status?: ReleaseStatus;
 }

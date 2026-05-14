@@ -7,6 +7,7 @@ import type {
   ReleaseFormPayload,
   ReleaseQuery,
   Tag,
+  WebseedLibraryListing,
 } from '@/types/release';
 import { apiRequest, buildApiUrl, isApiError } from './api';
 import {
@@ -103,6 +104,10 @@ function buildReleaseFormData(payload: ReleaseFormPayload) {
     formData.append('webseedPaths', relativePath);
   }
 
+  if (payload.webseedRootPath) {
+    formData.set('webseedRootPath', payload.webseedRootPath);
+  }
+
   if (payload.clearWebseedFiles) {
     formData.set('clearWebseedFiles', 'true');
   }
@@ -155,6 +160,20 @@ export async function listTags(): Promise<Tag[]> {
   }
 
   return apiRequest<Tag[]>('/api/tags/');
+}
+
+export async function listWebseedLibrary(path = ''): Promise<WebseedLibraryListing> {
+  if (useMockApi()) {
+    return mockResolve(() => ({
+      currentPath: path,
+      parentPath: path.includes('/') ? path.split('/').slice(0, -1).join('/') : path ? '' : null,
+      entries: [],
+    }));
+  }
+
+  return apiRequest<WebseedLibraryListing>('/api/webseed-library/', {
+    query: path ? { path } : undefined,
+  });
 }
 
 export async function listMyReleases(_userId: number): Promise<Release[]> {

@@ -15,6 +15,7 @@ from django.utils import timezone
 from torf import Torrent, _flatbencode as flatbencode
 
 from apps.common.exceptions import BusinessException
+from apps.common.torrent import read_torrent
 from apps.releases.models import ReleaseStatus
 from apps.tracker.models import TrackerTorrentSync
 
@@ -257,7 +258,7 @@ class TrackerService:
         if not TrackerService.force_private_torrents():
             return torrent_bytes
 
-        torrent = Torrent.read_stream(torrent_bytes, validate=False)
+        torrent = read_torrent(torrent_bytes)
         if torrent.private:
             return torrent_bytes
 
@@ -266,7 +267,7 @@ class TrackerService:
 
     @staticmethod
     def rewrite_download_torrent(*, torrent_bytes: bytes, announce_url: str | None = None, webseed_urls=None) -> bytes:
-        torrent = Torrent.read_stream(torrent_bytes, validate=False)
+        torrent = read_torrent(torrent_bytes)
         if TrackerService.force_private_torrents():
             torrent.private = True
         if announce_url:

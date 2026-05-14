@@ -69,7 +69,11 @@ class DownloadService:
         relative_parts = list(PurePosixPath(first_entry.relative_path).parts)
         strip_count = len(relative_parts) + (1 if len(webseed_files) > 1 else 0)
         root_parts = stored_parts[:-strip_count] if strip_count > 0 else stored_parts
-        root_path = f"{settings.MEDIA_URL.rstrip('/')}/{'/'.join(root_parts).strip('/')}/"
+        root_suffix = "/".join(root_parts).strip("/")
+        if root_suffix:
+            root_path = f"{settings.MEDIA_URL.rstrip('/')}/{root_suffix}/"
+        else:
+            root_path = f"{settings.MEDIA_URL.rstrip('/')}/"
         return request.build_absolute_uri(root_path)
 
     @staticmethod

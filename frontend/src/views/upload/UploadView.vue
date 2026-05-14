@@ -4,8 +4,9 @@ import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
-import { createRelease } from '@/services/releases';
+import { createRelease, listWebseedLibrary } from '@/services/releases';
 import { useAuthStore } from '@/stores/auth';
+import type { WebseedLibraryEntry, WebseedLibraryListing } from '@/types/release';
 import { formatBytes } from '@/utils/format';
 
 interface UploadResultItem {
@@ -23,29 +24,32 @@ type BrowserFile = File & {
   webkitRelativePath?: string;
 };
 
+type WebseedSourceMode = 'upload' | 'library';
+
 const text = {
   pageTitle: '上传种子',
-  pageDescription: '支持批量选择多个 .torrent 文件；如需给种子写入 webseed，可额外上传对应的分流文件或目录。',
+  pageDescription: '支持批量选择多个 .torrent 文件；如需给种子写入 webseed，可选择本地分流文件，或直接引用服务器映射目录里的文件与文件夹。',
   cardTitle: '发布与分流',
   cardDescription:
-    '默认仍支持批量发种；启用分流文件后，会按 torrent 结构把实体文件转成站内直链，并在下载出来的种子里写入 webseed。',
+    '默认仍支持批量发种；启用 webseed 后，一次只处理 1 个 torrent，并把映射目录中的真实文件地址写回下载种子。',
   fileLabel: 'torrent 文件',
   emptySelectionDescription: '支持一次选择多个 .torrent 文件，系统会逐个创建资源发布。',
   singleSelectionPrefix: '已选择 1 个文件：',
   multiSelectionPrefix: '已选择 ',
   multiSelectionSuffix: ' 个文件，提交后会按顺序逐个发布。',
   validationMessage: '请先选择至少 1 个 .torrent 文件。',
-  webseedValidationMessage: '启用分流文件时，一次只能发布 1 个 torrent。',
+  webseedValidationMessage: '启用 webseed 时，一次只能发布 1 个 torrent。',
   submit: '发布',
   batchSubmit: '批量发布',
   submittingPrefix: '正在发布 ',
   submittingFallback: '正在发布...',
   pendingFiles: '待上传文件',
-  pendingWebseedFiles: '待写入 webseed 的分流文件',
+  pendingWebseedFiles: '待写入 webseed 的本地文件',
+  pendingServerPath: '已选择的服务器路径',
   fileCountSuffix: ' 个',
   processingPrefix: '正在处理：',
   resultCardTitle: '本次上传结果',
-  resultCardDescription: '每个 torrent 都会生成独立发布，失败项会保留，方便你修正后重试。',
+  resultCardDescription: '每个 torrent 都会生成独立发布，失败项会保留，方便修正后重试。',
   successTag: '成功',
   errorTag: '失败',
   successDetailPrefix: '已发布为：',
@@ -68,15 +72,29 @@ const webseedFileInputKey = ref(0);
 const webseedDirectoryInputKey = ref(0);
 const selectedFiles = ref<File[]>([]);
 const webseedEntries = ref<WebseedUploadEntry[]>([]);
+const webseedMode = ref<WebseedSourceMode>('upload');
+const selectedLibraryEntry = ref<WebseedLibraryEntry | null>(null);
+const libraryState = ref<WebseedLibraryListing>({
+  currentPath: '',
+  parentPath: null,
+  entries: [],
+});
+const libraryLoaded = ref(false);
+const libraryLoading = ref(false);
+const libraryError = ref('');
 const uploadResults = ref<UploadResultItem[]>([]);
 const activeFileName = ref('');
 const submissionTotal = ref(0);
+
+const hasWebseedSelection = computed(
+  () => webseedEntries.value.length > 0 || Boolean(selectedLibraryEntry.value),
+);
 
 const validationMessage = computed(() => {
   if (!selectedFiles.value.length) {
     return text.validationMessage;
   }
-  if (webseedEntries.value.length && selectedFiles.value.length !== 1) {
+  if (hasWebseedSelection.value && selectedFiles.value.length !== 1) {
     return text.webseedValidationMessage;
   }
   return '';
@@ -95,24 +113,23 @@ const submitButtonLabel = computed(() => {
 
 const selectedFilesDescription = computed(() => {
   const count = selectedFiles.value.length;
-
   if (!count) {
     return text.emptySelectionDescription;
   }
-
   if (count === 1) {
     return `${text.singleSelectionPrefix}${selectedFiles.value[0]?.name ?? ''}`;
   }
-
   return `${text.multiSelectionPrefix}${count}${text.multiSelectionSuffix}`;
 });
 
 const webseedDescription = computed(() => {
-  if (!webseedEntries.value.length) {
-    return '可选。单文件 torrent 请选择对应文件；多文件 torrent 建议选择完整目录，以保留原始路径结构。';
+  if (webseedEntries.value.length) {
+    return `已准备 ${webseedEntries.value.length} 个本地分流文件，下载种子时会自动写入 webseed。`;
   }
-
-  return `已准备 ${webseedEntries.value.length} 个分流文件，下载种子时会自动写入 webseed。`;
+  if (selectedLibraryEntry.value) {
+    return `已选择服务器${selectedLibraryEntry.value.kind === 'directory' ? '目录' : '文件'}：${selectedLibraryEntry.value.path}`;
+  }
+  return '可选。单文件 torrent 可直接选择文件；多文件 torrent 建议选择完整目录，保持与 torrent 内部路径一致。';
 });
 
 function buildFileKey(file: File, index: number) {
@@ -121,6 +138,10 @@ function buildFileKey(file: File, index: number) {
 
 function buildWebseedKey(entry: WebseedUploadEntry, index: number) {
   return `${entry.relativePath}-${entry.file.size}-${entry.file.lastModified}-${index}`;
+}
+
+function buildLibraryKey(entry: WebseedLibraryEntry) {
+  return `${entry.kind}-${entry.path}`;
 }
 
 function clearTorrentInput() {
@@ -142,12 +163,13 @@ function resetTransientState() {
 
 function handleTorrentChange(event: Event) {
   const input = event.target as HTMLInputElement;
-
   selectedFiles.value = Array.from(input.files ?? []);
   resetTransientState();
 }
 
 function setWebseedEntries(files: BrowserFile[], pickRelativePath: (file: BrowserFile) => string) {
+  webseedMode.value = 'upload';
+  selectedLibraryEntry.value = null;
   webseedEntries.value = files.map((file) => ({
     file,
     relativePath: pickRelativePath(file),
@@ -168,6 +190,49 @@ function handleWebseedDirectoryChange(event: Event) {
 }
 
 function clearWebseedSelection() {
+  webseedEntries.value = [];
+  selectedLibraryEntry.value = null;
+  clearWebseedInputs();
+  resetTransientState();
+}
+
+async function loadLibrary(path = '') {
+  libraryLoading.value = true;
+  libraryError.value = '';
+  try {
+    libraryState.value = await listWebseedLibrary(path);
+    libraryLoaded.value = true;
+  } catch (error) {
+    libraryError.value = error instanceof Error ? error.message : '加载映射目录失败，请稍后重试。';
+  } finally {
+    libraryLoading.value = false;
+  }
+}
+
+async function switchWebseedMode(mode: WebseedSourceMode) {
+  webseedMode.value = mode;
+  if (mode === 'library' && !libraryLoaded.value && !libraryLoading.value) {
+    await loadLibrary('');
+  }
+}
+
+function selectLibraryEntry(entry: WebseedLibraryEntry) {
+  selectedLibraryEntry.value = entry;
+  webseedEntries.value = [];
+  clearWebseedInputs();
+  resetTransientState();
+}
+
+function selectCurrentDirectory() {
+  if (!libraryState.value.currentPath) return;
+  const currentPath = libraryState.value.currentPath;
+  const segments = currentPath.split('/').filter(Boolean);
+  selectedLibraryEntry.value = {
+    name: segments[segments.length - 1] ?? currentPath,
+    path: currentPath,
+    kind: 'directory',
+    sizeBytes: null,
+  };
   webseedEntries.value = [];
   clearWebseedInputs();
   resetTransientState();
@@ -199,8 +264,9 @@ async function submit() {
           {
             torrentFile: file,
             torrentFileName: file.name,
-            webseedFiles: webseedEntries.value.map((item) => item.file),
-            webseedPaths: webseedEntries.value.map((item) => item.relativePath),
+            webseedFiles: webseedEntries.value.length ? webseedEntries.value.map((item) => item.file) : undefined,
+            webseedPaths: webseedEntries.value.length ? webseedEntries.value.map((item) => item.relativePath) : undefined,
+            webseedRootPath: selectedLibraryEntry.value?.path,
             status: 'published',
           },
           authStore.currentUser,
@@ -242,8 +308,7 @@ async function submit() {
     clearTorrentInput();
 
     if (!failedCount) {
-      webseedEntries.value = [];
-      clearWebseedInputs();
+      clearWebseedSelection();
     }
   } finally {
     activeFileName.value = '';
@@ -296,18 +361,36 @@ async function submit() {
         <section class="rounded-3xl border border-slate-200 bg-slate-50/80 p-5">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="max-w-2xl space-y-2">
-              <p class="text-sm font-semibold text-slate-900">可选分流文件 / 目录</p>
+              <p class="text-sm font-semibold text-slate-900">可选 webseed 来源</p>
               <p class="text-sm leading-6 text-slate-500">
-                单文件 torrent 请选择对应实体文件；多文件 torrent 建议直接选择目录，系统会保留相对路径并生成 webseed。
+                可以上传本地分流文件，也可以直接选择服务器映射目录中的文件或文件夹。多文件 torrent
+                建议选择与 torrent 根目录一致的完整文件夹。
               </p>
               <p class="text-xs leading-6 text-slate-500">{{ webseedDescription }}</p>
             </div>
-            <UiButton v-if="webseedEntries.length" size="sm" variant="ghost" @click="clearWebseedSelection">
-              清空分流文件
+            <UiButton v-if="hasWebseedSelection" size="sm" variant="ghost" @click="clearWebseedSelection">
+              清空 webseed 选择
             </UiButton>
           </div>
 
-          <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <div class="mt-4 flex flex-wrap gap-3">
+            <UiButton
+              size="sm"
+              :variant="webseedMode === 'upload' ? 'primary' : 'secondary'"
+              @click="switchWebseedMode('upload')"
+            >
+              本地上传
+            </UiButton>
+            <UiButton
+              size="sm"
+              :variant="webseedMode === 'library' ? 'primary' : 'secondary'"
+              @click="switchWebseedMode('library')"
+            >
+              服务器目录
+            </UiButton>
+          </div>
+
+          <div v-if="webseedMode === 'upload'" class="mt-4 grid gap-4 md:grid-cols-2">
             <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-4">
               <label class="app-field-label">上传单个或多个文件</label>
               <input
@@ -317,7 +400,7 @@ async function submit() {
                 class="block h-auto min-h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 @change="handleWebseedFilesChange"
               />
-              <p class="mt-2 text-xs leading-6 text-slate-500">适合单文件 torrent，或多文件但所有内容都在根目录时使用。</p>
+              <p class="mt-2 text-xs leading-6 text-slate-500">适合单文件 torrent，或多文件但都在根目录时使用。</p>
             </div>
 
             <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-4">
@@ -332,6 +415,71 @@ async function submit() {
                 @change="handleWebseedDirectoryChange"
               />
               <p class="mt-2 text-xs leading-6 text-slate-500">适合整季、合集等多文件 torrent，可保留目录层级。</p>
+            </div>
+          </div>
+
+          <div v-else class="mt-4 space-y-4">
+            <div class="flex flex-wrap items-center gap-3">
+              <UiButton size="sm" variant="secondary" :disabled="libraryLoading" @click="loadLibrary(libraryState.currentPath)">
+                刷新目录
+              </UiButton>
+              <UiButton
+                size="sm"
+                variant="ghost"
+                :disabled="libraryLoading || libraryState.parentPath === null"
+                @click="loadLibrary(libraryState.parentPath ?? '')"
+              >
+                返回上一级
+              </UiButton>
+              <UiButton
+                v-if="libraryState.currentPath"
+                size="sm"
+                variant="ghost"
+                :disabled="libraryLoading"
+                @click="selectCurrentDirectory"
+              >
+                选择当前文件夹
+              </UiButton>
+              <p class="text-xs text-slate-500">
+                当前目录：{{ libraryState.currentPath || '/' }}
+              </p>
+            </div>
+
+            <AppAlert v-if="libraryError" variant="error" :title="libraryError" />
+
+            <div class="rounded-2xl border border-slate-200 bg-white p-4">
+              <p v-if="libraryLoading" class="text-sm text-slate-500">正在加载映射目录…</p>
+              <p v-else-if="!libraryState.entries.length" class="text-sm text-slate-500">当前目录为空。</p>
+              <ul v-else class="space-y-2">
+                <li
+                  v-for="entry in libraryState.entries"
+                  :key="buildLibraryKey(entry)"
+                  class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                >
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-medium text-slate-900">
+                      {{ entry.kind === 'directory' ? '目录' : '文件' }} · {{ entry.name }}
+                    </p>
+                    <p class="truncate text-xs text-slate-500">{{ entry.path }}</p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span v-if="entry.sizeBytes !== null" class="text-xs text-slate-500">
+                      {{ formatBytes(entry.sizeBytes) }}
+                    </span>
+                    <UiButton
+                      v-if="entry.kind === 'directory'"
+                      size="sm"
+                      variant="secondary"
+                      @click="loadLibrary(entry.path)"
+                    >
+                      打开
+                    </UiButton>
+                    <UiButton size="sm" variant="ghost" @click="selectLibraryEntry(entry)">
+                      {{ entry.kind === 'directory' ? '选择目录' : '选择文件' }}
+                    </UiButton>
+                  </div>
+                </li>
+              </ul>
             </div>
           </div>
 
@@ -354,6 +502,19 @@ async function submit() {
               </li>
             </ul>
           </div>
+
+          <div v-if="selectedLibraryEntry" class="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm font-semibold text-slate-900">{{ text.pendingServerPath }}</p>
+              <span class="text-xs text-slate-500">
+                {{ selectedLibraryEntry.kind === 'directory' ? '目录' : '文件' }}
+              </span>
+            </div>
+            <div class="mt-3 rounded-lg bg-slate-50 px-3 py-3 text-sm text-slate-700 ring-1 ring-slate-200">
+              <p class="font-medium text-slate-900">{{ selectedLibraryEntry.name }}</p>
+              <p class="mt-1 break-all text-xs text-slate-500">{{ selectedLibraryEntry.path }}</p>
+            </div>
+          </div>
         </section>
 
         <div
@@ -368,9 +529,9 @@ async function submit() {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-sm text-slate-500">
             {{
-              webseedEntries.length
+              hasWebseedSelection
                 ? '当前已启用 webseed 写入，提交时只会处理 1 个 torrent。'
-                : '未选择分流文件时，仍按原有模式支持批量上传多个 torrent。'
+                : '未启用 webseed 时，仍按原有模式支持批量上传多个 torrent。'
             }}
           </p>
           <UiButton variant="primary" :disabled="!canSubmit" @click="submit">

@@ -4,6 +4,7 @@ import shutil
 import tempfile
 from datetime import timedelta
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -95,6 +96,13 @@ class ApiFlowTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+        media_root = Path(settings.MEDIA_ROOT)
+        media_root.mkdir(parents=True, exist_ok=True)
+        for child in media_root.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink(missing_ok=True)
         self.category = Category.objects.create(name="鍔ㄧ敾", slug="anime", sort_order=1, is_active=True)
         self.tag = Tag.objects.create(name="1080p", slug="1080p")
         self.admin = User.objects.create_user(
@@ -130,6 +138,7 @@ class ApiFlowTests(TestCase):
         torrent_bytes: bytes | None = None,
         webseed_uploads: list[tuple[str, bytes, str]] | None = None,
         webseed_paths: list[str] | None = None,
+        webseed_root_path: str | None = None,
     ):
         self.client.force_login(self.uploader)
         torrent = SimpleUploadedFile(
@@ -152,6 +161,8 @@ class ApiFlowTests(TestCase):
                 for name, content, content_type in webseed_uploads
             ]
             payload["webseedPaths"] = webseed_paths or [name for name, *_ in webseed_uploads]
+        if webseed_root_path:
+            payload["webseedRootPath"] = webseed_root_path
         if execute_on_commit:
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post("/api/releases/", payload, format="multipart")
@@ -189,6 +200,7 @@ class ApiFlowTests(TestCase):
         setting = SiteSetting.get_current()
         setting.site_name = "StarGate Subs"
         setting.site_description = "娆㈣繋鏉ュ埌娴嬭瘯绔欑偣"
+        setting.site_custom_css = "body::before { opacity: 0.9; }"
         setting.login_page_css = ".auth-shell { --login-accent-hue: 196; }"
         setting.site_icon_url = "https://cdn.example.com/brand/icon.png"
         setting.login_background_type = "api"
@@ -198,6 +210,7 @@ class ApiFlowTests(TestCase):
             update_fields=[
                 "site_name",
                 "site_description",
+                "site_custom_css",
                 "login_page_css",
                 "site_icon_url",
                 "login_background_type",
@@ -215,6 +228,7 @@ class ApiFlowTests(TestCase):
                 "siteName": "StarGate Subs",
                 "siteDescription": "娆㈣繋鏉ュ埌娴嬭瘯绔欑偣",
                 "loginNotice": "",
+                "siteCustomCss": "body::before { opacity: 0.9; }",
                 "loginPageCss": ".auth-shell { --login-accent-hue: 196; }",
                 "allowPublicRegistration": False,
                 "rssBasePath": "/rss",
@@ -462,9 +476,11 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual([str(url) for url in torrent.webseeds], [f"http://testserver/media/release-webseeds/{release.id}/"])
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/"])
 
-        media_response = self.client.get(f"/media/release-webseeds/{release.id}/Example.S01E01.mkv")
+        self.assertEqual(list(release.webseed_files.values_list("storage_file", flat=True)), ["Example.S01E01.mkv"])
+
+        media_response = self.client.get("/media/Example.S01E01.mkv")
         self.assertEqual(media_response.status_code, 200)
         self.assertEqual(self.read_response_body(media_response), b"x" * 1024)
 
@@ -488,8 +504,8 @@ class ApiFlowTests(TestCase):
         self.assertEqual(
             sorted(release.webseed_files.values_list("storage_file", flat=True)),
             [
-                f"release-webseeds/{release.id}/MyFolder/sub/a.mkv",
-                f"release-webseeds/{release.id}/MyFolder/sub/b.mkv",
+                "MyFolder/sub/a.mkv",
+                "MyFolder/sub/b.mkv",
             ],
         )
 
@@ -498,13 +514,13 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual([str(url) for url in torrent.webseeds], [f"http://testserver/media/release-webseeds/{release.id}/"])
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/"])
 
-        media_a = self.client.get(f"/media/release-webseeds/{release.id}/MyFolder/sub/a.mkv")
+        media_a = self.client.get("/media/MyFolder/sub/a.mkv")
         self.assertEqual(media_a.status_code, 200)
         self.assertEqual(self.read_response_body(media_a), b"a" * 100)
 
-        media_b = self.client.get(f"/media/release-webseeds/{release.id}/MyFolder/sub/b.mkv")
+        media_b = self.client.get("/media/MyFolder/sub/b.mkv")
         self.assertEqual(media_b.status_code, 200)
         self.assertEqual(self.read_response_body(media_b), b"b" * 100)
 
@@ -528,18 +544,99 @@ class ApiFlowTests(TestCase):
         self.assertEqual(
             sorted(release.webseed_files.values_list("storage_file", flat=True)),
             [
-                f"release-webseeds/{release.id}/RootFolder/alpha.mkv",
-                f"release-webseeds/{release.id}/RootFolder/beta.mkv",
+                "RootFolder/alpha.mkv",
+                "RootFolder/beta.mkv",
             ],
         )
 
-        media_alpha = self.client.get(f"/media/release-webseeds/{release.id}/RootFolder/alpha.mkv")
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/"])
+
+        media_alpha = self.client.get("/media/RootFolder/alpha.mkv")
         self.assertEqual(media_alpha.status_code, 200)
         self.assertEqual(self.read_response_body(media_alpha), b"a" * 100)
 
-        media_beta = self.client.get(f"/media/release-webseeds/{release.id}/RootFolder/beta.mkv")
+        media_beta = self.client.get("/media/RootFolder/beta.mkv")
         self.assertEqual(media_beta.status_code, 200)
         self.assertEqual(self.read_response_body(media_beta), b"b" * 100)
+
+    def test_uploader_can_reference_existing_server_directory_as_webseed_source(self):
+        media_root = Path(settings.MEDIA_ROOT)
+        target_a = media_root / "library" / "MyFolder" / "sub" / "a.mkv"
+        target_b = media_root / "library" / "MyFolder" / "sub" / "b.mkv"
+        target_a.parent.mkdir(parents=True, exist_ok=True)
+        target_a.write_bytes(b"a" * 100)
+        target_b.write_bytes(b"b" * 100)
+
+        release = self.create_release(
+            torrent_bytes=build_multi_file_torrent_bytes_nested(),
+            webseed_root_path="library/MyFolder",
+        )
+
+        self.assertEqual(
+            sorted(release.webseed_files.values_list("storage_file", flat=True)),
+            [
+                "library/MyFolder/sub/a.mkv",
+                "library/MyFolder/sub/b.mkv",
+            ],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/library/"])
+
+    def test_uploader_can_browse_webseed_library(self):
+        media_root = Path(settings.MEDIA_ROOT)
+        (media_root / "library" / "Show").mkdir(parents=True, exist_ok=True)
+        (media_root / "library" / "Show" / "episode.mkv").write_bytes(b"x" * 10)
+        (media_root / "torrent_templates").mkdir(parents=True, exist_ok=True)
+        (media_root / "torrent_templates" / "hidden.torrent").write_bytes(b"torrent")
+
+        self.client.force_login(self.uploader)
+        response = self.client.get("/api/webseed-library/")
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["data"]["currentPath"], "")
+        self.assertEqual(response.json()["data"]["parentPath"], None)
+        root_entries = response.json()["data"]["entries"]
+        self.assertIn(
+            {
+                "name": "library",
+                "path": "library",
+                "kind": "directory",
+                "sizeBytes": None,
+            },
+            root_entries,
+        )
+        self.assertNotIn(
+            {
+                "name": "torrent_templates",
+                "path": "torrent_templates",
+                "kind": "directory",
+                "sizeBytes": None,
+            },
+            root_entries,
+        )
+
+        nested = self.client.get("/api/webseed-library/?path=library")
+        self.assertEqual(nested.status_code, 200, nested.json())
+        self.assertEqual(nested.json()["data"]["currentPath"], "library")
+        self.assertEqual(nested.json()["data"]["parentPath"], "")
+        self.assertIn(
+            {
+                "name": "Show",
+                "path": "library/Show",
+                "kind": "directory",
+                "sizeBytes": None,
+            },
+            nested.json()["data"]["entries"],
+        )
 
     def test_uploader_can_replace_torrent_file_on_edit(self):
         release = self.create_release()
@@ -834,6 +931,38 @@ class ApiFlowTests(TestCase):
             },
         )
 
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+    )
+    def test_invalid_torrent_with_tracker_private_enabled_returns_unified_business_error(self):
+        self.client.force_login(self.uploader)
+        torrent = SimpleUploadedFile("broken.torrent", b"not-a-valid-torrent", content_type="application/x-bittorrent")
+        response = self.client.post(
+            "/api/releases/",
+            {
+                "title": "Broken Torrent",
+                "subtitle": "WEB-DL 1080p",
+                "description": "璧勬簮璇存槑",
+                "categorySlug": self.category.slug,
+                "tagSlugs": [self.tag.slug],
+                "status": "published",
+                "torrentFile": torrent,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 400, response.json())
+        self.assertEqual(
+            response.json(),
+            {
+                "success": False,
+                "code": "business_error",
+                "message": "无效的 torrent 文件。",
+            },
+        )
+
     def test_duplicate_username_returns_unified_validation_error(self):
         self.client.force_login(self.admin)
         response = self.client.post(
@@ -941,6 +1070,7 @@ class ApiFlowTests(TestCase):
             {
                 "siteName": "Test Site",
                 "siteDescription": "New login branding",
+                "siteCustomCss": "body { background: #101826; }",
                 "loginBackgroundType": "file",
                 "siteIconFile": icon,
                 "loginBackgroundFile": background,
@@ -952,6 +1082,7 @@ class ApiFlowTests(TestCase):
         data = response.json()["data"]
         self.assertEqual(data["siteName"], "Test Site")
         self.assertEqual(data["siteDescription"], "New login branding")
+        self.assertEqual(data["siteCustomCss"], "body { background: #101826; }")
         self.assertEqual(data["loginBackgroundType"], "file")
         self.assertIn("/media/site/branding/", data["siteIconFileUrl"])
         self.assertIn("/media/site/branding/", data["siteIconResolvedUrl"])
@@ -961,6 +1092,7 @@ class ApiFlowTests(TestCase):
         setting = SiteSetting.get_current()
         self.assertTrue(bool(setting.site_icon_file))
         self.assertTrue(bool(setting.login_background_file))
+        self.assertEqual(setting.site_custom_css, "body { background: #101826; }")
         self.assertEqual(setting.login_background_type, "file")
         self.assertTrue(AuditLog.objects.filter(action="更新站点设置", target_type="站点设置").exists())
 
@@ -969,6 +1101,7 @@ class ApiFlowTests(TestCase):
         response = self.client.put(
             "/api/admin/settings/",
             {
+                "siteCustomCss": "body::before { opacity: 0.78; }",
                 "loginBackgroundType": "css",
                 "loginBackgroundCss": "linear-gradient(120deg, #020617 0%, #172554 100%)",
                 "loginPageCss": ".login-card { border-radius: 2rem; }",
@@ -979,6 +1112,7 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200, response.json())
 
         setting = SiteSetting.get_current()
+        self.assertEqual(setting.site_custom_css, "body::before { opacity: 0.78; }")
         self.assertEqual(setting.login_background_type, "css")
         self.assertEqual(setting.login_background_css, "linear-gradient(120deg, #020617 0%, #172554 100%)")
         self.assertEqual(setting.login_page_css, ".login-card { border-radius: 2rem; }")

@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from apps.audit.services import AuditService
 from apps.common.pagination import StandardPageNumberPagination
-from apps.common.permissions import IsActiveAuthenticated, IsAdminRole
+from apps.common.permissions import IsActiveAuthenticated, IsAdminRole, IsUploaderOrAdmin
 from apps.common.responses import success_response
 from apps.common.schema import paginated_success_response_schema, success_response_schema
 from apps.releases.models import Category, Tag
@@ -52,6 +52,10 @@ def attach_webseed_payload(request, payload: dict) -> dict:
                 webseed_paths = []
         attached_payload["webseed_files"] = webseed_files
         attached_payload["webseed_paths"] = webseed_paths or [getattr(item, "name", "") for item in webseed_files]
+
+    webseed_root_path = str(request.data.get("webseedRootPath") or "").strip()
+    if webseed_root_path:
+        attached_payload["webseed_root_path"] = webseed_root_path
 
     raw_clear_value = request.data.get("clearWebseedFiles")
     if raw_clear_value is not None:
@@ -108,6 +112,17 @@ class TagListView(APIView):
 
     def get(self, request):
         return success_response(TagSerializer(Tag.objects.order_by("name", "id"), many=True).data)
+
+
+@extend_schema_view(
+    get=extend_schema(exclude=True),
+)
+class WebseedLibraryView(APIView):
+    permission_classes = [IsUploaderOrAdmin]
+
+    def get(self, request):
+        path = str(request.query_params.get("path") or "")
+        return success_response(ReleaseService.list_webseed_directory(path))
 
 
 @extend_schema_view(

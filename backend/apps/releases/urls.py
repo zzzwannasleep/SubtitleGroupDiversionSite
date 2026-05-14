@@ -12,6 +12,7 @@ from apps.releases.views import (
     ReleaseHideView,
     ReleaseVisibilityView,
     TagListView,
+    WebseedLibraryView,
 )
 
 
@@ -19,6 +20,7 @@ urlpatterns = [
     path("home/", HomeDataView.as_view(), name="home-data"),
     path("categories/", CategoryListView.as_view(), name="categories"),
     path("tags/", TagListView.as_view(), name="tags"),
+    path("webseed-library/", WebseedLibraryView.as_view(), name="webseed-library"),
     path("releases/", ReleaseCollectionView.as_view(), name="releases"),
     path("releases/<int:release_id>/", ReleaseDetailView.as_view(), name="release-detail"),
     path("releases/<int:release_id>/hide/", ReleaseHideView.as_view(), name="release-hide"),

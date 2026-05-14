@@ -22,7 +22,7 @@ class TorrentMetadata:
     name: str
 
 
-def _read_torrent(data: bytes) -> Torrent:
+def read_torrent(data: bytes) -> Torrent:
     try:
         return Torrent.read_stream(data, validate=False)
     except (BdecodeError, MetainfoError, ReadError, TorfError, TypeError, ValueError) as exc:
@@ -61,4 +61,4 @@ def _build_metadata(torrent: Torrent) -> TorrentMetadata:
 
 
 def parse_torrent(data: bytes) -> TorrentMetadata:
-    return _build_metadata(_read_torrent(data))
+    return _build_metadata(read_torrent(data))

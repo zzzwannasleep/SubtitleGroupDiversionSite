@@ -32,6 +32,7 @@ const form = reactive({
   siteName: '',
   siteDescription: '',
   loginNotice: '',
+  siteCustomCss: '',
   loginPageCss: '',
   allowPublicRegistration: false,
   rssBasePath: '',
@@ -75,6 +76,7 @@ function applySettings(settings: SiteSettings) {
     siteName: settings.siteName,
     siteDescription: settings.siteDescription,
     loginNotice: settings.loginNotice,
+    siteCustomCss: settings.siteCustomCss,
     loginPageCss: settings.loginPageCss,
     allowPublicRegistration: settings.allowPublicRegistration,
     rssBasePath: settings.rssBasePath,
@@ -197,6 +199,7 @@ async function handleSave() {
       siteName: form.siteName,
       siteDescription: form.siteDescription,
       loginNotice: form.loginNotice,
+      siteCustomCss: form.siteCustomCss,
       loginPageCss: form.loginPageCss,
       allowPublicRegistration: form.allowPublicRegistration,
       rssBasePath: form.rssBasePath,
@@ -306,6 +309,18 @@ async function handleSave() {
               <p class="truncate text-lg font-semibold text-slate-900">{{ form.siteName }}</p>
               <p class="text-sm leading-6 text-slate-500">{{ form.siteDescription }}</p>
             </div>
+          </div>
+
+          <div>
+            <label class="app-field-label">Site Custom CSS</label>
+            <UiTextarea
+              v-model="form.siteCustomCss"
+              :rows="10"
+              placeholder="body::before { content: ''; }\n.site-layout { position: relative; }"
+            />
+            <p class="app-field-help">
+              Applies to the whole site. Prefer targeting `body`, `.site-layout`, `.auth-shell`, and shared layout classes.
+            </p>
           </div>
 
           <div>

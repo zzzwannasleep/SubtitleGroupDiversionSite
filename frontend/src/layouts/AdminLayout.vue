@@ -37,7 +37,7 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-100 lg:grid lg:grid-cols-[272px_1fr]">
+  <div class="admin-layout min-h-screen bg-slate-100 lg:grid lg:grid-cols-[272px_1fr]">
     <div class="hidden lg:block">
       <AdminSidebar />
     </div>
