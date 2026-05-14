@@ -135,7 +135,7 @@ docker compose exec \
 
 默认会直接拉取：
 
-- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest`
+- `zzzwannasleep111/subtitlegroupdiversionsite:latest`
 
 如果是完整仓库部署，也可以直接运行 `sh deploy/scripts/init.sh` 完成首启。
 

@@ -79,7 +79,7 @@ docker compose exec \
 
 适合只保留 `deploy/` 目录、直接拉取现成镜像的场景。默认会使用：
 
-- `ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest`
+- `zzzwannasleep111/subtitlegroupdiversionsite:latest`
 
 启动服务：
 

@@ -8,7 +8,7 @@ x-logging: &default-logging
 
 services:
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/zzzwannasleep/subtitlegroupdiversionsite/backend:latest}
+    image: ${BACKEND_IMAGE:-zzzwannasleep111/subtitlegroupdiversionsite:latest}
     pull_policy: ${IMAGE_PULL_POLICY:-always}
     restart: unless-stopped
     env_file:
