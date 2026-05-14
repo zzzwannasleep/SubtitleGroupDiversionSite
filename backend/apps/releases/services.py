@@ -557,8 +557,12 @@ class ReleaseService:
     @classmethod
     @transaction.atomic
     def normalize_existing_release_torrent(cls, release: Release) -> Release:
-        with release.torrent_file.open("rb") as torrent_handle:
-            current_bytes = torrent_handle.read()
+        stored_name = getattr(release.torrent_file, "name", "") or f"release-{release.pk}.torrent"
+        try:
+            with release.torrent_file.open("rb") as torrent_handle:
+                current_bytes = torrent_handle.read()
+        except FileNotFoundError as exc:
+            raise BusinessException(f"种子文件丢失，无法同步 Tracker：{stored_name}") from exc
 
         normalized_torrent_bytes = TrackerService.normalize_uploaded_torrent(current_bytes)
         if normalized_torrent_bytes == current_bytes:

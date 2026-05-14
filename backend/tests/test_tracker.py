@@ -1,9 +1,11 @@
 import shutil
 import tempfile
 from datetime import UTC, datetime, timedelta
+from io import StringIO
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote_from_bytes
 
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -335,6 +337,32 @@ class TrackerApiTests(TestCase):
         self.assertEqual(sync.last_scrape_leechers, 2)
         self.assertEqual(sync.last_scrape_completed, 11)
         scrape_infohash.assert_called_once_with(infohash=release.infohash, auth_key="uploader-passkey")
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://tracker.example.com/announce",
+        TRACKER_SCRAPE_URL="https://tracker.example.com/scrape",
+        TRACKER_AUTH_MODE="shared",
+        TORRUST_SHARED_AUTH_KEY="shared-key",
+        TRACKER_REQUIRE_AUTH_DOWNLOADS=True,
+        TRACKER_FORCE_PRIVATE_TORRENTS=True,
+        TORRUST_API_URL="https://tracker.example.com",
+        TORRUST_API_TOKEN="tracker-token",
+    )
+    @patch("apps.tracker.services.TorrustClient.whitelist_infohash")
+    def test_sync_tracker_state_command_warns_when_release_torrent_file_is_missing(self, whitelist_infohash):
+        release = self.create_release(execute_on_commit=True)
+        release.torrent_file.storage.delete(release.torrent_file.name)
+        whitelist_infohash.reset_mock()
+
+        stdout = StringIO()
+        call_command("sync_tracker_state", "--releases", stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn("processed=0 failed=1", output)
+        self.assertIn(f"release:{release.id}:", output)
+        self.assertIn("种子文件丢失", output)
+        whitelist_infohash.assert_not_called()
 
     @override_settings(
         TRACKER_ENABLED=True,
