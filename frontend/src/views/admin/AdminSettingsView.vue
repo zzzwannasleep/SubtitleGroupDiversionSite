@@ -16,6 +16,7 @@ import {
   ACG_LOGIN_BACKGROUND_CSS,
   ACG_LOGIN_PAGE_CUSTOM_CSS,
   ACG_RANDOM_BACKGROUND_URL,
+  ACG_SITE_CUSTOM_CSS,
   buildLoginBackgroundStyle,
   buildSiteMonogram,
   DEFAULT_LOGIN_BACKGROUND_CSS,
@@ -197,13 +198,14 @@ const currentBackgroundModeLabel = computed(() => {
 });
 
 function applyAcgLoginPreset() {
+  form.siteCustomCss = ACG_SITE_CUSTOM_CSS;
   form.loginPageCss = ACG_LOGIN_PAGE_CUSTOM_CSS;
   form.loginBackgroundType = 'css';
   form.loginBackgroundApiUrl = '';
   form.loginBackgroundCss = ACG_LOGIN_BACKGROUND_CSS;
   clearUploadedLoginBackground();
   errorMessage.value = '';
-  feedback.value = 'ACG login preset loaded. Save settings to apply it.';
+  feedback.value = 'ACG preset loaded for Site Custom CSS, Login Page Custom CSS, and CSS background.';
 }
 
 async function handleSave() {
@@ -354,7 +356,7 @@ async function handleSave() {
               Applies to the live auth pages. You can target `.auth-shell`, `.login-card`, `.register-card`, and related elements.
             </p>
             <p class="app-field-help">
-              The preset also fills `CSS background` with <span class="settings-inline-code">{{ ACG_RANDOM_BACKGROUND_URL }}</span>.
+              The preset also fills `Site Custom CSS` and sets `CSS background` to <span class="settings-inline-code">{{ ACG_RANDOM_BACKGROUND_URL }}</span>.
             </p>
           </div>
         </div>
