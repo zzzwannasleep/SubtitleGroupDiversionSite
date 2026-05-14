@@ -25,23 +25,23 @@ cp .env.example .env
 - `MYSQL_PASSWORD`
 - `MYSQL_ROOT_PASSWORD`
 
-## Media 鐩綍鏄犲皠
+## Media 目录映射
 
-榛樿鎯呭喌涓嬶紝`backend` 浼氱户缁娇鐢?Docker volume `torrent_storage:/app/media`銆?
+默认情况下，`backend` 会继续使用 Docker volume `torrent_storage:/app/media`。
 
-濡傛灉浣犳兂鎶?`/media` 鐩存帴鏄犲皠鍒板崟鐙殑瀛樺偍鐩橈紝鍙互鍦?`deploy/.env` 閲屾坊鍔狅細
+如果你想把 `/media` 直接映射到单独的存储盘，可以在 `deploy/.env` 里添加：
 
 ```env
 MEDIA_VOLUME_SPEC=D:/subtitle-group-media:/app/media
 ```
 
-Linux 渚嬪瓙锛?
+Linux 例子：
 
 ```env
 MEDIA_VOLUME_SPEC=/srv/subtitle-group-media:/app/media
 ```
 
-鍙抽渶淇濈暀鍙冲渶鍚庣殑 `:/app/media` 涓嶅彉锛涘彧闇€鏇存崲宸﹁竟鐨勪富鏈虹洰褰曘€?
+只需保留最后的 `:/app/media` 不变；只需更换左边的主机目录。
 
 ## 方式一：源码部署
 
