@@ -2,6 +2,7 @@ import shutil
 import tempfile
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote_from_bytes
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -10,7 +11,7 @@ from rest_framework.test import APIClient
 from torf import _flatbencode as flatbencode
 
 from apps.releases.models import Category, Release, Tag
-from apps.tracker.models import TrackerTorrentSync
+from apps.tracker.models import TrackerPeerSnapshot, TrackerTorrentSync
 from apps.tracker.services import TorrustAuthKey, TorrustClient, TrackerApiStats, TrackerScrapeStats
 from apps.users.models import User
 
@@ -99,6 +100,15 @@ class TrackerApiTests(TestCase):
         self.assertEqual(response.status_code, 201, response.json())
         self.client.logout()
         return Release.objects.get(pk=response.json()["data"]["id"])
+
+    @staticmethod
+    def make_tracker_http_response(body: bytes, *, status_code: int = 200, content_type: str = "text/plain"):
+        response = MagicMock()
+        entered = response.__enter__.return_value
+        entered.status = status_code
+        entered.read.return_value = body
+        entered.headers.get_content_type.return_value = content_type
+        return response
 
     @override_settings(
         TRACKER_ENABLED=True,
@@ -420,3 +430,108 @@ class TrackerApiTests(TestCase):
         self.assertEqual(stats, TrackerScrapeStats(seeders=4, leechers=3, completed=12))
         request = mocked_urlopen.call_args.args[0]
         self.assertTrue(request.full_url.startswith("https://tracker.example.com/user-key/scrape?info_hash="))
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://site.example.com/tracker/announce",
+        TRACKER_INTERNAL_ANNOUNCE_URL="http://tracker:7070/announce",
+        TRACKER_SCRAPE_URL="http://tracker:7070/scrape",
+        TRACKER_PUBLIC_SCRAPE_URL="https://site.example.com/tracker/scrape",
+        TRACKER_AUTH_MODE="per_user",
+    )
+    @patch("apps.tracker.proxy.urlopen")
+    def test_tracker_announce_proxy_updates_user_stats_on_each_announce(self, mocked_urlopen):
+        release = self.create_release()
+        self.user.tracker_passkey = "user-passkey"
+        self.user.tracker_key_valid_until = timezone.now() + timedelta(days=30)
+        self.user.save(update_fields=["tracker_passkey", "tracker_key_valid_until"])
+
+        mocked_urlopen.return_value = self.make_tracker_http_response(
+            flatbencode.encode({b"interval": 120, b"complete": 1, b"incomplete": 0, b"peers": b""})
+        )
+        info_hash = quote_from_bytes(bytes.fromhex(release.infohash), safe="")
+        peer_id = quote_from_bytes(b"-UT0001-123456789012", safe="")
+
+        started = self.client.get(
+            f"/tracker/announce/user-passkey?info_hash={info_hash}&peer_id={peer_id}&port=6881&uploaded=0&downloaded=0&left=1024&event=started"
+        )
+        self.assertEqual(started.status_code, 200)
+
+        completed = self.client.get(
+            f"/tracker/announce/user-passkey?info_hash={info_hash}&peer_id={peer_id}&port=6881&uploaded=0&downloaded=1024&left=0&event=completed"
+        )
+        self.assertEqual(completed.status_code, 200)
+
+        announced = self.client.get(
+            f"/tracker/announce/user-passkey?info_hash={info_hash}&peer_id={peer_id}&port=6881&uploaded=2048&downloaded=1024&left=0"
+        )
+        self.assertEqual(announced.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.uploaded_bytes, 2048)
+        self.assertEqual(self.user.downloaded_bytes, 1024)
+        self.assertEqual(self.user.seeding_count, 1)
+        self.assertEqual(self.user.seeding_size_bytes, release.size_bytes)
+
+        stopped = self.client.get(
+            f"/tracker/announce/user-passkey?info_hash={info_hash}&peer_id={peer_id}&port=6881&uploaded=4096&downloaded=1024&left=0&event=stopped"
+        )
+        self.assertEqual(stopped.status_code, 200)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.uploaded_bytes, 4096)
+        self.assertEqual(self.user.downloaded_bytes, 1024)
+        self.assertEqual(self.user.seeding_count, 0)
+        self.assertEqual(self.user.seeding_size_bytes, 0)
+        self.assertFalse(TrackerPeerSnapshot.objects.filter(user=self.user).exists())
+
+        forwarded_request = mocked_urlopen.call_args.args[0]
+        self.assertTrue(forwarded_request.full_url.startswith("http://tracker:7070/announce/user-passkey?info_hash="))
+        self.assertEqual(forwarded_request.headers["X-forwarded-for"], "127.0.0.1")
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://site.example.com/tracker/announce",
+        TRACKER_INTERNAL_ANNOUNCE_URL="http://tracker:7070/announce",
+        TRACKER_SCRAPE_URL="http://tracker:7070/scrape",
+        TRACKER_PUBLIC_SCRAPE_URL="https://site.example.com/tracker/scrape",
+        TRACKER_AUTH_MODE="per_user",
+    )
+    @patch("apps.tracker.proxy.urlopen")
+    def test_tracker_scrape_proxy_forwards_request(self, mocked_urlopen):
+        self.user.tracker_passkey = "user-passkey"
+        self.user.tracker_key_valid_until = timezone.now() + timedelta(days=30)
+        self.user.save(update_fields=["tracker_passkey", "tracker_key_valid_until"])
+
+        infohash = "4df4010a4af5f6082705df0ea5c79d0fceba9f10"
+        response_body = flatbencode.encode(
+            {
+                b"files": {
+                    bytes.fromhex(infohash): {
+                        b"complete": 4,
+                        b"incomplete": 3,
+                        b"downloaded": 12,
+                    }
+                }
+            }
+        )
+        mocked_urlopen.return_value = self.make_tracker_http_response(response_body)
+
+        response = self.client.get(f"/tracker/scrape/user-passkey?info_hash={quote_from_bytes(bytes.fromhex(infohash), safe='')}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, response_body)
+
+        forwarded_request = mocked_urlopen.call_args.args[0]
+        self.assertTrue(forwarded_request.full_url.startswith("http://tracker:7070/scrape/user-passkey?info_hash="))
+
+    @override_settings(
+        TRACKER_ENABLED=True,
+        TRACKER_ANNOUNCE_URL="https://site.example.com/tracker/announce",
+        TRACKER_INTERNAL_ANNOUNCE_URL="http://tracker:7070/announce",
+        TRACKER_AUTH_MODE="per_user",
+    )
+    @patch("apps.tracker.proxy.urlopen")
+    def test_tracker_announce_proxy_rejects_disabled_or_unknown_key(self, mocked_urlopen):
+        response = self.client.get("/tracker/announce/unknown-key?uploaded=0&downloaded=0&left=0")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"failure reason", response.content)
+        mocked_urlopen.assert_not_called()

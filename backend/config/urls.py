@@ -37,6 +37,7 @@ def serve_frontend_index(_request):
 urlpatterns = [
     path("health/", healthcheck, name="healthcheck"),
     path("system-admin/", admin.site.urls),
+    path("tracker/", include("apps.tracker.public_urls")),
     path("api/", include("apps.authx.urls")),
     path("api/", include("apps.users.urls")),
     path("api/", include("apps.releases.urls")),

@@ -2,14 +2,17 @@ from django.db.models import Count, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.views import APIView
 
 from apps.announcements.models import Announcement
-from apps.common.permissions import IsActiveAuthenticated, IsAdminRole
+from apps.common.permissions import IsActiveAuthenticated, IsAdminRole, IsUploaderOrAdmin
 from apps.common.responses import success_response
 from apps.common.schema import success_response_schema
 from apps.releases.models import Release
 from apps.releases.serializers import ReleaseSerializer
+from apps.tracker.proxy import TrackerProxyService
+from apps.tracker.services import TrackerService
 from apps.users.models import InviteCode, User, UserRole, UserStatus
 from apps.users.serializers import (
     AdminDashboardStatsSerializer,
@@ -22,6 +25,7 @@ from apps.users.serializers import (
     InviteCodeSerializer,
     SelfApiTokenSerializer,
     SelfThemeSerializer,
+    UserStatsLookupSerializer,
     UpdateUserSerializer,
 )
 from apps.users.services import InviteCodeService, UserService
@@ -76,6 +80,39 @@ class AdminDashboardView(APIView):
                 "latestReleases": ReleaseSerializer(latest_releases, many=True).data,
             }
         )
+
+
+@extend_schema_view(
+    get=extend_schema(
+        operation_id="users_stats_lookup",
+        summary="按用户名查询用户常用统计数据",
+        tags=["User Lookup"],
+        parameters=[
+            OpenApiParameter(
+                name="username",
+                description="要查询的用户名，按用户名精确匹配（忽略大小写）",
+                required=True,
+                type=str,
+            )
+        ],
+        responses=success_response_schema("UserStatsLookupResponse", UserStatsLookupSerializer),
+    ),
+)
+class UserStatsLookupView(APIView):
+    permission_classes = [IsUploaderOrAdmin]
+
+    def get(self, request):
+        username = (request.query_params.get("username") or "").strip()
+        if not username:
+            raise ValidationError({"username": ["请输入要查询的用户名。"]})
+
+        user = annotate_user_upload_metrics(User.objects.all()).filter(username__iexact=username).first()
+        if user is None:
+            raise NotFound("未找到该用户名对应的用户。")
+        if TrackerService.is_enabled():
+            TrackerProxyService.refresh_user_seeding_metrics(user_id=user.id)
+            user = annotate_user_upload_metrics(User.objects.all()).get(pk=user.id)
+        return success_response(UserStatsLookupSerializer(user).data)
 
 
 class AdminUserListCreateView(APIView):

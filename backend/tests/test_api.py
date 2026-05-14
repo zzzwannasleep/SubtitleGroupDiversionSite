@@ -1206,6 +1206,43 @@ class ApiFlowTests(TestCase):
         self.assertTrue(data[0]["lastLoginAt"])
         self.assertEqual(data[0]["uploadedSizeBytes"], release.size_bytes)
 
+    def test_uploader_can_lookup_user_stats_by_username(self):
+        release = self.create_release()
+        DownloadLog.objects.create(user=self.user, release=release, ip_address="127.0.0.1")
+        self.user.uploaded_bytes = 12_345_678_900
+        self.user.downloaded_bytes = 6_172_839_450
+        self.user.seeding_count = 4
+        self.user.seeding_size_bytes = 28_000_000_000
+        self.user.save(
+            update_fields=["uploaded_bytes", "downloaded_bytes", "seeding_count", "seeding_size_bytes"]
+        )
+
+        self.client.force_login(self.uploader)
+        response = self.client.get("/api/users/stats-lookup/?username=user")
+        self.assertEqual(response.status_code, 200, response.json())
+
+        data = response.json()["data"]
+        self.assertEqual(data["username"], "user")
+        self.assertEqual(data["uploadedBytes"], 12_345_678_900)
+        self.assertEqual(data["downloadedBytes"], 6_172_839_450)
+        self.assertEqual(data["shareRatio"], 2.0)
+        self.assertEqual(data["seedingCount"], 4)
+        self.assertEqual(data["seedingSizeBytes"], 28_000_000_000)
+        self.assertEqual(data["downloadCount"], 1)
+        self.assertEqual(data["createdReleaseCount"], 0)
+        self.assertEqual(data["createdReleaseSizeBytes"], 0)
+
+    def test_regular_user_cannot_lookup_user_stats(self):
+        self.client.force_login(self.user)
+        response = self.client.get("/api/users/stats-lookup/?username=admin")
+        self.assertEqual(response.status_code, 403, response.json())
+
+    def test_lookup_user_stats_requires_username(self):
+        self.client.force_login(self.admin)
+        response = self.client.get("/api/users/stats-lookup/")
+        self.assertEqual(response.status_code, 400, response.json())
+        self.assertIn("username", response.json()["errors"])
+
     def test_my_releases_returns_safe_published_at_for_draft_release(self):
         release = self.create_release(status="draft")
         self.client.force_login(self.uploader)

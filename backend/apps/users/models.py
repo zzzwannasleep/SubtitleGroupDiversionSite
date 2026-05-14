@@ -54,6 +54,10 @@ class User(AbstractUser):
     api_token = models.CharField(max_length=32, unique=True, default=generate_secret_token)
     tracker_passkey = models.CharField(max_length=64, blank=True, default="")
     tracker_key_valid_until = models.DateTimeField(null=True, blank=True)
+    uploaded_bytes = models.PositiveBigIntegerField(default=0)
+    downloaded_bytes = models.PositiveBigIntegerField(default=0)
+    seeding_count = models.PositiveIntegerField(default=0)
+    seeding_size_bytes = models.PositiveBigIntegerField(default=0)
     theme_mode = models.CharField(max_length=20, default="system")
     theme_custom_css = models.TextField(blank=True, default="")
 

@@ -25,6 +25,7 @@ import ReleaseDetailView from '@/views/site/ReleaseDetailView.vue';
 import ReleaseListView from '@/views/site/ReleaseListView.vue';
 import RssView from '@/views/site/RssView.vue';
 import TagView from '@/views/site/TagView.vue';
+import UserStatsLookupView from '@/views/site/UserStatsLookupView.vue';
 import ErrorView from '@/views/system/ErrorView.vue';
 import ForbiddenView from '@/views/system/ForbiddenView.vue';
 import NotFoundView from '@/views/system/NotFoundView.vue';
@@ -67,6 +68,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'rss', name: 'rss', component: RssView, meta: { requiresAuth: true, title: 'RSS' } },
       { path: 'me', name: 'me', component: MeView, meta: { requiresAuth: true, title: '我的账户' } },
       { path: 'me/downloads', name: 'my-downloads', component: MyDownloadsView, meta: { requiresAuth: true, title: '我的下载' } },
+      { path: 'user-stats', name: 'user-stats', component: UserStatsLookupView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '用户数据查询' } },
       { path: 'upload', name: 'upload', component: UploadView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '上传种子' } },
       { path: 'my/releases', name: 'my-releases', component: MyReleasesView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '我的发布' } },
       { path: 'my/releases/:id/edit', name: 'my-release-edit', component: EditMyReleaseView, meta: { requiresAuth: true, roles: ['uploader', 'admin'], title: '编辑资源' } },

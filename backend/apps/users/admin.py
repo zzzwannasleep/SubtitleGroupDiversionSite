@@ -11,7 +11,20 @@ class UserAdmin(DjangoUserAdmin):
     fieldsets = DjangoUserAdmin.fieldsets + (
         (
             "站点字段",
-            {"fields": ("display_name", "role", "status", "api_token", "tracker_passkey", "tracker_key_valid_until")},
+            {
+                "fields": (
+                    "display_name",
+                    "role",
+                    "status",
+                    "api_token",
+                    "tracker_passkey",
+                    "tracker_key_valid_until",
+                    "uploaded_bytes",
+                    "downloaded_bytes",
+                    "seeding_count",
+                    "seeding_size_bytes",
+                )
+            },
         ),
     )
     add_fieldsets = DjangoUserAdmin.add_fieldsets + (

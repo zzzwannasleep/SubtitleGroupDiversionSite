@@ -18,6 +18,7 @@ import type {
   SelfTrackerProfile,
 } from '@/types/tracker';
 import type { SiteTheme } from '@/types/theme';
+import type { UserStatsRecord } from '@/types/user-stats';
 import { DEFAULT_LOGIN_BACKGROUND_CSS } from '@/utils/site-branding';
 
 const inviteCodeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -114,6 +115,36 @@ export const users: AdminUser[] = [
     uploadedSizeBytes: 0,
   },
 ];
+
+const userStatsSnapshots: Record<
+  number,
+  Pick<
+    UserStatsRecord,
+    'uploadedBytes' | 'downloadedBytes' | 'seedingCount' | 'seedingSizeBytes' | 'downloadCount'
+  >
+> = {
+  1: {
+    uploadedBytes: 82000000000,
+    downloadedBytes: 11000000000,
+    seedingCount: 7,
+    seedingSizeBytes: 51400000000,
+    downloadCount: 12,
+  },
+  2: {
+    uploadedBytes: 268400000000,
+    downloadedBytes: 44200000000,
+    seedingCount: 18,
+    seedingSizeBytes: 132600000000,
+    downloadCount: 24,
+  },
+  3: {
+    uploadedBytes: 3200000000,
+    downloadedBytes: 27800000000,
+    seedingCount: 3,
+    seedingSizeBytes: 15600000000,
+    downloadCount: 2,
+  },
+};
 
 function userSummary(userId: number) {
   const user = users.find((item) => item.id === userId);
@@ -328,6 +359,40 @@ export function getUserById(userId: number): AdminUser | undefined {
 
 export function getUserByUsername(username: string): AdminUser | undefined {
   return users.find((item) => item.username.toLowerCase() === username.toLowerCase());
+}
+
+export function lookupUserStatsRecord(username: string): UserStatsRecord | null {
+  const user = getUserByUsername(username);
+  if (!user) {
+    return null;
+  }
+
+  const snapshot = userStatsSnapshots[user.id] ?? {
+    uploadedBytes: 0,
+    downloadedBytes: 0,
+    seedingCount: 0,
+    seedingSizeBytes: 0,
+    downloadCount: 0,
+  };
+
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    lastLoginAt: user.lastLoginAt,
+    joinedAt: user.joinedAt,
+    uploadedBytes: snapshot.uploadedBytes,
+    downloadedBytes: snapshot.downloadedBytes,
+    shareRatio: snapshot.downloadedBytes ? Number((snapshot.uploadedBytes / snapshot.downloadedBytes).toFixed(2)) : null,
+    seedingCount: snapshot.seedingCount,
+    seedingSizeBytes: snapshot.seedingSizeBytes,
+    downloadCount: snapshot.downloadCount,
+    createdReleaseCount: user.createdReleaseCount,
+    createdReleaseSizeBytes: user.uploadedSizeBytes ?? 0,
+  };
 }
 
 function getTrackerPasskey(userId: number): string {
@@ -586,6 +651,13 @@ export function createUserRecord(payload: {
   users.unshift(user);
   userApiTokens[user.id] = createApiToken();
   userThemes[user.id] = defaultTheme();
+  userStatsSnapshots[user.id] = {
+    uploadedBytes: 0,
+    downloadedBytes: 0,
+    seedingCount: 0,
+    seedingSizeBytes: 0,
+    downloadCount: 0,
+  };
   return user;
 }
 

@@ -321,11 +321,36 @@ class TrackerService:
         return TrackerService._build_tracker_url(announce_url, auth_key)
 
     @staticmethod
+    def build_internal_announce_url(auth_key: str) -> str:
+        announce_url = (getattr(settings, "TRACKER_INTERNAL_ANNOUNCE_URL", "") or "").strip()
+        if not announce_url:
+            announce_url = (getattr(settings, "TRACKER_ANNOUNCE_URL", "") or "").strip()
+            if "/tracker/announce" in announce_url:
+                raise BusinessException("启用站内 tracker 代理时，必须额外配置 TRACKER_INTERNAL_ANNOUNCE_URL。")
+        if not announce_url:
+            raise BusinessException("Tracker internal announce URL is not configured.")
+        return TrackerService._build_tracker_url(announce_url, auth_key)
+
+    @staticmethod
     def build_public_scrape_url(auth_key: str) -> str:
         scrape_url = (getattr(settings, "TRACKER_PUBLIC_SCRAPE_URL", "") or "").strip()
         if not scrape_url:
             scrape_url = TrackerService._derive_scrape_base_url()
         return TrackerService._build_tracker_url(scrape_url, auth_key)
+
+    @staticmethod
+    def build_internal_scrape_url(auth_key: str) -> str:
+        scrape_url = (getattr(settings, "TRACKER_SCRAPE_URL", "") or "").strip()
+        if scrape_url:
+            return TrackerService._build_tracker_url(scrape_url, auth_key)
+
+        internal_announce_url = (getattr(settings, "TRACKER_INTERNAL_ANNOUNCE_URL", "") or "").strip()
+        if internal_announce_url:
+            return TrackerService._build_tracker_url(
+                TrackerService._derive_scrape_base_url_from_announce(internal_announce_url),
+                auth_key,
+            )
+        return TrackerService.build_scrape_url(auth_key)
 
     @staticmethod
     def build_scrape_url(auth_key: str) -> str:
@@ -410,6 +435,10 @@ class TrackerService:
         if not announce_url:
             raise BusinessException("Tracker scrape 地址尚未配置。")
 
+        return TrackerService._derive_scrape_base_url_from_announce(announce_url)
+
+    @staticmethod
+    def _derive_scrape_base_url_from_announce(announce_url: str) -> str:
         parsed = urlsplit(announce_url)
         path = parsed.path.rstrip("/")
         if path.endswith("/announce"):

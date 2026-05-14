@@ -11,6 +11,7 @@ from apps.users.views import (
     AdminUserStatusView,
     SelfApiTokenView,
     SelfThemeView,
+    UserStatsLookupView,
 )
 
 
@@ -27,6 +28,7 @@ urlpatterns = [
     path("admin/users/<int:user_id>/status/", AdminUserStatusView.as_view(), name="admin-user-status"),
     path("admin/users/<int:user_id>/disable/", AdminUserDisableView.as_view(), name="admin-user-disable"),
     path("admin/users/<int:user_id>/enable/", AdminUserEnableView.as_view(), name="admin-user-enable"),
+    path("users/stats-lookup/", UserStatsLookupView.as_view(), name="users-stats-lookup"),
     path("me/api-token/", SelfApiTokenView.as_view(), name="me-api-token"),
     path("me/theme/", SelfThemeView.as_view(), name="me-theme"),
 ]

@@ -62,6 +62,55 @@ class AdminUserDetailSerializer(AdminUserSerializer):
     pass
 
 
+class UserStatsLookupSerializer(CurrentUserSerializer):
+    uploadedBytes = serializers.IntegerField(source="uploaded_bytes")
+    downloadedBytes = serializers.IntegerField(source="downloaded_bytes")
+    shareRatio = serializers.SerializerMethodField()
+    seedingCount = serializers.IntegerField(source="seeding_count")
+    seedingSizeBytes = serializers.IntegerField(source="seeding_size_bytes")
+    downloadCount = serializers.SerializerMethodField()
+    createdReleaseCount = serializers.SerializerMethodField()
+    createdReleaseSizeBytes = serializers.SerializerMethodField()
+
+    class Meta(CurrentUserSerializer.Meta):
+        fields = CurrentUserSerializer.Meta.fields + (
+            "uploadedBytes",
+            "downloadedBytes",
+            "shareRatio",
+            "seedingCount",
+            "seedingSizeBytes",
+            "downloadCount",
+            "createdReleaseCount",
+            "createdReleaseSizeBytes",
+        )
+
+    @extend_schema_field(serializers.FloatField(allow_null=True))
+    def get_shareRatio(self, obj) -> float | None:
+        downloaded_bytes = int(getattr(obj, "downloaded_bytes", 0) or 0)
+        if downloaded_bytes <= 0:
+            return None
+        uploaded_bytes = int(getattr(obj, "uploaded_bytes", 0) or 0)
+        return round(uploaded_bytes / downloaded_bytes, 2)
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_downloadCount(self, obj) -> int:
+        annotated_value = getattr(obj, "download_count", None)
+        if annotated_value is not None:
+            return int(annotated_value or 0)
+        return obj.download_logs.count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_createdReleaseCount(self, obj) -> int:
+        return getattr(obj, "created_release_count", None) or obj.created_releases.count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_createdReleaseSizeBytes(self, obj) -> int:
+        annotated_value = getattr(obj, "uploaded_size_bytes", None)
+        if annotated_value is not None:
+            return int(annotated_value or 0)
+        return sum(getattr(release, "size_bytes", 0) for release in obj.created_releases.only("size_bytes"))
+
+
 class CreateUserSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     displayName = serializers.CharField(max_length=100)
