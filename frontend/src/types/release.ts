@@ -35,6 +35,20 @@ export interface WebseedLibraryListing {
   entries: WebseedLibraryEntry[];
 }
 
+export interface WebseedPreviewFile {
+  relativePath: string;
+  sourcePath: string;
+  sizeBytes: number;
+  directUrl: string;
+}
+
+export interface WebseedLibraryPreview {
+  selectionPath: string;
+  torrentName: string;
+  rootUrl: string | null;
+  files: WebseedPreviewFile[];
+}
+
 export interface Release {
   id: number;
   title: string;

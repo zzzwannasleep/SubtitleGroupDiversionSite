@@ -82,7 +82,11 @@ class ApiFlowTests(TestCase):
     @classmethod
     def setUpClass(cls):
         cls._temp_media_dir = tempfile.mkdtemp(prefix="subtitle-group-tests-")
-        cls._media_override = override_settings(MEDIA_ROOT=cls._temp_media_dir)
+        cls._temp_webseed_library_dir = tempfile.mkdtemp(prefix="subtitle-group-webseed-tests-")
+        cls._media_override = override_settings(
+            MEDIA_ROOT=cls._temp_media_dir,
+            WEBSEED_LIBRARY_ROOT=cls._temp_webseed_library_dir,
+        )
         cls._media_override.enable()
         super().setUpClass()
 
@@ -93,12 +97,20 @@ class ApiFlowTests(TestCase):
         finally:
             cls._media_override.disable()
             shutil.rmtree(cls._temp_media_dir, ignore_errors=True)
+            shutil.rmtree(cls._temp_webseed_library_dir, ignore_errors=True)
 
     def setUp(self):
         self.client = APIClient()
         media_root = Path(settings.MEDIA_ROOT)
         media_root.mkdir(parents=True, exist_ok=True)
         for child in media_root.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink(missing_ok=True)
+        webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
+        webseed_library_root.mkdir(parents=True, exist_ok=True)
+        for child in webseed_library_root.iterdir():
             if child.is_dir():
                 shutil.rmtree(child, ignore_errors=True)
             else:
@@ -565,9 +577,9 @@ class ApiFlowTests(TestCase):
         self.assertEqual(self.read_response_body(media_beta), b"b" * 100)
 
     def test_uploader_can_reference_existing_server_directory_as_webseed_source(self):
-        media_root = Path(settings.MEDIA_ROOT)
-        target_a = media_root / "library" / "MyFolder" / "sub" / "a.mkv"
-        target_b = media_root / "library" / "MyFolder" / "sub" / "b.mkv"
+        webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
+        target_a = webseed_library_root / "library" / "MyFolder" / "sub" / "a.mkv"
+        target_b = webseed_library_root / "library" / "MyFolder" / "sub" / "b.mkv"
         target_a.parent.mkdir(parents=True, exist_ok=True)
         target_a.write_bytes(b"a" * 100)
         target_b.write_bytes(b"b" * 100)
@@ -590,14 +602,14 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/media/library/"])
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/library/"])
 
     def test_uploader_can_browse_webseed_library(self):
-        media_root = Path(settings.MEDIA_ROOT)
-        (media_root / "library" / "Show").mkdir(parents=True, exist_ok=True)
-        (media_root / "library" / "Show" / "episode.mkv").write_bytes(b"x" * 10)
-        (media_root / "torrent_templates").mkdir(parents=True, exist_ok=True)
-        (media_root / "torrent_templates" / "hidden.torrent").write_bytes(b"torrent")
+        webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
+        (webseed_library_root / "library" / "Show").mkdir(parents=True, exist_ok=True)
+        (webseed_library_root / "library" / "Show" / "episode.mkv").write_bytes(b"x" * 10)
+        (Path(settings.MEDIA_ROOT) / "torrent_templates").mkdir(parents=True, exist_ok=True)
+        (Path(settings.MEDIA_ROOT) / "torrent_templates" / "hidden.torrent").write_bytes(b"torrent")
 
         self.client.force_login(self.uploader)
         response = self.client.get("/api/webseed-library/")
@@ -637,6 +649,59 @@ class ApiFlowTests(TestCase):
             },
             nested.json()["data"]["entries"],
         )
+
+    def test_webseed_preview_returns_root_url_and_file_links_for_library_selection(self):
+        webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
+        target_a = webseed_library_root / "library" / "MyFolder" / "sub" / "a.mkv"
+        target_b = webseed_library_root / "library" / "MyFolder" / "sub" / "b.mkv"
+        target_a.parent.mkdir(parents=True, exist_ok=True)
+        target_a.write_bytes(b"a" * 100)
+        target_b.write_bytes(b"b" * 100)
+
+        self.client.force_login(self.uploader)
+        response = self.client.post(
+            "/api/webseed-library/preview/",
+            {
+                "torrentFile": SimpleUploadedFile(
+                    "example.torrent",
+                    build_multi_file_torrent_bytes_nested(),
+                    content_type="application/x-bittorrent",
+                ),
+                "webseedRootPath": "library/MyFolder",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        data = response.json()["data"]
+        self.assertEqual(data["rootUrl"], "http://testserver/webseed/library/")
+        self.assertEqual(
+            data["files"],
+            [
+                {
+                    "relativePath": "sub/a.mkv",
+                    "sourcePath": "library/MyFolder/sub/a.mkv",
+                    "sizeBytes": 100,
+                    "directUrl": "http://testserver/webseed/library/MyFolder/sub/a.mkv",
+                },
+                {
+                    "relativePath": "sub/b.mkv",
+                    "sourcePath": "library/MyFolder/sub/b.mkv",
+                    "sizeBytes": 100,
+                    "directUrl": "http://testserver/webseed/library/MyFolder/sub/b.mkv",
+                },
+            ],
+        )
+
+    def test_separate_webseed_library_root_does_not_receive_internal_media_directories(self):
+        self.create_release(
+            webseed_uploads=[
+                ("Example.S01E01.mkv", b"x" * 1024, "video/x-matroska"),
+            ]
+        )
+
+        self.assertTrue((Path(settings.MEDIA_ROOT) / "torrent_templates").exists())
+        self.assertFalse((Path(settings.WEBSEED_LIBRARY_ROOT) / "torrent_templates").exists())
+        self.assertFalse((Path(settings.WEBSEED_LIBRARY_ROOT) / "release-webseeds").exists())
 
     def test_uploader_can_replace_torrent_file_on_edit(self):
         release = self.create_release()

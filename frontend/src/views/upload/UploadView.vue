@@ -4,9 +4,9 @@ import AppAlert from '@/components/app/AppAlert.vue';
 import AppCard from '@/components/app/AppCard.vue';
 import AppPageHeader from '@/components/app/AppPageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
-import { createRelease, listWebseedLibrary } from '@/services/releases';
+import { createRelease, listWebseedLibrary, previewWebseedLibrary } from '@/services/releases';
 import { useAuthStore } from '@/stores/auth';
-import type { WebseedLibraryEntry, WebseedLibraryListing } from '@/types/release';
+import type { WebseedLibraryEntry, WebseedLibraryListing, WebseedLibraryPreview } from '@/types/release';
 import { formatBytes } from '@/utils/format';
 
 interface UploadResultItem {
@@ -82,12 +82,18 @@ const libraryState = ref<WebseedLibraryListing>({
 const libraryLoaded = ref(false);
 const libraryLoading = ref(false);
 const libraryError = ref('');
+const previewLoading = ref(false);
+const previewError = ref('');
+const webseedPreview = ref<WebseedLibraryPreview | null>(null);
 const uploadResults = ref<UploadResultItem[]>([]);
 const activeFileName = ref('');
 const submissionTotal = ref(0);
 
 const hasWebseedSelection = computed(
   () => webseedEntries.value.length > 0 || Boolean(selectedLibraryEntry.value),
+);
+const canPreviewLibraryLinks = computed(
+  () => selectedFiles.value.length === 1 && Boolean(selectedLibraryEntry.value),
 );
 
 const validationMessage = computed(() => {
@@ -159,6 +165,8 @@ function resetTransientState() {
   errorMessage.value = '';
   activeFileName.value = '';
   submissionTotal.value = 0;
+  previewError.value = '';
+  webseedPreview.value = null;
 }
 
 function handleTorrentChange(event: Event) {
@@ -236,6 +244,28 @@ function selectCurrentDirectory() {
   webseedEntries.value = [];
   clearWebseedInputs();
   resetTransientState();
+}
+
+async function generateLibraryPreview() {
+  if (!canPreviewLibraryLinks.value || !selectedLibraryEntry.value) {
+    previewError.value = '请先选择 1 个 torrent 文件和 1 个服务器资源。';
+    webseedPreview.value = null;
+    return;
+  }
+
+  previewLoading.value = true;
+  previewError.value = '';
+  try {
+    webseedPreview.value = await previewWebseedLibrary({
+      torrentFile: selectedFiles.value[0] as File,
+      webseedRootPath: selectedLibraryEntry.value.path,
+    });
+  } catch (error) {
+    webseedPreview.value = null;
+    previewError.value = error instanceof Error ? error.message : '生成直链预览失败，请稍后重试。';
+  } finally {
+    previewLoading.value = false;
+  }
 }
 
 async function submit() {
@@ -513,6 +543,50 @@ async function submit() {
             <div class="mt-3 rounded-lg bg-slate-50 px-3 py-3 text-sm text-slate-700 ring-1 ring-slate-200">
               <p class="font-medium text-slate-900">{{ selectedLibraryEntry.name }}</p>
               <p class="mt-1 break-all text-xs text-slate-500">{{ selectedLibraryEntry.path }}</p>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              <UiButton
+                size="sm"
+                variant="secondary"
+                :disabled="previewLoading || !canPreviewLibraryLinks"
+                @click="generateLibraryPreview"
+              >
+                {{ previewLoading ? '生成中...' : webseedPreview ? '刷新直链预览' : '生成直链预览' }}
+              </UiButton>
+              <p class="text-xs text-slate-500">
+                {{
+                  canPreviewLibraryLinks
+                    ? '会按当前 torrent 结构解析目录并列出逐文件直链。'
+                    : '需要先选择 1 个 torrent 文件后才能生成直链预览。'
+                }}
+              </p>
+            </div>
+            <AppAlert v-if="previewError" class="mt-4" variant="error" :title="previewError" />
+            <div v-if="webseedPreview" class="mt-4 space-y-4">
+              <div class="rounded-lg bg-slate-50 px-3 py-3 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Torrent Webseed Root URL</p>
+                <p class="mt-2 break-all text-sm text-slate-900">{{ webseedPreview.rootUrl || '-' }}</p>
+              </div>
+              <div class="rounded-lg bg-slate-50 px-3 py-3 ring-1 ring-slate-200">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Resolved File Links</p>
+                  <span class="text-xs text-slate-500">{{ webseedPreview.files.length }} 个</span>
+                </div>
+                <ul class="mt-3 max-h-72 space-y-3 overflow-y-auto">
+                  <li
+                    v-for="item in webseedPreview.files"
+                    :key="`${item.relativePath}-${item.directUrl}`"
+                    class="rounded-lg bg-white px-3 py-3 text-sm text-slate-700 ring-1 ring-slate-200"
+                  >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <p class="min-w-0 flex-1 truncate font-medium text-slate-900">{{ item.relativePath }}</p>
+                      <span class="text-xs text-slate-500">{{ formatBytes(item.sizeBytes) }}</span>
+                    </div>
+                    <p class="mt-1 break-all text-xs text-slate-500">{{ item.sourcePath }}</p>
+                    <p class="mt-2 break-all text-xs text-blue-700">{{ item.directUrl }}</p>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </section>

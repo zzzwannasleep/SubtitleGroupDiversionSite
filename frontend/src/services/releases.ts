@@ -7,6 +7,7 @@ import type {
   ReleaseFormPayload,
   ReleaseQuery,
   Tag,
+  WebseedLibraryPreview,
   WebseedLibraryListing,
 } from '@/types/release';
 import { apiRequest, buildApiUrl, isApiError } from './api';
@@ -173,6 +174,20 @@ export async function listWebseedLibrary(path = ''): Promise<WebseedLibraryListi
 
   return apiRequest<WebseedLibraryListing>('/api/webseed-library/', {
     query: path ? { path } : undefined,
+  });
+}
+
+export async function previewWebseedLibrary(payload: {
+  torrentFile: File;
+  webseedRootPath: string;
+}): Promise<WebseedLibraryPreview> {
+  const formData = new FormData();
+  formData.set('torrentFile', payload.torrentFile, payload.torrentFile.name);
+  formData.set('webseedRootPath', payload.webseedRootPath);
+
+  return apiRequest<WebseedLibraryPreview>('/api/webseed-library/preview/', {
+    method: 'POST',
+    body: formData,
   });
 }
 

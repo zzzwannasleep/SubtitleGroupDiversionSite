@@ -4,6 +4,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 
+from apps.common.exceptions import BusinessException
 from apps.audit.services import AuditService
 from apps.common.pagination import StandardPageNumberPagination
 from apps.common.permissions import IsActiveAuthenticated, IsAdminRole, IsUploaderOrAdmin
@@ -123,6 +124,28 @@ class WebseedLibraryView(APIView):
     def get(self, request):
         path = str(request.query_params.get("path") or "")
         return success_response(ReleaseService.list_webseed_directory(path))
+
+
+@extend_schema_view(
+    post=extend_schema(exclude=True),
+)
+class WebseedLibraryPreviewView(APIView):
+    permission_classes = [IsUploaderOrAdmin]
+    parser_classes = [FormParser, MultiPartParser]
+
+    def post(self, request):
+        torrent_file = request.FILES.get("torrentFile")
+        if torrent_file is None:
+            raise BusinessException("缺少 torrent 文件。")
+
+        webseed_root_path = str(request.data.get("webseedRootPath") or "").strip()
+        return success_response(
+            ReleaseService.build_webseed_library_preview(
+                request=request,
+                torrent_file=torrent_file,
+                webseed_root_path=webseed_root_path,
+            )
+        )
 
 
 @extend_schema_view(

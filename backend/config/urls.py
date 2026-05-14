@@ -1,3 +1,5 @@
+import re
+
 from django.conf import settings
 from django.contrib import admin
 from django.http import FileResponse, HttpResponse, JsonResponse
@@ -16,6 +18,10 @@ def serve_static_asset(request, path):
 
 def serve_media_asset(request, path):
     return static_serve(request, path, document_root=settings.MEDIA_ROOT)
+
+
+def serve_webseed_asset(request, path):
+    return static_serve(request, path, document_root=settings.WEBSEED_LIBRARY_ROOT)
 
 
 def serve_frontend_asset(request, path):
@@ -52,13 +58,17 @@ urlpatterns = [
     path("api/docs/", SpectacularRedocView.as_view(url_name="schema"), name="redoc-ui"),
     re_path(r"^static/(?P<path>.*)$", serve_static_asset),
     re_path(r"^media/(?P<path>.*)$", serve_media_asset),
+    re_path(
+        rf"^{re.escape(settings.WEBSEED_LIBRARY_URL_PATH.strip('/'))}/(?P<path>.*)$",
+        serve_webseed_asset,
+    ),
 ]
 
 if settings.FRONTEND_ASSETS_DIR.exists():
     urlpatterns += [
         re_path(r"^assets/(?P<path>.*)$", serve_frontend_asset),
         re_path(
-            r"^(?!api/|rss/|media/|static/|assets/|system-admin/|health/)(?!.*\.[^/]+$).*$",
+            rf"^(?!api/|rss/|media/|{re.escape(settings.WEBSEED_LIBRARY_URL_PATH.strip('/'))}/|static/|assets/|system-admin/|health/)(?!.*\.[^/]+$).*$",
             serve_frontend_index,
             name="spa-index",
         ),

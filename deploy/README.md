@@ -41,6 +41,34 @@ Linux 例子：
 MEDIA_VOLUME_SPEC=/srv/subtitle-group-media:/app/media
 ```
 
+推荐把“发布页服务器目录”使用的映射资源单独放到另一个目录，而不是继续复用 `/app/media`。这样站点内部文件就不会再写进你的资源映射目录。
+
+```env
+WEBSEED_LIBRARY_ROOT=/app/webseed-library
+WEBSEED_LIBRARY_URL_PATH=/webseed/
+WEBSEED_LIBRARY_VOLUME_SPEC=D:/subtitle-group-library:/app/webseed-library
+```
+
+Linux 例子：
+
+```env
+WEBSEED_LIBRARY_ROOT=/app/webseed-library
+WEBSEED_LIBRARY_URL_PATH=/webseed/
+WEBSEED_LIBRARY_VOLUME_SPEC=/srv/subtitle-group-library:/app/webseed-library
+```
+
+如果你希望这些直链走单独的公网域名、Nginx 或 CDN，可以额外配置：
+
+```env
+WEBSEED_LIBRARY_PUBLIC_URL=https://static.example.com/webseed
+```
+
+配置后：
+
+- 发布页“服务器目录”生成的逐文件直链预览会使用这个资源目录
+- 下载种子时写入的 webseed 根 URL 也会对应这个资源目录
+- 站点内部的 `torrent_templates/`、`site/`、`release-webseeds/` 不会再写进你的资源映射目录
+
 只需保留最后的 `:/app/media` 不变；只需更换左边的主机目录。
 
 ## 方式一：源码部署

@@ -102,7 +102,7 @@ class ReleaseService:
         return result
 
     @classmethod
-    def _ensure_webseed_storage_path_allowed(cls, value: str) -> str:
+    def _ensure_managed_webseed_storage_path_allowed(cls, value: str) -> str:
         normalized = cls._normalize_relative_path(value)
         if not normalized:
             raise BusinessException("分流文件路径不能为空。")
@@ -110,6 +110,26 @@ class ReleaseService:
         first_segment = PurePosixPath(normalized).parts[0]
         if first_segment in cls.WEBSEED_RESERVED_PREFIXES:
             raise BusinessException(f"分流文件不能写入站点内部目录：{first_segment}")
+        return normalized
+
+    @classmethod
+    def _webseed_library_root(cls) -> Path:
+        return Path(getattr(settings, "WEBSEED_LIBRARY_ROOT", settings.MEDIA_ROOT))
+
+    @classmethod
+    def _webseed_library_shares_media_root(cls) -> bool:
+        return cls._webseed_library_root().resolve(strict=False) == Path(settings.MEDIA_ROOT).resolve(strict=False)
+
+    @classmethod
+    def _ensure_webseed_library_path_allowed(cls, value: str) -> str:
+        normalized = cls._normalize_relative_path(value)
+        if not normalized:
+            raise BusinessException("分流文件路径不能为空。")
+
+        if cls._webseed_library_shares_media_root():
+            first_segment = PurePosixPath(normalized).parts[0]
+            if first_segment in cls.WEBSEED_RESERVED_PREFIXES:
+                raise BusinessException(f"映射目录不能引用站点内部目录：{first_segment}")
         return normalized
 
     @classmethod
@@ -229,9 +249,9 @@ class ReleaseService:
 
     @classmethod
     def _list_existing_webseed_source_entries(cls, webseed_root_path: str) -> list[dict[str, object]]:
-        normalized_root = cls._ensure_webseed_storage_path_allowed(webseed_root_path)
-        media_root = Path(settings.MEDIA_ROOT)
-        absolute_root = media_root.joinpath(*PurePosixPath(normalized_root).parts)
+        normalized_root = cls._ensure_webseed_library_path_allowed(webseed_root_path)
+        library_root = cls._webseed_library_root()
+        absolute_root = library_root.joinpath(*PurePosixPath(normalized_root).parts)
         if not absolute_root.exists():
             raise BusinessException("所选映射目录中的文件或文件夹不存在。")
 
@@ -242,7 +262,7 @@ class ReleaseService:
         for absolute_path in sorted(absolute_root.rglob("*")):
             if not absolute_path.is_file():
                 continue
-            relative_path = absolute_path.relative_to(media_root).as_posix()
+            relative_path = absolute_path.relative_to(library_root).as_posix()
             source_entries.append({"path": relative_path, "size_bytes": int(absolute_path.stat().st_size)})
 
         if not source_entries:
@@ -250,11 +270,17 @@ class ReleaseService:
         return source_entries
 
     @classmethod
-    def _webseed_storage_relative_path(cls, *, metadata, relative_path: str) -> str:
+    def _build_expected_webseed_source_path(cls, *, metadata, relative_path: str) -> str:
         root_name = cls._normalize_relative_path(getattr(metadata, "name", "") or "") or "download"
         if len(getattr(metadata, "files", []) or []) == 1:
-            return cls._ensure_webseed_storage_path_allowed(root_name)
-        return cls._ensure_webseed_storage_path_allowed(f"{root_name}/{relative_path}")
+            return root_name
+        return cls._normalize_relative_path(f"{root_name}/{relative_path}")
+
+    @classmethod
+    def _build_uploaded_webseed_storage_path(cls, *, metadata, relative_path: str) -> str:
+        return cls._ensure_managed_webseed_storage_path_allowed(
+            cls._build_expected_webseed_source_path(metadata=metadata, relative_path=relative_path)
+        )
 
     @classmethod
     def _normalize_existing_webseed_entries(cls, *, metadata, webseed_root_path: str) -> dict[str, dict[str, object]]:
@@ -262,8 +288,8 @@ class ReleaseService:
             return {}
 
         expected_entries = cls._build_expected_webseed_entries(metadata)
-        expected_storage_entries = {
-            cls._webseed_storage_relative_path(metadata=metadata, relative_path=relative_path): {
+        expected_source_entries = {
+            cls._build_expected_webseed_source_path(metadata=metadata, relative_path=relative_path): {
                 "relative_path": relative_path,
                 "size_bytes": size_bytes,
             }
@@ -273,18 +299,56 @@ class ReleaseService:
         normalized_entries = [(entry, str(entry["path"])) for entry in source_entries]
         provided_entries = cls._build_matching_webseed_entries(
             normalized_entries=normalized_entries,
-            expected_paths=set(expected_storage_entries),
+            expected_paths=set(expected_source_entries),
         )
 
         resolved_entries: dict[str, dict[str, object]] = {}
-        for storage_name, source_entry in provided_entries.items():
+        for source_path, source_entry in provided_entries.items():
             source_size = int(source_entry["size_bytes"] or 0)
-            expected_size = expected_storage_entries[storage_name]["size_bytes"]
+            expected_size = expected_source_entries[source_path]["size_bytes"]
             if expected_size and source_size and expected_size != source_size:
-                raise BusinessException(f"分流文件大小不匹配：{storage_name}")
-            relative_path = str(expected_storage_entries[storage_name]["relative_path"])
+                raise BusinessException(f"分流文件大小不匹配：{source_path}")
+            relative_path = str(expected_source_entries[source_path]["relative_path"])
             resolved_entries[relative_path] = {
-                "storage_name": str(source_entry["path"]),
+                "source_path": str(source_entry["path"]),
+                "size_bytes": source_size,
+            }
+        return resolved_entries
+
+    @classmethod
+    def _resolve_existing_webseed_library_entries(
+        cls,
+        *,
+        metadata,
+        webseed_root_path: str,
+    ) -> dict[str, dict[str, object]]:
+        if not webseed_root_path:
+            return {}
+
+        expected_entries = cls._build_expected_webseed_entries(metadata)
+        expected_source_entries = {
+            cls._build_expected_webseed_source_path(metadata=metadata, relative_path=relative_path): {
+                "relative_path": relative_path,
+                "size_bytes": size_bytes,
+            }
+            for relative_path, size_bytes in expected_entries.items()
+        }
+        source_entries = cls._list_existing_webseed_source_entries(webseed_root_path)
+        normalized_entries = [(entry, str(entry["path"])) for entry in source_entries]
+        provided_entries = cls._build_matching_webseed_entries(
+            normalized_entries=normalized_entries,
+            expected_paths=set(expected_source_entries),
+        )
+
+        resolved_entries: dict[str, dict[str, object]] = {}
+        for source_path, source_entry in provided_entries.items():
+            source_size = int(source_entry["size_bytes"] or 0)
+            expected_size = int(expected_source_entries[source_path]["size_bytes"] or 0)
+            if expected_size and source_size and expected_size != source_size:
+                raise BusinessException(f"分流文件大小不匹配：{source_path}")
+            relative_path = str(expected_source_entries[source_path]["relative_path"])
+            resolved_entries[relative_path] = {
+                "source_path": str(source_entry["path"]),
                 "size_bytes": source_size,
             }
         return resolved_entries
@@ -316,7 +380,7 @@ class ReleaseService:
             webseed_files=webseed_files,
             webseed_paths=webseed_paths,
         )
-        existing_entries = cls._normalize_existing_webseed_entries(
+        existing_entries = cls._resolve_existing_webseed_library_entries(
             metadata=metadata,
             webseed_root_path=webseed_root_path,
         )
@@ -325,7 +389,10 @@ class ReleaseService:
             return
 
         for relative_path, upload_file in upload_entries.items():
-            storage_relative_path = cls._webseed_storage_relative_path(metadata=metadata, relative_path=relative_path)
+            storage_relative_path = cls._build_uploaded_webseed_storage_path(
+                metadata=metadata,
+                relative_path=relative_path,
+            )
             storage_name = cls._save_uploaded_webseed_file(upload_file=upload_file, storage_name=storage_relative_path)
             ReleaseWebseedFile.objects.create(
                 release=release,
@@ -339,7 +406,7 @@ class ReleaseService:
                 release=release,
                 relative_path=relative_path,
                 size_bytes=int(source_entry["size_bytes"] or 0),
-                storage_file=str(source_entry["storage_name"]),
+                storage_file=str(source_entry["source_path"]),
             )
 
     @classmethod
@@ -354,10 +421,10 @@ class ReleaseService:
     def list_webseed_directory(cls, path: str = "") -> dict[str, object]:
         normalized_path = cls._normalize_relative_path(path)
         if normalized_path:
-            normalized_path = cls._ensure_webseed_storage_path_allowed(normalized_path)
+            normalized_path = cls._ensure_webseed_library_path_allowed(normalized_path)
 
-        media_root = Path(settings.MEDIA_ROOT)
-        current_dir = media_root if not normalized_path else media_root.joinpath(*PurePosixPath(normalized_path).parts)
+        library_root = cls._webseed_library_root()
+        current_dir = library_root if not normalized_path else library_root.joinpath(*PurePosixPath(normalized_path).parts)
         if not current_dir.exists():
             raise BusinessException("所选映射目录不存在。")
         if not current_dir.is_dir():
@@ -365,8 +432,8 @@ class ReleaseService:
 
         entries: list[dict[str, object]] = []
         for child in sorted(current_dir.iterdir(), key=lambda item: (not item.is_dir(), item.name.lower())):
-            relative_path = child.relative_to(media_root).as_posix()
-            if not normalized_path and child.name in cls.WEBSEED_RESERVED_PREFIXES:
+            relative_path = child.relative_to(library_root).as_posix()
+            if not normalized_path and cls._webseed_library_shares_media_root() and child.name in cls.WEBSEED_RESERVED_PREFIXES:
                 continue
             entries.append(
                 {
@@ -381,6 +448,45 @@ class ReleaseService:
             "currentPath": normalized_path,
             "parentPath": cls._build_webseed_directory_parent_path(normalized_path),
             "entries": entries,
+        }
+
+    @staticmethod
+    def build_webseed_library_preview(*, request, torrent_file, webseed_root_path: str) -> dict[str, object]:
+        normalized_root_path = ReleaseService._ensure_webseed_library_path_allowed(webseed_root_path)
+        torrent_bytes = torrent_file.read()
+        if hasattr(torrent_file, "seek"):
+            torrent_file.seek(0)
+        metadata = parse_torrent(TrackerService.normalize_uploaded_torrent(torrent_bytes))
+        resolved_entries = ReleaseService._resolve_existing_webseed_library_entries(
+            metadata=metadata,
+            webseed_root_path=normalized_root_path,
+        )
+
+        from apps.downloads.services import DownloadService
+
+        preview_entries = [
+            {
+                "relativePath": relative_path,
+                "sourcePath": str(source_entry["source_path"]),
+                "sizeBytes": int(source_entry["size_bytes"] or 0),
+                "directUrl": DownloadService.build_webseed_file_url(
+                    stored_path=str(source_entry["source_path"]),
+                    request=request,
+                ),
+            }
+            for relative_path, source_entry in sorted(resolved_entries.items())
+        ]
+        root_url = DownloadService.build_webseed_root_url_for_paths(
+            stored_paths=[str(source_entry["source_path"]) for source_entry in resolved_entries.values()],
+            relative_paths=list(resolved_entries),
+            request=request,
+        )
+
+        return {
+            "selectionPath": normalized_root_path,
+            "torrentName": getattr(metadata, "name", "") or "",
+            "rootUrl": root_url,
+            "files": preview_entries,
         }
 
     @staticmethod

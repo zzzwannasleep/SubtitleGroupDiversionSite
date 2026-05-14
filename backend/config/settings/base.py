@@ -49,6 +49,15 @@ def env_path(name: str, default: Path) -> Path:
     return candidate.resolve(strict=False)
 
 
+def normalize_url_path(value: str | None, default: str) -> str:
+    candidate = (value or default).strip() or default
+    if not candidate.startswith("/"):
+        candidate = f"/{candidate}"
+    if not candidate.endswith("/"):
+        candidate = f"{candidate}/"
+    return candidate
+
+
 def split_csv(value: str | None) -> list[str]:
     if not value:
         return []
@@ -221,6 +230,9 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = env_path("MEDIA_ROOT", BASE_DIR / "media")
+WEBSEED_LIBRARY_ROOT = env_path("WEBSEED_LIBRARY_ROOT", MEDIA_ROOT)
+WEBSEED_LIBRARY_URL_PATH = normalize_url_path(env("WEBSEED_LIBRARY_URL_PATH"), "/webseed/")
+WEBSEED_LIBRARY_PUBLIC_URL = (env("WEBSEED_LIBRARY_PUBLIC_URL", "") or "").strip().rstrip("/")
 FRONTEND_DIST_DIR = BASE_DIR / "frontend_dist"
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 
@@ -320,6 +332,7 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
 os.makedirs(MEDIA_ROOT, exist_ok=True)
+os.makedirs(WEBSEED_LIBRARY_ROOT, exist_ok=True)
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
 LOGGING = {

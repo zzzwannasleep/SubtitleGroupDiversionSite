@@ -29,6 +29,7 @@ services:
       - "${HTTP_PORT:-80}:8000"
     volumes:
       - ${MEDIA_VOLUME_SPEC:-torrent_storage:/app/media}
+      - ${WEBSEED_LIBRARY_VOLUME_SPEC:-webseed_library:/app/webseed-library}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3).read()"]
       interval: 30s
@@ -103,4 +104,5 @@ volumes:
   mysql_data:
   redis_data:
   torrent_storage:
+  webseed_library:
   tracker_storage:
