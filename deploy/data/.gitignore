@@ -1,5 +1,0 @@
-*
-!.gitignore
-!webseed/
-webseed/*
-!webseed/.gitkeep

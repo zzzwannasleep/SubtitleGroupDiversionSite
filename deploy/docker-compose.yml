@@ -25,12 +25,14 @@ services:
       MYSQL_PORT: "3306"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       REDIS_URL: redis://redis:6379/0
+      MEDIA_ROOT: /app/media
       WEBSEED_LIBRARY_ROOT: /app/media/webseed
       WEBSEED_LIBRARY_URL_PATH: ${WEBSEED_LIBRARY_URL_PATH:-/webseed/}
     ports:
       - "${HTTP_PORT:-80}:8000"
     volumes:
-      - ./data:/app/media # publish-page "server directory" files go in ./data/webseed/
+      - ${SITE_MEDIA_STORAGE:-site_media}:/app/media
+      - ${WEBSEED_LIBRARY_HOST_PATH:-./library}:/app/media/webseed
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=3).read()"]
       interval: 30s
@@ -102,6 +104,7 @@ networks:
     driver: bridge
 
 volumes:
+  site_media:
   mysql_data:
   redis_data:
   tracker_storage:

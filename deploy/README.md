@@ -46,45 +46,47 @@ cp .env.example .env
 ```yaml
 backend:
   volumes:
-    - ./data:/app/media
+    - ${SITE_MEDIA_STORAGE:-site_media}:/app/media
+    - ${WEBSEED_LIBRARY_HOST_PATH:-./library}:/app/media/webseed
 ```
 
 也就是说：
 
-- `deploy/data/`：站点媒体总目录
-- `deploy/data/webseed/`：发布页“服务器目录”模式要用的资源目录
-- 如果你在 `deploy/` 目录里执行 compose，就把资源文件放到 `deploy/data/webseed/`
-- 如果你从仓库根目录执行 `docker compose -f deploy/docker-compose.yml ...`，它仍然会落到同一个 `deploy/data/webseed/`
+- 站点自己的媒体文件默认放在 Docker 卷 `site_media` 里，`site/`、`release-webseeds/`、`torrent_templates/` 等内部文件都走这里
+- `deploy/library/`：发布页“服务器目录”模式默认使用的资源目录
+- 发布页看到的是 `WEBSEED_LIBRARY_HOST_PATH` 指向目录的根本身，不需要在这个目录下面再建一层 `webseed/`
+- 如果你从仓库根目录执行 `docker compose -f deploy/docker-compose.yml ...`，默认需要关心的宿主机目录也只有 `deploy/library/`
 
-如果你在 `deploy/data/` 里看到 `site/`、`release-webseeds/`、`torrent_templates/` 之类目录，这是站点自己的媒体文件，属于正常现象；发布页“服务器目录”只看 `webseed/`。
+站点自己的媒体文件不会再写进 `WEBSEED_LIBRARY_HOST_PATH` 指向的映射目录；默认情况下你也不需要直接碰它们。
 
 ## 默认挂载
 
 大多数部署不用再额外写环境变量，直接往这个目录放文件即可：
 
 ```text
-deploy/data/webseed/
+deploy/library/
 ```
 
-如果你就是想换到别的宿主机路径，不要改环境变量，直接改 `docker-compose.yml` 里的这一行。比如：
+如果你就是想换到别的宿主机路径，直接在 `.env` 里指定 `WEBSEED_LIBRARY_HOST_PATH` 即可。比如：
 
-```yaml
+```env
 # Windows
-- D:/subtitle-group-data:/app/media
+WEBSEED_LIBRARY_HOST_PATH=D:/subtitle-group-data
 
 # Linux
-- /srv/subtitle-group-data:/app/media
+WEBSEED_LIBRARY_HOST_PATH=/srv/subtitle-group-data
 ```
 
-改完以后，发布页“服务器目录”要读的目录就是：
+改完以后，发布页“服务器目录”直接读取的就是这些目录本身：
 
-- `D:/subtitle-group-data/webseed/`
-- `/srv/subtitle-group-data/webseed/`
+- `D:/subtitle-group-data/`
+- `/srv/subtitle-group-data/`
 
 默认情况下：
 
 - 容器内资源目录固定是 `/app/media/webseed`
 - 站点内 webseed 访问路径固定是 `/webseed/`
+- 站点内部媒体固定保存在 Docker 卷 `site_media`
 
 如果这些直链不是由站点自己直接对外暴露，而是走你自己的 Nginx、反代、对象存储或 CDN，再额外配置：
 
@@ -102,7 +104,7 @@ WEBSEED_LIBRARY_PUBLIC_URL=https://static.example.com/webseed
 
 如果你的目标是让 qBittorrent 真正走 HTTP 直链，而不是只把地址写进种子但实际不生效，部署时请确认下面几点：
 
-1. `docker-compose.yml` 里把宿主机媒体目录挂到 `/app/media` 后，`webseed/` 子目录里的文件结构必须和 torrent 内容匹配。默认就是 `deploy/data/webseed/`。
+1. `docker-compose.yml` 里把宿主机映射目录挂到 `/app/media/webseed` 后，这个映射目录根里的文件结构必须和 torrent 内容匹配。默认就是 `deploy/library/`。
 2. 多文件 torrent 推荐选择和 `info.name` 对应的完整根目录；单文件 torrent 可以直接选择文件。
 3. qB 所在机器必须能访问：
    - `WEBSEED_LIBRARY_PUBLIC_URL` 对应的静态文件地址，或者站点自己的 `/webseed/`
@@ -191,13 +193,14 @@ sh scripts/init.sh
 
 1. 备份数据库、旧 `.env`、以及原来的媒体目录。
 2. 更新代码或替换新的 `deploy/` 目录。
-3. 打开新的 `docker-compose.yml`，确认 `backend.volumes` 里是把宿主机媒体目录挂到 `/app/media`。默认配置是：
+3. 打开新的 `docker-compose.yml`，确认 `backend.volumes` 里已经拆成“站点内部媒体存储”和“服务器映射目录”两条挂载。默认配置是：
 
 ```yaml
-- ./data:/app/media
+- ${SITE_MEDIA_STORAGE:-site_media}:/app/media
+- ${WEBSEED_LIBRARY_HOST_PATH:-./library}:/app/media/webseed
 ```
 
-4. 把真正的“服务器资源文件”放到新的宿主机目录里的 `webseed/` 子目录。默认就是 `deploy/data/webseed/`；如果你改成了别的宿主机目录，就放到那个目录下的 `webseed/`。
+4. 把真正的“服务器资源文件”直接放到映射目录根。默认就是 `deploy/library/`；如果你改成了别的宿主机目录，就直接放到那个目录本身，不要再套 `webseed/` 子目录。
 5. 启动新容器：
 
 ```bash
@@ -214,8 +217,18 @@ docker compose exec backend python manage.py migrate
 
 如果你升级后发现映射目录里还在长 `torrent_templates/`、`site/`、`release-webseeds/`，基本就是因为：
 
-- 没有把资源目录挂到 `/app/media/webseed`
+- 仍然把映射目录直接挂到了 `/app/media`
 - 没有更新到新的 compose 文件
+
+如果这些目录是旧部署已经写进去的历史文件，需要在服务器上把映射目录换成干净目录，或者手动清理一次；新配置不会再继续往里面写这些站点内部目录。
+
+如果你旧部署里的站点内部媒体原本就放在宿主机目录（例如旧的 `deploy/data/`），升级时可以先临时加一行：
+
+```env
+SITE_MEDIA_STORAGE=./data
+```
+
+这样会先继续沿用旧目录，避免丢失已有的站点图标、背景图、已上传 torrent、站内托管的 webseed 文件。确认需要的数据已经迁走后，再去掉这一行，回到默认的 Docker 卷模式。
 
 ## 启用 Torrust Tracker
 
@@ -313,7 +326,7 @@ docker compose --profile tracker up -d
 优先检查：
 
 - `docker-compose.yml` 是否已更新
-- `backend.volumes` 是否已经把宿主机媒体目录挂到 `/app/media`
+- `backend.volumes` 是否已经拆成“站点内部媒体存储”和 `/app/media/webseed` 两条挂载
 
 ### 2. 发布页不能生成直链预览
 
