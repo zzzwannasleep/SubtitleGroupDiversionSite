@@ -1,8 +1,5 @@
 *
 !.gitignore
-!site-media/
 !webseed/
-site-media/*
-!site-media/.gitkeep
 webseed/*
 !webseed/.gitkeep

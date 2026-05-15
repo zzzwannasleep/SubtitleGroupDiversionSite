@@ -129,8 +129,7 @@ docker compose up -d
 docker compose exec backend python manage.py createsuperuser
 ```
 
-如果你要用发布页里的“服务器目录”模式，默认把资源文件放到 `deploy/data/webseed/`；这已经在 `deploy/docker-compose.yml` 里直接映射到容器内的 `/app/media/webseed`。
-站点自己的媒体文件则会落到 `deploy/data/site-media/`。
+如果你要用发布页里的“服务器目录”模式，默认把资源文件放到 `deploy/data/webseed/`；`deploy/docker-compose.yml` 现在直接把整个 `deploy/data/` 映射到容器内的 `/app/media`。
 
 如果想直接指定超级用户的用户名、邮箱和密码，也可以执行：
 
