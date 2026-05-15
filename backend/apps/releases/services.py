@@ -284,49 +284,26 @@ class ReleaseService:
         )
 
     @classmethod
-    def _normalize_existing_webseed_entries(cls, *, metadata, webseed_root_path: str) -> dict[str, dict[str, object]]:
-        if not webseed_root_path:
-            return {}
-
-        expected_entries = cls._build_expected_webseed_entries(metadata)
-        expected_source_entries = {
-            cls._build_expected_webseed_source_path(metadata=metadata, relative_path=relative_path): {
-                "relative_path": relative_path,
-                "size_bytes": size_bytes,
-            }
-            for relative_path, size_bytes in expected_entries.items()
-        }
-        source_entries = cls._list_existing_webseed_source_entries(webseed_root_path)
-        normalized_entries = [(entry, str(entry["path"])) for entry in source_entries]
-        provided_entries = cls._build_matching_webseed_entries(
-            normalized_entries=normalized_entries,
-            expected_paths=set(expected_source_entries),
-        )
-
-        resolved_entries: dict[str, dict[str, object]] = {}
-        for source_path, source_entry in provided_entries.items():
-            source_size = int(source_entry["size_bytes"] or 0)
-            expected_size = expected_source_entries[source_path]["size_bytes"]
-            if expected_size and source_size and expected_size != source_size:
-                raise BusinessException(f"分流文件大小不匹配：{source_path}")
-            relative_path = str(expected_source_entries[source_path]["relative_path"])
-            resolved_entries[relative_path] = {
-                "source_path": str(source_entry["path"]),
-                "size_bytes": source_size,
-            }
-        return resolved_entries
-
-    @classmethod
-    def _resolve_existing_webseed_library_entries(
+    def _resolve_existing_webseed_source_entries(
         cls,
         *,
         metadata,
-        webseed_root_path: str,
+        source_entries: list[dict[str, object]],
     ) -> dict[str, dict[str, object]]:
-        if not webseed_root_path:
-            return {}
-
         expected_entries = cls._build_expected_webseed_entries(metadata)
+        if len(expected_entries) == 1 and len(source_entries) == 1:
+            relative_path, expected_size = next(iter(expected_entries.items()))
+            source_entry = source_entries[0]
+            source_size = int(source_entry["size_bytes"] or 0)
+            if expected_size and source_size and expected_size != source_size:
+                raise BusinessException("所选服务器文件大小与 torrent 记录不一致。")
+            return {
+                relative_path: {
+                    "source_path": str(source_entry["path"]),
+                    "size_bytes": source_size,
+                }
+            }
+
         expected_source_entries = {
             cls._build_expected_webseed_source_path(metadata=metadata, relative_path=relative_path): {
                 "relative_path": relative_path,
@@ -334,7 +311,6 @@ class ReleaseService:
             }
             for relative_path, size_bytes in expected_entries.items()
         }
-        source_entries = cls._list_existing_webseed_source_entries(webseed_root_path)
         normalized_entries = [(entry, str(entry["path"])) for entry in source_entries]
         provided_entries = cls._build_matching_webseed_entries(
             normalized_entries=normalized_entries,
@@ -353,6 +329,27 @@ class ReleaseService:
                 "size_bytes": source_size,
             }
         return resolved_entries
+
+    @classmethod
+    def _normalize_existing_webseed_entries(cls, *, metadata, webseed_root_path: str) -> dict[str, dict[str, object]]:
+        if not webseed_root_path:
+            return {}
+
+        source_entries = cls._list_existing_webseed_source_entries(webseed_root_path)
+        return cls._resolve_existing_webseed_source_entries(metadata=metadata, source_entries=source_entries)
+
+    @classmethod
+    def _resolve_existing_webseed_library_entries(
+        cls,
+        *,
+        metadata,
+        webseed_root_path: str,
+    ) -> dict[str, dict[str, object]]:
+        if not webseed_root_path:
+            return {}
+
+        source_entries = cls._list_existing_webseed_source_entries(webseed_root_path)
+        return cls._resolve_existing_webseed_source_entries(metadata=metadata, source_entries=source_entries)
 
     @staticmethod
     def _clear_webseed_files(release: Release) -> None:

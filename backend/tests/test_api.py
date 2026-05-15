@@ -489,7 +489,7 @@ class ApiFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         torrent = Torrent.read_stream(response.content, validate=False)
-        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/"])
+        self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/Example.S01E01.mkv"])
         self.assertEqual([str(url) for url in torrent.httpseeds], [f"http://testserver/api/httpseed/{release.infohash}/"])
 
         self.assertEqual(list(release.webseed_files.values_list("storage_file", flat=True)), ["Example.S01E01.mkv"])
@@ -609,6 +609,36 @@ class ApiFlowTests(TestCase):
         self.assertEqual([str(url) for url in torrent.webseeds], ["http://testserver/webseed/library/"])
         self.assertEqual([str(url) for url in torrent.httpseeds], [f"http://testserver/api/httpseed/{release.infohash}/"])
 
+    def test_uploader_can_reference_existing_server_file_as_single_file_webseed_source(self):
+        webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
+        target_file = webseed_library_root / "library" / "source-assets" / "renamed-video.bin"
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_bytes(b"x" * 1024)
+
+        release = self.create_release(
+            webseed_root_path="library/source-assets/renamed-video.bin",
+        )
+
+        self.assertEqual(
+            list(release.webseed_files.values_list("relative_path", "storage_file")),
+            [("Example.S01E01.mkv", "library/source-assets/renamed-video.bin")],
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/api/releases/{release.id}/download/")
+        self.assertEqual(response.status_code, 200)
+
+        torrent = Torrent.read_stream(response.content, validate=False)
+        self.assertEqual(
+            [str(url) for url in torrent.webseeds],
+            ["http://testserver/webseed/library/source-assets/renamed-video.bin"],
+        )
+        self.assertEqual([str(url) for url in torrent.httpseeds], [f"http://testserver/api/httpseed/{release.infohash}/"])
+
+        webseed_response = self.client.get("/webseed/library/source-assets/renamed-video.bin")
+        self.assertEqual(webseed_response.status_code, 200)
+        self.assertEqual(self.read_response_body(webseed_response), b"x" * 1024)
+
     def test_uploader_can_browse_webseed_library(self):
         webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
         (webseed_library_root / "library" / "Show").mkdir(parents=True, exist_ok=True)
@@ -696,6 +726,42 @@ class ApiFlowTests(TestCase):
                     "sizeBytes": 100,
                     "directUrl": "http://testserver/webseed/library/MyFolder/sub/b.mkv",
                 },
+            ],
+        )
+
+    def test_webseed_preview_accepts_single_file_library_source_with_different_name(self):
+        webseed_library_root = Path(settings.WEBSEED_LIBRARY_ROOT)
+        target_file = webseed_library_root / "library" / "source-assets" / "renamed-video.bin"
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_bytes(b"x" * 1024)
+
+        self.client.force_login(self.uploader)
+        response = self.client.post(
+            "/api/webseed-library/preview/",
+            {
+                "torrentFile": SimpleUploadedFile(
+                    "example.torrent",
+                    build_torrent_bytes(),
+                    content_type="application/x-bittorrent",
+                ),
+                "webseedRootPath": "library/source-assets/renamed-video.bin",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        data = response.json()["data"]
+        preview_infohash = parse_torrent(build_torrent_bytes()).infohash
+        self.assertEqual(data["rootUrl"], "http://testserver/webseed/library/source-assets/renamed-video.bin")
+        self.assertEqual(data["httpSeedUrl"], f"http://testserver/api/httpseed/{preview_infohash}/")
+        self.assertEqual(
+            data["files"],
+            [
+                {
+                    "relativePath": "Example.S01E01.mkv",
+                    "sourcePath": "library/source-assets/renamed-video.bin",
+                    "sizeBytes": 1024,
+                    "directUrl": "http://testserver/webseed/library/source-assets/renamed-video.bin",
+                }
             ],
         )
 

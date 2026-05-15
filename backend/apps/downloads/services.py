@@ -125,6 +125,9 @@ class DownloadService:
             return None
 
         first_stored_path = str(stored_paths[0] or "").strip()
+        if len(stored_paths) == 1 and len(relative_paths) == 1:
+            return cls.build_webseed_file_url(stored_path=first_stored_path, request=request)
+
         first_relative_path = str(relative_paths[0] or "").strip()
         stored_parts = list(PurePosixPath(first_stored_path).parts)
         relative_parts = list(PurePosixPath(first_relative_path).parts)
