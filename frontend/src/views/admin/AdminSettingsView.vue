@@ -205,7 +205,7 @@ function applyAcgLoginPreset() {
   form.loginBackgroundCss = ACG_LOGIN_BACKGROUND_CSS;
   clearUploadedLoginBackground();
   errorMessage.value = '';
-  feedback.value = 'ACG preset loaded for Site Custom CSS, Login Page Custom CSS, and CSS background.';
+  feedback.value = 'ACG preset loaded with full-site anime wallpaper, login custom CSS, and CSS background.';
 }
 
 async function handleSave() {

@@ -3,10 +3,14 @@ import type { SiteSettings } from '@/types/admin';
 export const ACG_RANDOM_BACKGROUND_URL = 'https://www.loliapi.com/acg/';
 
 export const ACG_SITE_CUSTOM_CSS = [
+  'body {',
+  '  background: #0a1020;',
+  '}',
+  '',
   '.site-layout {',
   '  position: relative;',
   '  isolation: isolate;',
-  '  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 38%, #f7f9fe 100%);',
+  '  background: linear-gradient(180deg, rgba(248, 251, 255, 0.42) 0%, rgba(238, 245, 255, 0.58) 38%, rgba(247, 249, 254, 0.42) 100%);',
   '}',
   '',
   '.site-layout::before,',
@@ -19,20 +23,24 @@ export const ACG_SITE_CUSTOM_CSS = [
   '}',
   '',
   '.site-layout::before {',
+  '  filter: saturate(1.08) contrast(1.03) brightness(0.96);',
   '  background:',
-  '    radial-gradient(circle at 12% 18%, rgba(110, 214, 255, 0.2), transparent 0 20%),',
-  '    radial-gradient(circle at 84% 14%, rgba(255, 143, 199, 0.16), transparent 0 18%),',
-  '    radial-gradient(circle at 50% 100%, rgba(167, 139, 250, 0.12), transparent 0 26%);',
+  '    linear-gradient(180deg, rgba(248, 251, 255, 0.62), rgba(236, 242, 255, 0.74)),',
+  '    linear-gradient(115deg, rgba(8, 11, 22, 0.04) 0%, rgba(8, 11, 22, 0.2) 100%),',
+  `    url("${ACG_RANDOM_BACKGROUND_URL}") center / cover no-repeat fixed;`,
   '}',
   '',
   '.site-layout::after {',
-  '  opacity: 0.38;',
-  '  background-image:',
-  '    linear-gradient(rgb(255 255 255 / 0.74) 1px, transparent 1px),',
-  '    linear-gradient(90deg, rgb(255 255 255 / 0.74) 1px, transparent 1px),',
-  '    repeating-linear-gradient(135deg, rgba(110, 214, 255, 0.08) 0 14px, transparent 14px 28px);',
-  '  background-size: 72px 72px, 72px 72px, 100% 100%;',
+  '  opacity: 0.44;',
+  '  background:',
+  '    radial-gradient(circle at 14% 16%, rgba(110, 214, 255, 0.22), transparent 0 16%),',
+  '    radial-gradient(circle at 86% 18%, rgba(255, 143, 199, 0.18), transparent 0 14%),',
+  '    linear-gradient(rgb(255 255 255 / 0.56) 1px, transparent 1px),',
+  '    linear-gradient(90deg, rgb(255 255 255 / 0.56) 1px, transparent 1px),',
+  '    repeating-linear-gradient(135deg, rgba(110, 214, 255, 0.07) 0 14px, transparent 14px 28px);',
+  '  background-size: auto, auto, 72px 72px, 72px 72px, 100% 100%;',
   '  mask-image: linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);',
+  '  mix-blend-mode: screen;',
   '}',
   '',
   '.site-layout__main,',
@@ -64,9 +72,9 @@ export const ACG_SITE_CUSTOM_CSS = [
 ].join('\n');
 
 export const ACG_LOGIN_BACKGROUND_CSS =
-  'linear-gradient(115deg, rgba(7, 10, 18, 0.22) 0%, rgba(7, 10, 18, 0.64) 36%, rgba(7, 10, 18, 0.9) 100%), ' +
-  'radial-gradient(circle at 18% 18%, rgba(110, 214, 255, 0.28), transparent 0 26%), ' +
-  'radial-gradient(circle at 82% 16%, rgba(255, 143, 199, 0.18), transparent 0 22%), ' +
+  'linear-gradient(115deg, rgba(7, 10, 18, 0.12) 0%, rgba(7, 10, 18, 0.42) 38%, rgba(7, 10, 18, 0.7) 100%), ' +
+  'radial-gradient(circle at 18% 18%, rgba(110, 214, 255, 0.24), transparent 0 26%), ' +
+  'radial-gradient(circle at 82% 16%, rgba(255, 143, 199, 0.2), transparent 0 22%), ' +
   `url("${ACG_RANDOM_BACKGROUND_URL}") center / cover no-repeat fixed`;
 
 export const ACG_LOGIN_PAGE_CUSTOM_CSS = [
