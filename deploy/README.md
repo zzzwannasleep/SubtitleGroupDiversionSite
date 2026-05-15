@@ -41,20 +41,37 @@ cp .env.example .env
 - `/app/media/webseed`
   BT 直链资源目录。发布页预览、torrent 里的 `url-list`、qB / libtorrent 用的 `httpseeds`，都走这里。
 
-站点自己的 `.torrent`、图标、登录背景等文件会自动持久化到 compose 内置 volume，不需要你额外配置。
+当前 `docker-compose.yml` 已经直接把宿主机目录挂好了：
 
-## 推荐映射
-
-大多数部署只需要配置这一项：
-
-```env
-WEBSEED_LIBRARY_VOLUME_SPEC=D:/subtitle-group-library:/app/media/webseed
+```yaml
+backend:
+  volumes:
+    - ./data/site-media:/app/media
+    - ./data/webseed:/app/media/webseed
 ```
 
-Linux 例子：
+也就是说：
 
-```env
-WEBSEED_LIBRARY_VOLUME_SPEC=/srv/subtitle-group-library:/app/media/webseed
+- `deploy/data/site-media/`：站点自己的媒体文件
+- 如果你在 `deploy/` 目录里执行 compose，就把资源文件放到 `deploy/data/webseed/`
+- 如果你从仓库根目录执行 `docker compose -f deploy/docker-compose.yml ...`，它仍然会落到同一个 `deploy/data/webseed/`
+
+## 默认挂载
+
+大多数部署不用再额外写环境变量，直接往这个目录放文件即可：
+
+```text
+deploy/data/webseed/
+```
+
+如果你就是想换到别的宿主机路径，不要改环境变量，直接改 `docker-compose.yml` 里的这一行。比如：
+
+```yaml
+# Windows
+- D:/subtitle-group-library:/app/media/webseed
+
+# Linux
+- /srv/subtitle-group-library:/app/media/webseed
 ```
 
 默认情况下：
@@ -78,7 +95,7 @@ WEBSEED_LIBRARY_PUBLIC_URL=https://static.example.com/webseed
 
 如果你的目标是让 qBittorrent 真正走 HTTP 直链，而不是只把地址写进种子但实际不生效，部署时请确认下面几点：
 
-1. `WEBSEED_LIBRARY_VOLUME_SPEC` 对应的宿主机目录（容器内 `/app/media/webseed`）里，文件结构必须和 torrent 内容匹配。
+1. `docker-compose.yml` 里挂到 `/app/media/webseed` 的宿主机目录，文件结构必须和 torrent 内容匹配。默认就是 `deploy/data/webseed/`。
 2. 多文件 torrent 推荐选择和 `info.name` 对应的完整根目录；单文件 torrent 可以直接选择文件。
 3. qB 所在机器必须能访问：
    - `WEBSEED_LIBRARY_PUBLIC_URL` 对应的静态文件地址，或者站点自己的 `/webseed/`
@@ -167,13 +184,13 @@ sh scripts/init.sh
 
 1. 备份数据库、旧 `.env`、以及原来的媒体目录。
 2. 更新代码或替换新的 `deploy/` 目录。
-3. 在新的 `.env` 中补上：
+3. 打开新的 `docker-compose.yml`，确认 `backend.volumes` 里是把宿主机目录挂到 `/app/media/webseed`。默认配置是：
 
-```env
-WEBSEED_LIBRARY_VOLUME_SPEC=/你的资源目录:/app/media/webseed
+```yaml
+- ./data/webseed:/app/media/webseed
 ```
 
-4. 把真正的“服务器资源文件”留在新的 `WEBSEED_LIBRARY_VOLUME_SPEC` 指向目录。
+4. 把真正的“服务器资源文件”放到新的宿主机目录里。默认就是 `deploy/data/webseed/`；如果你改过左边那个宿主机目录，就放到你改的那个目录。
 5. 启动新容器：
 
 ```bash
@@ -289,7 +306,7 @@ docker compose --profile tracker up -d
 优先检查：
 
 - `docker-compose.yml` 是否已更新
-- `WEBSEED_LIBRARY_VOLUME_SPEC` 是否挂到了独立目录
+- `backend.volumes` 是否已经把宿主机目录挂到 `/app/media/webseed`
 
 ### 2. 发布页不能生成直链预览
 
